@@ -1,4 +1,3 @@
-
 { inputs, lib, pkgs, config, ... }:
 {
   imports = [
@@ -14,7 +13,7 @@
   disko.enableConfig = true;
 
   # `head -c 8 /etc/machine-id`
-  networking.hostId = "92121e5c";
+  networking.hostId = "3ea2bc3d";
 
   # NOTE: needed for mounting `/key` (for LUKS)
   boot.initrd.kernelModules = [
@@ -34,7 +33,7 @@
   #   fsType = "ext4";
   #   neededForBoot = true;
   # };
-  
+
   disko.devices = {
     nodev."/" = {
       fsType = "tmpfs";
@@ -79,31 +78,31 @@
                 settings = {
                   allowDiscards = true;
                   # https://0pointer.net/blog/unlocking-luks2-volumes-with-tpm2-fido2-pkcs11-security-hardware-on-systemd-248.html
-                  crypttabExtraOpts = ["fido2-device=auto" "token-timeout=10"];
+                  crypttabExtraOpts = [ "fido2-device=auto" "token-timeout=10" ];
                 };
                 content = {
                   type = "btrfs";
-                  extraArgs = ["-L" "nixos" "-f"];
+                  extraArgs = [ "-L" "nixos" "-f" ];
                   subvolumes = {
                     home = {
                       mountpoint = "/home";
-                      mountOptions = ["subvol=home" "compress=zstd" "noatime"];
+                      mountOptions = [ "subvol=home" "compress=zstd" "noatime" ];
                     };
                     nix = {
                       mountpoint = "/nix";
-                      mountOptions = ["subvol=nix" "compress=zstd" "noatime"];
+                      mountOptions = [ "subvol=nix" "compress=zstd" "noatime" ];
                     };
                     persist = {
                       mountpoint = "/persist";
-                      mountOptions = ["subvol=persist" "compress=zstd" "noatime"];
+                      mountOptions = [ "subvol=persist" "compress=zstd" "noatime" ];
                     };
                     log = {
                       mountpoint = "/var/log";
-                      mountOptions = ["subvol=log" "compress=zstd" "noatime"];
+                      mountOptions = [ "subvol=log" "compress=zstd" "noatime" ];
                     };
                     tmp = {
                       mountpoint = "/tmp";
-                      mountOptions = ["noatime"];
+                      mountOptions = [ "noatime" ];
                     };
                     swap = {
                       mountpoint = "/swap";

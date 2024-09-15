@@ -30,7 +30,7 @@
       ];
     };
 
-    supportedFilesystems = lib.mkForce ["btrfs"];
+    supportedFilesystems = lib.mkForce [ "btrfs" ];
   };
 
   networking.hostName = "kombu"; # Define your hostname.
@@ -185,6 +185,7 @@
   ### Define a user account. Don't forget to set a password with `passwd`.
   users.users.conroy = {
     isNormalUser = true;
+    initialHashedPassword = "$y$j9T$U4oXLH8mEWo00rPOaGH7b.$wt8j7UhvJriW7A/0V3jOKJte7ArPOvtX3F45i46aIR2";
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB"
     ];
