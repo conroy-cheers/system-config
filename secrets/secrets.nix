@@ -8,20 +8,16 @@ let
   #     cat ~/.ssh/id_ed25519.pub
   # Generate using:
   #     ssh-keygen -t ed25519
-  main = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBj8ZGcvI80WrJWV+dNy1a3L973ydSNqtwcVHzurDUaW";
-  limonka = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDmO9YwsuPMstyLVElvam5mKZfr51qnNj6cIZN8cCu7f";
-  limonka_age = "age1m23jgdtkfh6gqnxge88q03yy9exckajmlmx8sw2z9t3t5gpr0c4qxgdtwr";
-  users = [ main limonka limonka_age ];
+  main = "age1f0u4udt6y7qr9w74mk2d9a5g4d46qhpcuqxrljxuqe8wf00743uqm0980r";
+  users = [ main ];
 
   # System's ssh public key:
   #    cat /etc/ssh/ssh_host_ed25519_key.pub
   # Generated automatically when running `sshd`
-  jeeves_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPopSTZ81UyKp9JSljCLp+Syk51zacjh9fLteqxQ6/aB";
-  limonka_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK2DM5F3nLKDiWoxqTwJw4bi5Q1RGZYtEPmTcLxTC7c9";
-  systems = [ jeeves_system limonka_system ];
+  kombu_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAA6mHuHUOpOe54hguNgYXLD5O+SYxonlVItG/pmlTGM";
+  systems = [ kombu_system ];
 in
 {
   "home/wifi/env.age".publicKeys = users ++ systems;
-  "home/jeeves/user/password.age".publicKeys = users ++ [ jeeves_system ];
-  "home/jeeves/wireguard/private.age".publicKeys = users ++ [ jeeves_system ];
+  "home/kombu/user/password.age".publicKeys = users ++ [ kombu_system ];
 }

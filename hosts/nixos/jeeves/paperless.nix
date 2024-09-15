@@ -4,14 +4,14 @@ let
   paperlessDomain = "paperless.jeeves.local";
 in
 {
-  age.secrets."paperless.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/jeeves/paperless/password.age";
-    # generator.script = "alnum";
-    mode = "440";
-    # NOTE: `passwordFile` needs to be read by the `paperless-scheduler` service, which is run as the user `config.services.paperless.user`
-    #       See <https://github.com/NixOS/nixpkgs/blob/797f7dc49e0bc7fab4b57c021cdf68f595e47841/nixos/modules/services/misc/paperless.nix#L251-L254>
-    group = config.services.paperless.user;
-  };
+  # age.secrets."paperless.password" = {
+  #   rekeyFile = "${inputs.self}/secrets/home/jeeves/paperless/password.age";
+  #   # generator.script = "alnum";
+  #   mode = "440";
+  #   # NOTE: `passwordFile` needs to be read by the `paperless-scheduler` service, which is run as the user `config.services.paperless.user`
+  #   #       See <https://github.com/NixOS/nixpkgs/blob/797f7dc49e0bc7fab4b57c021cdf68f595e47841/nixos/modules/services/misc/paperless.nix#L251-L254>
+  #   group = config.services.paperless.user;
+  # };
 
   # NOTE: no need, since we're accessing it from `nginx`
   # networking.firewall.allowedTCPPorts = [

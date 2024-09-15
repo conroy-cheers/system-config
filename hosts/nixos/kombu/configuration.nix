@@ -205,6 +205,11 @@
   # Virtualisation
   virtualisation.docker.enable = true;
 
+  age.secrets."conroy.user.password" = {
+    rekeyFile = "${inputs.self}/secrets/home/kombu/user/password.age";
+    mode = "440";
+  };
+
   ### Define a user account. Don't forget to set a password with `passwd`.
   users.users.conroy = {
     isNormalUser = true;

@@ -77,14 +77,14 @@
   ];
 
   # NOTE: made with `mkpasswd -m sha-512`
-  age.secrets."jeeves.user.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/jeeves/user/password.age";
-    generator = {
-      script = { pkgs, ... }: ''
-        ${pkgs.mkpasswd}/bin/mkpasswd -m sha-512
-      '';
-    };
-  };
+  # age.secrets."jeeves.user.password" = {
+  #   rekeyFile = "${inputs.self}/secrets/home/jeeves/user/password.age";
+  #   generator = {
+  #     script = { pkgs, ... }: ''
+  #       ${pkgs.mkpasswd}/bin/mkpasswd -m sha-512
+  #     '';
+  #   };
+  # };
 
   users = {
     mutableUsers = true;
@@ -92,7 +92,7 @@
       jeeves = {
         isNormalUser = true;
         shell = pkgs.zsh;
-        hashedPasswordFile = config.age.secrets."jeeves.user.password".path;
+        # hashedPasswordFile = config.age.secrets."jeeves.user.password".path;
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBj8ZGcvI80WrJWV+dNy1a3L973ydSNqtwcVHzurDUaW (none)"
         ];
