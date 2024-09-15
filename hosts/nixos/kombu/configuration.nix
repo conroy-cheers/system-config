@@ -83,6 +83,28 @@
     };
   };
 
+  # nopasswd for sudo
+  security.sudo-rs = {
+    enable = true; # !config.security.sudo.enable;
+    inherit (config.security.sudo) extraRules;
+  };
+  security.sudo = {
+    enable = false;
+    extraRules = [
+      {
+        users = [
+          "conroy"
+        ];
+        commands = [
+          {
+            command = "ALL";
+            options = [ "NOPASSWD" ]; # "SETENV" # Adding the following could be a good idea
+          }
+        ];
+      }
+    ];
+  };
+
   ### Fonts
   fonts.fontconfig.enable = true;
 
@@ -186,7 +208,7 @@
   ### Define a user account. Don't forget to set a password with `passwd`.
   users.users.conroy = {
     isNormalUser = true;
-    initialHashedPassword = "$y$j9T$U4oXLH8mEWo00rPOaGH7b.$wt8j7UhvJriW7A/0V3jOKJte7ArPOvtX3F45i46aIR2";
+    hashedPasswordFile = config.age.secrets."conroy.user.password".path;
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB"
     ];

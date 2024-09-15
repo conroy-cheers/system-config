@@ -19,10 +19,13 @@
     # Which sudo command to use. Must accept at least two arguments:
     # the user name to execute commands as and the rest is the command to execute
     # This will default to "sudo -u" if not specified anywhere.
-    sudo = "sudo -u";
+    sudo = "sudo -S -u";
+
+    # Allow entering sudo password through shell
+    interactiveSudo = true;
 
     # This is an optional list of arguments that will be passed to SSH.
-    # sshOpts = [ ];
+    sshOpts = [ "-t" ];
 
     # Fast connection to the node. If this is true, copy the whole closure instead of letting the node substitute.
     # This defaults to `false`

@@ -1,6 +1,8 @@
-{ config, lib, ... }: let
+{ config, lib, ... }:
+let
   inherit (lib) types;
-in {
+in
+{
   options = {
     enable = lib.mkOption {
       description = "Whether to enable this host's configuration";
@@ -56,12 +58,19 @@ in {
             type = types.str;
             default = "sudo -u";
           };
+          interactiveSudo = lib.mkOption {
+            description = ''
+              Allow entering sudo password through interactive shell.
+            '';
+            type = types.bool;
+            default = false;
+          };
           sshOpts = lib.mkOption {
             description = ''
               This is an optional list of arguments that will be passed to SSH.
             '';
             type = types.listOf types.str;
-            default = [];
+            default = [ ];
           };
           fastConnection = lib.mkOption {
             description = ''
