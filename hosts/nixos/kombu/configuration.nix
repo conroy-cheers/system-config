@@ -11,8 +11,6 @@
     inputs.impermanence.nixosModules.impermanence
   ];
 
-  system.impermanence.enable = true;
-
   ### Set boot options
   boot = {
     # Use the systemd-boot boot loader.
@@ -106,14 +104,17 @@
     # "WLR_RENDERER" = "vulkan"; # BUG: river crashes
   };
 
+  services.displayManager = {
+    defaultSession = "river";
+    sessionPackages = with pkgs; [
+      river
+    ];
+  };
+
   ### Wayland specific
   services.xserver = {
     enable = true;
     displayManager = {
-      defaultSession = "river";
-      sessionPackages = with pkgs; [
-        river
-      ];
       gdm = {
         enable = true;
         wayland = true;
@@ -137,9 +138,9 @@
 
   ## X11 specific
   services.xserver = {
-    layout = "us,bg";
-    xkbVariant = ",phonetic";
-    xkbOptions = "grp:lalt_lshift_toggle";
+    xkb.layout = "us,bg";
+    xkb.variant = ",phonetic";
+    xkb.options = "grp:lalt_lshift_toggle";
   };
 
   ### Enable the OpenSSH daemon.
