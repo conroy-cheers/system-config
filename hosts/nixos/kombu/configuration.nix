@@ -6,9 +6,14 @@
 
 {
   imports = [
+    inputs.stylix.nixosModules.stylix
     ./hardware-configuration.nix
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence
+    ./impermanence.nix
+    ./network.nix
+    ./wm/hyprland.nix
+    ./themes/stylix.nix
   ];
 
   ### Set boot options
@@ -76,9 +81,11 @@
       # Add nix-community cachix cache
       substituters = [
         "https://nix-community.cachix.org"
+        "https://hyprland.cachix.org"
       ];
       trusted-public-keys = [
         "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+        "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
       ];
     };
   };
@@ -109,61 +116,58 @@
   fonts.fontconfig.enable = true;
 
   hardware.graphics.enable = true;
-  environment.sessionVariables = {
-    "_JAVA_AWT_WM_NONREPARENTING" = "1";
-    "LIBVA_DRIVER_NAME" = "nvidia";
-    "XDG_SESSION_TYPE" = "wayland";
-    "GBM_BACKEND" = "nvidia-drm";
-    "__GLX_VENDOR_LIBRARY_NAME" = "nvidia";
-    "WLR_NO_HARDWARE_CURSORS" = "1";
-    "MOZ_DISABLE_RDD_SANDBOX" = "1";
-    "MOZ_ENABLE_WAYLAND" = "1";
-    "EGL_PLATFORM" = "wayland";
-    "XDG_CURRENT_DESKTOP" = "sway"; # river
-    "XKB_DEFAULT_LAYOUT" = "us,bg";
-    "XKB_DEFAULT_VARIANT" = ",phonetic";
-    "XKB_DEFAULT_OPTIONS" = "caps:escape,grp:lalt_lshift_toggle";
-    # "WLR_RENDERER" = "vulkan"; # BUG: river crashes
-  };
+  # environment.sessionVariables = {
+  #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";
+  #   "XDG_SESSION_TYPE" = "wayland";
+  #   # "WLR_NO_HARDWARE_CURSORS" = "1";
+  #   "MOZ_DISABLE_RDD_SANDBOX" = "1";
+  #   "MOZ_ENABLE_WAYLAND" = "1";
+  #   "EGL_PLATFORM" = "wayland";
+  #   # "XDG_CURRENT_DESKTOP" = "sway"; # river
+  #   "XKB_DEFAULT_LAYOUT" = "us";
+  #   "XKB_DEFAULT_VARIANT" = ",phonetic";
+  #   "XKB_DEFAULT_OPTIONS" = "caps:escape,grp:lalt_lshift_toggle";
+  #   # "WLR_RENDERER" = "vulkan"; # BUG: river crashes
+  # };
 
-  services.displayManager = {
-    defaultSession = "river";
-    sessionPackages = with pkgs; [
-      river
-    ];
-  };
+  # services.displayManager = {
+  #   # defaultSession = "river";
+  #   sessionPackages = with pkgs; [
+  #     river
+  #   ];
+  # };
 
   ### Wayland specific
-  services.xserver = {
-    enable = true;
-    displayManager = {
-      gdm = {
-        enable = true;
-        wayland = true;
-      };
-    };
-  };
+  # services.xserver = {
+  #   enable = true;
+  #   displayManager = {
+  #     gdm = {
+  #       enable = true;
+  #       wayland = true;
+  #     };
+  #   };
+  # };
 
   # Enable desktop portal
-  xdg.portal = {
-    enable = true;
-    wlr = {
-      enable = true;
-    };
-    extraPortals = [
-      pkgs.xdg-desktop-portal-gtk
-      pkgs.xdg-desktop-portal-wlr
-    ];
-    # TODO: research <https://github.com/flatpak/xdg-desktop-portal/blob/1.18.1/doc/portals.conf.rst.in>
-    config.common.default = "*";
-  };
+  # xdg.portal = {
+  #   enable = true;
+  #   wlr = {
+  #     enable = true;
+  #   };
+  #   extraPortals = [
+  #     pkgs.xdg-desktop-portal-gtk
+  #     pkgs.xdg-desktop-portal-wlr
+  #   ];
+  #   # TODO: research <https://github.com/flatpak/xdg-desktop-portal/blob/1.18.1/doc/portals.conf.rst.in>
+  #   config.common.default = "*";
+  # };
 
   ## X11 specific
-  services.xserver = {
-    xkb.layout = "us,bg";
-    xkb.variant = ",phonetic";
-    xkb.options = "grp:lalt_lshift_toggle";
-  };
+  # services.xserver = {
+  #   xkb.layout = "us";
+  #   xkb.variant = ",phonetic";
+  #   xkb.options = "grp:lalt_lshift_toggle";
+  # };
 
   ### Enable the OpenSSH daemon.
   services.openssh = {
@@ -225,15 +229,17 @@
     enable = true;
   };
 
+
   ### Enable plymouth (bootscreen customizations)
   boot.plymouth = {
     enable = true;
+    # theme = lib.mkForce "breeze";
   };
+  boot.initrd.systemd.enable = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-    river
     xdg-desktop-portal
     xdg-desktop-portal-wlr
     neovim

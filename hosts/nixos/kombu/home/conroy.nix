@@ -2,7 +2,10 @@
 
 {
   imports = [
+    # inputs.stylix.nixosModules.stylix
     inputs.wired.homeManagerModules.default
+    ./conroy/wm/hyprland.nix
+    ../themes/stylix.nix
   ];
 
   home = {
@@ -95,9 +98,6 @@
       enable = true;
       direnv = true;
       zoxide = true;
-    };
-    river = {
-      enable = true;
     };
     wezterm = {
       enable = true;

@@ -28,6 +28,8 @@ let
       useGlobalPkgs = true;
       # Do not keep packages in ${HOME}
       useUserPackages = true;
+      # make deploying work
+      backupFileExtension = "hm-backup";
       # Default import all of our exported `home-manager` modules
       sharedModules = builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"};
       # Pass in `inputs`, `hostname` and `meta`
@@ -70,7 +72,7 @@ let
       {
         networking.hostName = lib.mkDefault meta.hostname;
       }
-         # TODO: lib.optionals
+      # TODO: lib.optionals
     ] ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nixos"});
 
     specialArgs = {

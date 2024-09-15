@@ -8,13 +8,13 @@ let
   #     cat ~/.ssh/id_ed25519.pub
   # Generate using:
   #     ssh-keygen -t ed25519
-  main = "age1f0u4udt6y7qr9w74mk2d9a5g4d46qhpcuqxrljxuqe8wf00743uqm0980r";
+  main = "age1f0u4udt6y7qr9w74mk2d9a5g4d46qhpcuqxrljxuqe8wf00743uqm0980r"; # yubikey FIDO2
   users = [ main ];
 
   # System's ssh public key:
   #    cat /etc/ssh/ssh_host_ed25519_key.pub
   # Generated automatically when running `sshd`
-  kombu_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAA6mHuHUOpOe54hguNgYXLD5O+SYxonlVItG/pmlTGM";
+  kombu_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINdi5yynd4jv2CUqM51TVT0hkPS6osXNc5bLq11dpB/f root@kombu";
   systems = [ kombu_system ];
 in
 {

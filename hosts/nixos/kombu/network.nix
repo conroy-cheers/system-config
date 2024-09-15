@@ -7,58 +7,48 @@
     127.0.0.1 kombu.local
   '';
 
-  # networking.nftables.enable = true;
-
   age.secrets."home.wifi.env" = {
     rekeyFile = "${inputs.self}/secrets/home/wifi/env.age";
   };
   networking.wireless = {
-    iwd.enable = true;
+    enable = true;
     environmentFile = config.age.secrets."home.wifi.env".path;
     networks = {
-      home = {
-        ssid = "@HOME_WIFI_SSID@";
+      "@HOME_WIFI_SSID@" = {
         psk = "@HOME_WIFI_PSK@";
+        priority = 20;
       };
-      andromeda = {
-        ssid = "@ANDROMEDA_WIFI_SSID@";
+      "@ANDROMEDA_WIFI_SSID@" = {
         psk = "@ANDROMEDA_WIFI_PSK@";
+        priority = 10;
       };
-      abi = {
-        ssid = "@ABI_WIFI_SSID@";
+      "@ABI_WIFI_SSID@" = {
         psk = "@ABI_WIFI_PSK@";
       };
     };
   };
+  networking.useNetworkd = false;
 
-  networking.useNetworkd = true;
-  systemd.network = {
-    enable = true;
-    wait-online = {
-      enable = false;
-      anyInterface = true;
-      ignoredInterfaces = [
-        "eth0"
-      ];
-    };
-
-    networks."10-eth0" = {
-      matchConfig.Name = "eth0";
-      networkConfig.DHCP = "yes";
-      networkConfig.DHCPServer = "yes";
-    };
-    links."10-eth0" = {
-      matchConfig.PermanentMACAddress = "04:7c:16:80:3c:2c";
-      linkConfig.Name = "eth0"; # "enp8s0";
+  systemd.network.enable = false;
+  systemd.network.networks = {
+    "10-enp5s0" = {
+      DHCP = "yes";
+      matchConfig.MACAddress = "00:e0:1f:bd:81:cb";
+      networkConfig = {
+        IPv6PrivacyExtensions = "yes";
+        MulticastDNS = true;
+      };
+      dhcpV4Config.RouteMetric = 10;
+      dhcpV6Config.RouteMetric = 10;
     };
 
-    networks."15-wan0" = {
-      matchConfig.Name = "wan0";
-      networkConfig.DHCP = "yes";
-    };
-    links."15-wan0" = {
-      matchConfig.PermanentMACAddress = "bc:f4:d4:40:5c:ed";
-      linkConfig.Name = "wan0"; # "wlp15s0";
+    "15-wlan0" = {
+      DHCP = "yes";
+      matchConfig.MACAddress = "6c:2f:80:e0:ce:2d";
+      networkConfig = {
+        IPv6PrivacyExtensions = "yes";
+        MulticastDNS = true;
+      };
     };
   };
 
