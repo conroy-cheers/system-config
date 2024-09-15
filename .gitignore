@@ -1,5 +1,6 @@
 result
 /.direnv/
 /secrets/*key*
+!/secrets/*.hmac
 !/secrets/*.age
 !/secrets/rekeyed
