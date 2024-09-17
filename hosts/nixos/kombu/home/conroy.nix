@@ -4,6 +4,7 @@
   imports = [
     # inputs.stylix.nixosModules.stylix
     inputs.wired.homeManagerModules.default
+    ./conroy/op.nix
     ./conroy/wm/hyprland.nix
     ../themes/stylix.nix
   ];
