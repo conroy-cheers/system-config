@@ -94,10 +94,8 @@
 
   programs.git = {
     enable = true;
-    package = pkgs.gitFull;
     userName = "Conroy Cheers";
     userEmail = "conroy@dromeda.com.au";
-    config.credential.healper = "libsecret";
   };
 
   programs.vscode = {

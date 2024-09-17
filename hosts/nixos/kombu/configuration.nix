@@ -253,8 +253,13 @@
     xdg-utils
     neovim
     wget
-    git
   ];
+
+  programs.git = {
+    enable = true;
+    package = pkgs.gitFull;
+    config.credential.helper = "libsecret";
+  };
 
   programs._1password.enable = true;
   programs._1password-gui = {
