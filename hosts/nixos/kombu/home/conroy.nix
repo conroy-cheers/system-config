@@ -36,7 +36,6 @@
 
     ## Core
     neovim
-    fennel-language-server
     git
     gnupg
     firefox
@@ -46,6 +45,11 @@
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
+
+    btop
+    cava
+
+    plexamp
 
     ## Shell
     # zsh
