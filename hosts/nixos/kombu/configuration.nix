@@ -250,6 +250,7 @@
   environment.systemPackages = with pkgs; [
     xdg-desktop-portal
     xdg-desktop-portal-wlr
+    xdg-utils
     neovim
     wget
     git
