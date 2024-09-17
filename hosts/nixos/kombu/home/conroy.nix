@@ -31,7 +31,8 @@
 
     ## Terminals
     # wezterm
-    foot
+    # foot
+    kitty
 
     ## Core
     neovim

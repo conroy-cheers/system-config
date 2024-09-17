@@ -133,20 +133,20 @@
   # services.displayManager = {
   #   # defaultSession = "river";
   #   sessionPackages = with pkgs; [
-  #     river
+  #     hyprland
   #   ];
   # };
 
   ### Wayland specific
-  # services.xserver = {
-  #   enable = true;
-  #   displayManager = {
-  #     gdm = {
-  #       enable = true;
-  #       wayland = true;
-  #     };
-  #   };
-  # };
+  services.xserver = {
+    enable = true;
+    displayManager = {
+      sddm = {
+        enable = true;
+        wayland.enable = true;
+      };
+    };
+  };
 
   # Enable desktop portal
   # xdg.portal = {
@@ -167,6 +167,14 @@
   #   xkb.layout = "us";
   #   xkb.variant = ",phonetic";
   #   xkb.options = "grp:lalt_lshift_toggle";
+  # };
+
+  # services.greetd = {
+  #   enable = true;
+  #   settings = rec {
+  #     initial_session = "${pkgs.hyprland}/bin/hyprland";
+  #     user = "conroy";
+  #   };
   # };
 
   ### Enable the OpenSSH daemon.
