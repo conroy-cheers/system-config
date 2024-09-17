@@ -94,6 +94,10 @@
     userEmail = "conroy@dromeda.com.au";
   };
 
+  programs.vscode = {
+    enable = true;
+  };
+
   reo101 = {
     shell = {
       enable = true;

@@ -1,7 +1,7 @@
 { pkgs, ... }:
 rec {
   profile = "desktop"; # Select from profiles directory
-  theme = "nord"; # Selected theme from themes directory (./themes/)
+  theme = "catppuccin"; # Selected theme from themes directory (./themes/)
   themeDetails = import (./. + "/themes/${theme}.nix");
   wm = [ "hyprland" "hyprland" ]; # Selected window manager or desktop environment;
   # must select one in both ./user/wm/ and ./system/wm/
