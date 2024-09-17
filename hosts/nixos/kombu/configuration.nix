@@ -140,11 +140,13 @@
   ### Wayland specific
   services.xserver = {
     enable = true;
-    displayManager = {
-      sddm = {
-        enable = true;
-        wayland.enable = true;
-      };
+    videoDrivers = [ "amdgpu" ];
+  };
+
+  services.displayManager = {
+    sddm = {
+      enable = true;
+      wayland.enable = true;
     };
   };
 
