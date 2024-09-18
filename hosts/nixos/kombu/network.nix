@@ -12,6 +12,7 @@
   };
   networking.wireless = {
     enable = true;
+    userControlled.enable = true;
     environmentFile = config.age.secrets."home.wifi.env".path;
     networks = {
       "@HOME_WIFI_SSID@" = {
