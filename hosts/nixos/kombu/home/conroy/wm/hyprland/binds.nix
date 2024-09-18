@@ -2,7 +2,7 @@
 
 {
   wayland.windowManager.hyprland.settings = {
-    "$mod" = "SUPER";
+    "$mod" = "ALT";
 
     # Mouse bindings.
     bindm = [
@@ -15,8 +15,8 @@
       ", XF86AudioLowerVolume, exec, pulsemixer --change-volume -5"
       ", XF86MonBrightnessUp, exec, brightnessctl s +5%"
       ", XF86MonBrightnessDown, exec, brightnessctl s 5%-"
-      "$mod ALT, k, exec, pulsemixer --change-volume +5"
-      "$mod ALT, j, exec, pulsemixer --change-volume -5"
+      "$mod SUPER, k, exec, pulsemixer --change-volume +5"
+      "$mod SUPER, j, exec, pulsemixer --change-volume -5"
     ];
 
     bind = [
@@ -46,7 +46,7 @@
 
       # Launcher
       # "$mod, A, exec, rofi -show drun -kb-cancel Super_L"
-      "$mod SHIFT, A, exec, ags -t launcher"
+      "$mod, Space, exec, ags -t launcher"
 
       # Screenshot
       "$mod SHIFT, z, exec, wl-copy < $(grimshot --notify save area $XDG_PICTURES_DIR/Screenshots/$(TZ=utc date +'screenshot_%Y-%m-%d-%H%M%S.%3N.png'))"
@@ -58,12 +58,12 @@
       "$mod, j, movefocus, d"
 
       # Music control
-      "$mod ALT, m, exec, pulsemixer --id $(pulsemixer --list-sources | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
-      ", XF86AudioMicMute, exec, pulsemixer --id $(pulsemixer --list-sources | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
-      ",XF86AudioMute, exec, pulsemixer --id $(pulsemixer --list-sinks | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
-      "$mod ALT, l, exec, hyprmusic next"
-      "$mod ALT, h, exec, hyprmusic previous"
-      "$mod ALT, p, exec, hyprmusic play-pause"
+      # "$mod ALT, m, exec, pulsemixer --id $(pulsemixer --list-sources | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
+      # ", XF86AudioMicMute, exec, pulsemixer --id $(pulsemixer --list-sources | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
+      # ",XF86AudioMute, exec, pulsemixer --id $(pulsemixer --list-sinks | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
+      # "$mod ALT, l, exec, hyprmusic next"
+      # "$mod ALT, h, exec, hyprmusic previous"
+      # "$mod ALT, p, exec, hyprmusic play-pause"
 
       # Swap windows with vim keys
       "$mod SHIFT, h, swapwindow, l"
@@ -111,7 +111,7 @@
   wayland.windowManager.hyprland.extraConfig = ''
     # will switch to a submap called resize
     bind=$mod,R,exec,echo -n "Resize" > /tmp/hypr_submap
-    bind=$mod,R,submap,resize
+    bind=$mod,R,submap,resizerr
 
     # will start a submap called "resize"
     submap=resize

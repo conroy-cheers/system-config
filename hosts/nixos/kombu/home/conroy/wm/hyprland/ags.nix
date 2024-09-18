@@ -1,7 +1,7 @@
 { inputs, pkgs, settings, lib, config, ... }:
 let
   details = settings.themeDetails;
-  asztal = pkgs.callPackage ../../../non-nix/ags/default.nix { inherit inputs; };
+  asztal = pkgs.callPackage ../../../../non-nix/ags/default.nix { inherit inputs; };
   agsColors = {
     wallpaper = details.wallpaper;
     theme = {
@@ -40,7 +40,7 @@ in
 {
   imports = [ inputs.ags.homeManagerModules.default ];
   home.packages = with pkgs; [
-    # asztal
+    asztal
     bun
     fd
     dart-sass

@@ -44,7 +44,7 @@
         font_size = 64
         font_family = JetBrains Mono Nerd Font 10
 
-        position = 0, -70
+        position = 0, -40
         halign = center
         valign = center
     }

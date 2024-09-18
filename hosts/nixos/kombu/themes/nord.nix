@@ -8,7 +8,7 @@
 
   # Hyprland and ags;
   opacity = 0.9;
-  rounding = 25;
+  rounding = 15;
   shadow = true;
   bordersPlusPlus = false;
   ags = {
