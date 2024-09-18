@@ -5,6 +5,7 @@
     # inputs.stylix.nixosModules.stylix
     inputs.wired.homeManagerModules.default
     ./conroy/op.nix
+    ./conroy/ssh.nix
     ./conroy/wm/hyprland.nix
     ../themes/stylix.nix
   ];
@@ -77,9 +78,6 @@
     clang
     openssl
     pkg-config
-
-    ## Vim FMI
-    vim-fmi-cli
 
     ## Zig
     # zigpkgs."0.10.1"
