@@ -51,6 +51,7 @@
 
     btop
     cava
+    grimblast
 
     plexamp
 

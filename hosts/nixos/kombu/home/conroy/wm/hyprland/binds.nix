@@ -49,7 +49,8 @@
       "$mod, Space, exec, ags -t launcher"
 
       # Screenshot
-      "$mod SHIFT, z, exec, wl-copy < $(grimshot --notify save area $XDG_PICTURES_DIR/Screenshots/$(TZ=utc date +'screenshot_%Y-%m-%d-%H%M%S.%3N.png'))"
+      "$mod SHIFT, PRINT, exec, grimblast copy area"
+      "$mod, PRINT, exec, grimblast copysave screen"
 
       # Move window focus with vim keys.
       "$mod, h, movefocus, l"
