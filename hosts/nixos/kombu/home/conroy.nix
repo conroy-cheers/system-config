@@ -30,6 +30,7 @@
     # slurp # select regions from wayland
     # grim # grap images from regions
     # playerctl # music control
+    gparted
 
     ## Terminals
     # wezterm
