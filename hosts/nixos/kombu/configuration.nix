@@ -12,6 +12,7 @@
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
+    ./root-aws.nix
     ./wm/hyprland.nix
     ./themes/stylix.nix
   ];

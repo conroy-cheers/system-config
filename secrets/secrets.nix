@@ -20,4 +20,5 @@ in
 {
   "home/wifi/env.age".publicKeys = users ++ systems;
   "home/kombu/user/password.age".publicKeys = users ++ [ kombu_system ];
+  "andromeda/aws-cache/env.age".publicKeys = users ++ [ kombu_system ];
 }

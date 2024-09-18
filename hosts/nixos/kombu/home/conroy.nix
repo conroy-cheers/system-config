@@ -41,6 +41,7 @@
     gnupg
     firefox
     discord
+    slack
     armcord # modded discord
     vifm # file editor
     pciutils # lspci
@@ -86,6 +87,10 @@
     # inputs.zls-overlay.packages.x86_64-linux.default
   ];
 
+  home.sessionVariables = {
+    NIXOS_OZONE_WL = "1";
+  };
+
   # Enable the GPG Agent daemon.
   services.gpg-agent = {
     enable = true;
@@ -95,6 +100,7 @@
 
   programs.git = {
     enable = true;
+    lfs.enable = true;
     userName = "Conroy Cheers";
     userEmail = "conroy@dromeda.com.au";
   };
