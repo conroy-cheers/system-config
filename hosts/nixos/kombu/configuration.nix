@@ -236,13 +236,18 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w" # kombu system key
     ];
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "docker" ];
+    extraGroups = [ "wheel" "docker" "plugdev" ];
   };
 
   programs.zsh = {
     enable = true;
   };
 
+  # udisks2 for mounting USB disks
+  services.udisks2.enable = true;
+
+  # thunar file manager
+  programs.thunar.enable = true;
 
   ### Enable plymouth (bootscreen customizations)
   boot.plymouth = {

@@ -91,6 +91,8 @@
     NIXOS_OZONE_WL = "1";
   };
 
+  services.udiskie.enable = true;
+
   # Enable the GPG Agent daemon.
   services.gpg-agent = {
     enable = true;
