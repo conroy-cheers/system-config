@@ -264,6 +264,7 @@
     xdg-utils
     neovim
     wget
+    udiskie
   ];
 
   programs.git = {
