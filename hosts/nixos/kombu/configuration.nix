@@ -13,6 +13,7 @@
     ./impermanence.nix
     ./network.nix
     ./root-aws.nix
+    ./wireguard.nix
     ./wm/hyprland.nix
     ./themes/stylix.nix
   ];
@@ -265,6 +266,7 @@
     neovim
     wget
     udiskie
+    spotify
   ];
 
   programs.git = {
