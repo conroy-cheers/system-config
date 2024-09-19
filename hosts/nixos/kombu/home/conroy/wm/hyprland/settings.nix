@@ -9,7 +9,8 @@ in
 
   wayland.windowManager.hyprland.settings = {
     monitor = [
-      "HDMI-A-1,3440x1440@144,0x0, 1"
+      # "HDMI-A-1,3440x1440@144,0x0, 1"
+      "DP-1,3440x1440@160,0x0,1"
       ",preferred,auto,1"
     ];
 
@@ -41,8 +42,8 @@ in
         brightness = 1.0;
         contrast = 1.0;
         noise = 0.02;
-        passes = 3;
-        size = 10;
+        passes = 2;
+        size = 5;
       };
 
       drop_shadow = details.shadow;
@@ -97,12 +98,17 @@ in
       workspace_swipe_distance = 200;
     };
 
-    dwindle = {
-      # keep floating dimentions while tiling
-      pseudotile = true;
-      preserve_split = true;
-      force_split = 2;
-      split_width_multiplier = 1.5;
+    # dwindle = {
+    #   # keep floating dimentions while tiling
+    #   pseudotile = true;
+    #   preserve_split = true;
+    #   force_split = 2;
+    #   split_width_multiplier = 1.5;
+    # };
+
+    master = {
+      orientation = "center";
+      always_center_master = true;
     };
 
     misc = {
