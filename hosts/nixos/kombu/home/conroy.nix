@@ -6,6 +6,7 @@
     inputs.wired.homeManagerModules.default
     ./conroy/op.nix
     ./conroy/ssh.nix
+    ./conroy/vscode.nix
     ./conroy/wm/hyprland.nix
     ../themes/stylix.nix
   ];
@@ -105,10 +106,6 @@
     lfs.enable = true;
     userName = "Conroy Cheers";
     userEmail = "conroy@dromeda.com.au";
-  };
-
-  programs.vscode = {
-    enable = true;
   };
 
   reo101 = {
