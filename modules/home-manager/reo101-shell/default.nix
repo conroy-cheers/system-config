@@ -76,6 +76,11 @@ in
         starship = mkOption {
           description = "Use starship prompt";
           type = types.bool;
+          default = false;
+        };
+        p10k = mkOption {
+          description = "Use powerlevel10k";
+          type = types.bool;
           default = true;
         };
         atuin = mkOption {
@@ -110,6 +115,9 @@ in
             cfg.shells)
           (optionals cfg.starship [
             starship
+          ])
+          (optionals cfg.p10k [
+            zsh-powerlevel10k
           ])
           (optionals cfg.atuin [
             atuin
@@ -271,6 +279,10 @@ in
                   zvm_bindkey viins "^R" _atuin_search_widget
                 }
               '')
+              (optionalString cfg.p10k ''
+                source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
+                test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
+              '')
               # NOTE: done by `programs.direnv`
               # (optionalString cfg.direnv ''
               #   eval "$(${pkgs.direnv}/bin/direnv hook zsh)"
@@ -319,16 +331,13 @@ in
               hash = "sha256-B+Kz3B7d97CM/3ztpQyVkE6EfMipVF8Y4HJNfSRXHtU=";
             };
           }
-          {
-            name = "zsh-vi-mode";
-            file = "zsh-vi-mode.plugin.zsh";
-            src = pkgs.fetchFromGitHub {
-              owner = "jeffreytse";
-              repo = "zsh-vi-mode";
-              rev = "287efa19ec492b2f24bb93d1f4eaac3049743a63";
-              hash = "sha256-HMfC4s7KW4bO7H6RYzLnSARoFr1Ez89Z2VGONKMpGbw=";
-            };
-          }
+          (mkIf cfg.p10k
+            ({
+              name = "powerlevel10k";
+              file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+              src = pkgs.zsh-powerlevel10k;
+            })
+          )
         ];
       };
     };

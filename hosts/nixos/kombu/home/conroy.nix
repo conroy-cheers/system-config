@@ -116,6 +116,7 @@
       enable = true;
       direnv = true;
       zoxide = true;
+      shells = [ "zsh" ];
     };
     wezterm = {
       enable = true;
