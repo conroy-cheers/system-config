@@ -119,9 +119,6 @@ in
           (optionals cfg.p10k [
             zsh-powerlevel10k
           ])
-          (optionals cfg.atuin [
-            atuin
-          ])
           (optionals cfg.direnv [
             direnv
           ])
@@ -129,14 +126,6 @@ in
             zoxide
           ])
         ];
-
-      # Atuin
-      home.file."${config.xdg.configHome}/atuin/config.toml" = mkIf cfg.atuin {
-        # TODO: use pkgs.substituteAll
-        text = import ./atuin.nix {
-          keyPath = "${config.xdg.dataHome}/atuin/key";
-        };
-      };
 
       # Direnv
       programs.direnv = mkIf cfg.direnv {
@@ -148,6 +137,14 @@ in
         nix-direnv = {
           enable = true;
         };
+      };
+
+      # Atuin
+      programs.atuin = mkIf cfg.atuin {
+        enable = true;
+
+        enableNushellIntegration = builtins.elem "nushell" cfg.shells;
+        enableZshIntegration = builtins.elem "zsh" cfg.shells;
       };
 
       # Starship
@@ -201,47 +198,6 @@ in
 
           environmentVariables = { };
         })
-        (mkIf cfg.atuin {
-          extraEnv = ''
-            let atuin_cache = "${config.xdg.cacheHome}/atuin"
-            if not ($atuin_cache | path exists) {
-                mkdir $atuin_cache
-            }
-            ${pkgs.atuin}/bin/atuin init nu | save --force ${config.xdg.cacheHome}/atuin/init.nu
-          '';
-
-          extraConfig = ''
-            source ${config.xdg.cacheHome}/atuin/init.nu
-
-            # Ctrl-R
-            $env.config = (
-                $env.config | upsert keybindings (
-                    $env.config.keybindings
-                    | append {
-                        name: atuin
-                        modifier: control
-                        keycode: char_r
-                        mode: [emacs, vi_normal, vi_insert]
-                        event: { send: executehostcommand cmd: (_atuin_search_cmd) }
-                    }
-                )
-            )
-
-            # Up
-            $env.config = (
-                $env.config | upsert keybindings (
-                    $env.config.keybindings
-                    | append {
-                        name: atuin
-                        modifier: none
-                        keycode: up
-                        mode: [emacs, vi_normal, vi_insert]
-                        event: { send: executehostcommand cmd: (_atuin_search_cmd '--shell-up-key-binding') }
-                    }
-                )
-            )
-          '';
-        })
       ];
 
       # Zsh
@@ -271,14 +227,6 @@ in
                   mkdir -p "''$''\{@''\}" && cd "''$''\{@''\}"
                 }
               ''
-              (optionalString cfg.atuin ''
-                export ATUIN_NOBIND="true"
-                eval "$(${pkgs.atuin}/bin/atuin init zsh)"
-                function zvm_after_init() {
-                  # bindkey "^r" _atuin_search_widget
-                  zvm_bindkey viins "^R" _atuin_search_widget
-                }
-              '')
               (optionalString cfg.p10k ''
                 source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
                 test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
