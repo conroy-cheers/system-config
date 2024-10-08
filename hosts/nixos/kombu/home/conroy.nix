@@ -17,6 +17,11 @@
     stateVersion = "24.05";
   };
 
+  stylix = {
+    targets.hyprland.enable = true;
+    targets.kitty.enable = true;
+  };
+
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 

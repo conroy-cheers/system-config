@@ -9,6 +9,7 @@ let
     mkMerge;
 
   shellAliases = {
+    s = "kitten ssh";
     cp = "${pkgs.advcpmv}/bin/advcp -rvi";
     mv = "${pkgs.advcpmv}/bin/advmv -vi";
     rebuild =

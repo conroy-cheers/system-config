@@ -217,6 +217,11 @@
     packages = [ pkgs.dconf ];
   };
 
+  ### udev packages
+  services.udev.packages = [
+    pkgs.teensy-udev-rules
+  ];
+
   ### Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
 
@@ -266,7 +271,6 @@
     neovim
     wget
     udiskie
-    spotify
   ];
 
   programs.git = {
