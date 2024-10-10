@@ -24,4 +24,8 @@ in
     ] ++ lib.optional (settings.themeDetails.bordersPlusPlus)
       pkgs.hyprlandPlugins.borders-plus-plus;
   };
+
+  services.hyprpaper = {
+    enable = true;
+  };
 }

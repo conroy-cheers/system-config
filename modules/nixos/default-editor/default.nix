@@ -5,5 +5,4 @@ let
 in
 {
   programs.nano.enable = false;
-  programs.neovim.enable = true;
 }

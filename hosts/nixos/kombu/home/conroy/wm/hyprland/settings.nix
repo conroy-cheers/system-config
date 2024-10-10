@@ -20,7 +20,6 @@ in
       # "hyprctl setcursor Catppuccin-Mocha-Lavender-Cursors 24"
       "[workspace 1 silent] kitty"
       "[workspace 2 silent] kitty btop"
-      "[workspace 2 silent] kitty spotify_player"
       "[workspace 2 silent] kitty cava"
     ];
 

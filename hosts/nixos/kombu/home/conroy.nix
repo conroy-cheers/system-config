@@ -44,7 +44,6 @@
     kitty
 
     ## Core
-    neovim
     git
     gnupg
     firefox
@@ -112,6 +111,12 @@
     userName = "Conroy Cheers";
     userEmail = "conroy@dromeda.com.au";
   };
+
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+  };
+  xdg.configFile."nvim/init.lua".enable = false;
 
   reo101 = {
     shell = {
