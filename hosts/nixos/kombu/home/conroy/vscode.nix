@@ -2,6 +2,7 @@
 {
   programs.vscode = {
     enable = true;
+    package = pkgs.vscodium;
     enableUpdateCheck = false;
     enableExtensionUpdateCheck = false;
     extensions = with pkgs; [
@@ -21,6 +22,10 @@
       "explorer.confirmDelete" = false;
       "explorer.confirmDragAndDrop" = false;
       "terminal.integrated.fontFamily" = lib.mkForce "FiraCode Nerd Font";
+      "cmake.pinnedCommands" = [
+        "workbench.action.tasks.configureTaskRunner"
+        "workbench.action.tasks.runTask"
+      ];
     };
   };
 }

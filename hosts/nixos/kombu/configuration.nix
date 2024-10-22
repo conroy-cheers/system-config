@@ -14,6 +14,7 @@
     ./network.nix
     ./root-aws.nix
     ./wireguard.nix
+    ./tailscale.nix
     ./wm/hyprland.nix
     ./themes/stylix.nix
   ];
