@@ -15,6 +15,7 @@
 
     windowrule = [
       "float,title:^(swayimg)(.*)$"
+      "float,title:^(Qalculate!)$"
     ];
 
     windowrulev2 = [

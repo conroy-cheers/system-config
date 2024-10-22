@@ -37,6 +37,8 @@
     # grim # grap images from regions
     # playerctl # music control
     gparted
+    audacity
+    qalculate-gtk
 
     ## Terminals
     # wezterm
@@ -54,6 +56,11 @@
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
+
+    ## Debugger
+    gdb
+    lttng-tools
+    lttng-ust
 
     btop
     cava
