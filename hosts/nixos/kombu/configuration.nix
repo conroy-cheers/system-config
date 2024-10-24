@@ -65,6 +65,7 @@
     # Enable flakes, the new `nix` commands and better support for flakes in it
     extraOptions = ''
       experimental-features = nix-command flakes
+      builders-use-substitutes = true
     '';
 
     # This will add each flake input as a registry

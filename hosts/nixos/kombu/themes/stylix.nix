@@ -17,6 +17,11 @@ in
       desktop = details.opacity;
       popups = details.opacity;
     };
+    fonts = {
+      sizes = {
+        terminal = 11;
+      };
+    };
 
     targets.nixvim.enable =
       lib.mkIf (settings.themeDetails.themeName != null) false;

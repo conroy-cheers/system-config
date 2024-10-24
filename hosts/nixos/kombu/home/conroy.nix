@@ -40,19 +40,7 @@
     audacity
     qalculate-gtk
 
-    ## Terminals
-    # wezterm
-    # foot
-    kitty
-
-    ## Core
-    git
-    gnupg
-    firefox
-    discord
     slack
-    armcord # modded discord
-    vifm # file editor
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
@@ -62,17 +50,10 @@
     lttng-tools
     lttng-ust
 
-    btop
     cava
     grimblast
 
     plexamp
-
-    ## Shell
-    # zsh
-    # starship
-    # zoxide
-    ripgrep
 
     ## Dhall
     dhall
@@ -112,11 +93,39 @@
     enableSshSupport = true;
   };
 
+  programs.kitty = {
+    enable = true;
+  };
+
+  programs.firefox = {
+    enable = true;
+  };
+
+  programs.vifm = {
+    enable = true;
+  };
+
+  programs.ripgrep = {
+    enable = true;
+  };
+
+  programs.btop = {
+    enable = true;
+  };
+
+  programs.cava = {
+    enable = true;
+  };
+
   programs.git = {
     enable = true;
     lfs.enable = true;
     userName = "Conroy Cheers";
     userEmail = "conroy@dromeda.com.au";
+  };
+
+  programs.gpg = {
+    enable = true;
   };
 
   programs.neovim = {

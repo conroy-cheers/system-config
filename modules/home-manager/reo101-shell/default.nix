@@ -148,6 +148,11 @@ in
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
       };
 
+      # Bat
+      programs.bat = {
+        enable = true;
+      };
+
       # Starship
       programs.starship = mkIf cfg.starship {
         enable = true;
@@ -216,7 +221,7 @@ in
         };
 
         history = {
-          size = 10000;
+          size = 50000;
           path = "${config.xdg.dataHome}/zsh/history";
         };
 
@@ -245,6 +250,10 @@ in
                 if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''$''\{SHLVL''\}" -eq 1 ]; then
                   source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
                 fi
+              ''
+              ''
+              bindkey '^[[1;3D' backward-word  # Alt + Left
+              bindkey '^[[1;3C' forward-word   # Alt + Right
               ''
               # cfg.extraConfig
             ];
@@ -278,6 +287,16 @@ in
               repo = "zsh-autosuggestions";
               rev = "c3d4e576c9c86eac62884bd47c01f6faed043fc5";
               hash = "sha256-B+Kz3B7d97CM/3ztpQyVkE6EfMipVF8Y4HJNfSRXHtU=";
+            };
+          }
+          {
+            name = "zsh-bat";
+            file = "zsh-bat.plugin.zsh";
+            src = pkgs.fetchFromGitHub {
+              owner = "fdellwing";
+              repo = "zsh-bat";
+              rev = "c47f2de99d0c4c778e9de56ac8e527ddfd9b02e2";
+              hash = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
             };
           }
           (mkIf cfg.p10k
