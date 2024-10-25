@@ -50,7 +50,6 @@
     lttng-tools
     lttng-ust
 
-    cava
     grimblast
 
     plexamp

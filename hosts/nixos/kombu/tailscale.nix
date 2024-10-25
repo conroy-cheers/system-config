@@ -11,6 +11,10 @@
   # enable the tailscale service
   services.tailscale.enable = true;
 
+  # NetworkManager-wait-online fails and prevents deployment
+  # https://github.com/NixOS/nixpkgs/issues/180175
+  systemd.services.NetworkManager-wait-online.enable = false; 
+
   # create a oneshot job to authenticate to Tailscale
   systemd.services.tailscale-autoconnect = {
     description = "Automatic connection to Tailscale";

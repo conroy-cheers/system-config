@@ -7,24 +7,24 @@
     127.0.0.1 kombu.local
   '';
 
-  age.secrets."home.wifi.env" = {
-    rekeyFile = "${inputs.self}/secrets/home/wifi/env.age";
+  age.secrets."home.wifi.conf" = {
+    rekeyFile = "${inputs.self}/secrets/home/wifi/conf.age";
   };
   networking.wireless = {
     # enable = true;
     userControlled.enable = true;
-    environmentFile = config.age.secrets."home.wifi.env".path;
+    secretsFile = config.age.secrets."home.wifi.conf".path;
     networks = {
-      "@HOME_WIFI_SSID@" = {
-        psk = "@HOME_WIFI_PSK@";
+      "ext:ssid_home" = {
+        psk = "ext:pass_home";
         priority = 20;
       };
-      "@ANDROMEDA_WIFI_SSID@" = {
-        psk = "@ANDROMEDA_WIFI_PSK@";
+      "ext:ssid_andromeda" = {
+        psk = "ext:pass_andromeda";
         priority = 10;
       };
-      "@ABI_WIFI_SSID@" = {
-        psk = "@ABI_WIFI_PSK@";
+      "ext:ssid_abi" = {
+        psk = "ext:pass_abi";
       };
     };
   };

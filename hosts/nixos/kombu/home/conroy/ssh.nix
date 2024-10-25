@@ -28,6 +28,8 @@ in
         };
       };
 
+      "abigx".hostname = "192.168.6.230";
+
       "beluga" = {
         hostname = "corncheese.org";
         user = "conroycheers";
