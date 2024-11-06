@@ -32,6 +32,12 @@
 
   networking.networkmanager.enable = true;
 
+  # enable mDNS
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+  };
+
   # systemd.network.enable = false;
   # systemd.network.networks = {
   #   "10-enp5s0" = {

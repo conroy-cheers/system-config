@@ -6,16 +6,16 @@
     pkgs.wl-clipboard
   ];
 
-  # Configure xwayland
-  services.xserver = {
-    enable = true;
-    xkb = {
-      variant = "";
-      layout = "us";
-      options = "grp:win_space_toggle";
-    };
-    displayManager.startx = {
-      enable = true;
-    };
-  };
+  # # Configure xwayland
+  # services.xserver = {
+  #   enable = true;
+  #   xkb = {
+  #     variant = "";
+  #     layout = "us";
+  #     options = "grp:win_space_toggle";
+  #   };
+  #   # displayManager.startx = {
+  #   #   enable = true;
+  #   # };
+  # };
 }

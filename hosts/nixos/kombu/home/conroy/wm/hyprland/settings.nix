@@ -21,8 +21,8 @@ in
       "[workspace 1 silent] kitty"
       "[workspace 2 silent] kitty btop"
       "[workspace 2 silent] kitty cava"
-      "[workspace special silent] firefox"
       "[workspace special silent] slack"
+      "[workspace special silent] firefox"
     ];
 
     general = {

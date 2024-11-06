@@ -16,6 +16,8 @@
       vscode-extensions.ms-python.vscode-pylance
       vscode-extensions.ms-python.debugpy
       vscode-extensions.charliermarsh.ruff
+      vscode-extensions.ms-vscode-remote.remote-ssh
+      vscode-extensions.ms-vscode-remote.remote-ssh-edit
     ];
     userSettings = {
       "git.confirmSync" = false;
@@ -26,6 +28,7 @@
         "workbench.action.tasks.configureTaskRunner"
         "workbench.action.tasks.runTask"
       ];
+      "remote.SSH.useLocalServer" = false;
     };
   };
 }

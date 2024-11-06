@@ -2,7 +2,6 @@
 
 {
   imports = [
-    # inputs.stylix.nixosModules.stylix
     inputs.wired.homeManagerModules.default
     ./conroy/op.nix
     ./conroy/ssh.nix
@@ -61,6 +60,7 @@
     ## Nix
     nil
     direnv
+    nixpkgs-fmt
 
     ## Torrents
     tremc
