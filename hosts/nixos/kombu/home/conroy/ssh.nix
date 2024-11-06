@@ -61,7 +61,7 @@ in
 
       "hydraq" = {
         hostname = "hq.dromeda.com.au";
-        user = "abi";
+        user = "nixremote";
         port = 8367;
         identityFile = "${config.home.homeDirectory}/.ssh/andromeda_build.id_ed25519.pub";
       };
