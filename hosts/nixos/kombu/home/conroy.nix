@@ -61,9 +61,13 @@
     nil
     direnv
     nixpkgs-fmt
+    nix-output-monitor
 
     ## Torrents
     tremc
+
+    ## Python
+    ruff
 
     ## Rust
     rustc

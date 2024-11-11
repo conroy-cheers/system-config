@@ -11,10 +11,12 @@
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
+    ./fans.nix
     ./network.nix
     ./root-aws.nix
     ./wireguard.nix
     ./tailscale.nix
+    ./virtualisation.nix
     ./wm/hyprland.nix
     ./themes/stylix.nix
   ];
@@ -47,6 +49,20 @@
   ### Set your time zone.
   time.timeZone = "Australia/Melbourne";
 
+  age.secrets."corncheese.home.key" = {
+    rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
+    mode = "400";
+  };
+  programs.ssh = {
+    extraConfig = ''
+      Host bigbrain-direct
+        User conroy
+        HostName corncheese.org
+        Port 8022
+        IdentityFile ${config.age.secrets."corncheese.home.key".path}
+    '';
+  };
+
   ### Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
@@ -67,6 +83,8 @@
       experimental-features = nix-command flakes
       builders-use-substitutes = true
     '';
+
+    distributedBuilds = true;
 
     # This will add each flake input as a registry
     # To make nix3 commands consistent with your flake
@@ -94,6 +112,16 @@
         "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
       ];
     };
+
+    buildMachines = [
+      {
+        hostName = "bigbrain-direct";
+        system = "x86_64-linux";
+        maxJobs = 28;
+        supportedFeatures = [ "big-parallel" ];
+        publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
+      }
+    ];
   };
 
   # nopasswd for sudo

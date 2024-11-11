@@ -35,11 +35,11 @@ in
     };
 
     decoration = {
-      dim_special = 0.5;
+      dim_special = 0.8;
       rounding = details.rounding;
       blur = {
         enabled = true;
-        special = true;
+        special = false;
         brightness = 1.0;
         contrast = 1.0;
         noise = 0.02;

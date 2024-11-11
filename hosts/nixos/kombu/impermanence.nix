@@ -82,4 +82,7 @@
       "/etc/ssh/ssh_host_rsa_key.pub"
     ];
   };
+
+  boot.initrd.systemd.suppressedUnits = [ "systemd-machine-id-commit.service" ];
+  systemd.suppressedSystemUnits = [ "systemd-machine-id-commit.service" ];
 }

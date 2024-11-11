@@ -51,6 +51,7 @@ in
       "abi2".hostname = "abi-498fc35d";
       "abi3".hostname = "abi-49e564ed";
       "abi10".hostname = "abi-0896ad9a";
+      "cubi".hostname = "abi-715240a6";
       abi-dev = {
         host = (lib.concatStringsSep " " abiHosts);
         user = abiUser;
