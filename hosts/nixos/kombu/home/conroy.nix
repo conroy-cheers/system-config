@@ -98,6 +98,9 @@
 
   programs.kitty = {
     enable = true;
+    settings = {
+      scrollback_lines = 20000;
+    };
   };
 
   programs.firefox = {
@@ -125,6 +128,9 @@
     lfs.enable = true;
     userName = "Conroy Cheers";
     userEmail = "conroy@dromeda.com.au";
+    delta = {
+      enable = true;
+    };
   };
 
   programs.gpg = {

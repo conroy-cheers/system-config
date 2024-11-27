@@ -2,7 +2,7 @@
 
 let
   abiUser = "abi";
-  abiHosts = [ "flabi" "abi2" "abi3" "abi10" ];
+  abiHosts = [ "flabi" "abi2" "abi3" "abi10" "cubi" "agx" ];
   homeJumpHosts = [ "pve" "bigbrain" ];
 in  
 {
@@ -47,11 +47,22 @@ in
         user = "root";
         identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
       };
+      "cubi-root" = {
+        hostname = "abi-715240a6";
+        user = "root";
+        identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
+      };
+      "agx-root" = {
+        hostname = "10.11.120.231";
+        user = "root";
+        identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
+      };
       "flabi".hostname = "abi-8152c13f";
       "abi2".hostname = "abi-498fc35d";
       "abi3".hostname = "abi-49e564ed";
       "abi10".hostname = "abi-0896ad9a";
       "cubi".hostname = "abi-715240a6";
+      "agx".hostname = "10.11.120.231";
       abi-dev = {
         host = (lib.concatStringsSep " " abiHosts);
         user = abiUser;
@@ -71,6 +82,12 @@ in
         user = "root";
         port = 22;
         identityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
+      };
+      "build-thing" = {
+        hostname = "18.136.8.225";
+        user = "root";
+        port = 22;
+        identityFile = "${config.home.homeDirectory}/.ssh/aws_experiments.id_ed25519.pub";
       };
 
       # Home

@@ -49,17 +49,31 @@
   ### Set your time zone.
   time.timeZone = "Australia/Melbourne";
 
-  age.secrets."corncheese.home.key" = {
-    rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
-    mode = "400";
+  age.secrets = {
+    "corncheese.home.key" = {
+      rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
+      mode = "400";
+    };
+    "andromeda.aws-experiments.key" = {
+      rekeyFile = "${inputs.self}/secrets/andromeda/aws-experiments/key.age";
+      mode = "400";
+    };
   };
   programs.ssh = {
     extraConfig = ''
-      Host bigbrain-direct
+      # bigbrain-direct
+      Host home.conroycheers.me
         User conroy
-        HostName corncheese.org
+        HostName home.conroycheers.me
         Port 8022
         IdentityFile ${config.age.secrets."corncheese.home.key".path}
+      
+      # build-thing
+      Host 18.136.8.225
+        User root
+        HostName 18.136.8.225
+        Port 22
+        IdentityFile ${config.age.secrets."andromeda.aws-experiments.key".path}
     '';
   };
 
@@ -115,11 +129,18 @@
 
     buildMachines = [
       {
-        hostName = "bigbrain-direct";
+        hostName = "home.conroycheers.me";
         system = "x86_64-linux";
         maxJobs = 28;
         supportedFeatures = [ "big-parallel" ];
         publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
+      }
+      {
+        hostName = "18.136.8.225";
+        system = "aarch64-linux";
+        maxJobs = 32;
+        supportedFeatures = [ "big-parallel" ];
+        publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
       }
     ];
   };
