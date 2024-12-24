@@ -145,7 +145,7 @@
   };
   xdg.configFile."nvim/init.lua".enable = false;
 
-  reo101 = {
+  corncheese = {
     shell = {
       enable = true;
       direnv = true;
