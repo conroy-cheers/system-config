@@ -38,6 +38,8 @@
     gparted
     audacity
     qalculate-gtk
+    libreoffice-qt6-fresh
+    jujutsu
 
     slack
     pciutils # lspci

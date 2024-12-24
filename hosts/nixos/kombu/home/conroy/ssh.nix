@@ -2,9 +2,18 @@
 
 let
   abiUser = "abi";
-  abiHosts = [ "flabi" "abi2" "abi3" "abi10" "cubi" "agx" ];
+  abiHostnames = {
+    "flabi" = "abi-andr-dev-1";
+    "abi2" = "abi-498fc35d";
+    "abi3" = "abi-49e564ed";
+    "abi10" = "abi-0896ad9a";
+    "cubi" = "abi-715240a6";
+    "agx" = "10.11.120.231";
+  };
+  abiHosts = builtins.attrNames abiHostnames;
+  abiRootHosts = map (host: host + "-root") abiHosts;
   homeJumpHosts = [ "pve" "bigbrain" ];
-in  
+in
 {
   # Create the bin directory in your home
   # TODO make some hook for this
@@ -40,35 +49,24 @@ in
     forwardAgent = false;
     hashKnownHosts = true;
 
-    matchBlocks = {
-      # Work
-      "flabi-root" = {
-        hostname = "abi-8152c13f";
-        user = "root";
-        identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
-      };
-      "cubi-root" = {
-        hostname = "abi-715240a6";
-        user = "root";
-        identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
-      };
-      "agx-root" = {
-        hostname = "10.11.120.231";
-        user = "root";
-        identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
-      };
-      "flabi".hostname = "abi-8152c13f";
-      "abi2".hostname = "abi-498fc35d";
-      "abi3".hostname = "abi-49e564ed";
-      "abi10".hostname = "abi-0896ad9a";
-      "cubi".hostname = "abi-715240a6";
-      "agx".hostname = "10.11.120.231";
+    matchBlocks = (lib.concatMapAttrs
+      (name: hostname: {
+        "${name}".hostname = hostname;
+        "${name}-root".hostname = hostname;
+      })
+      abiHostnames) //
+    {
       abi-dev = {
         host = (lib.concatStringsSep " " abiHosts);
         user = abiUser;
         extraOptions = {
           PubkeyAuthentication = "no";
         };
+      };
+      abi-dev-root = {
+        host = (lib.concatStringsSep " " abiRootHosts);
+        user = "root";
+        identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
       };
 
       "hydraq" = {

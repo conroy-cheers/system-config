@@ -1,4 +1,19 @@
 {config, lib, pkgs, ...}:
+
+let
+  pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
+    mktplcRef = {
+      name = "pkl-vscode";
+      version = "0.18.1";
+      publisher = "apple";
+    };
+    vsix = builtins.fetchurl {
+      url = "https://github.com/apple/pkl-vscode/releases/download/0.18.1/pkl-vscode-0.18.1.vsix";
+      sha256 = "sha256:1vsizpwvlrm3qacrciyq7kdzklk9a4xqvakb890fny909sp2b86n";
+      name = "pkl-vscode-0.18.1.zip";
+    };
+  };
+in 
 {
   programs.vscode = {
     enable = true;
@@ -18,6 +33,7 @@
       vscode-extensions.charliermarsh.ruff
       vscode-extensions.ms-vscode-remote.remote-ssh
       vscode-extensions.ms-vscode-remote.remote-ssh-edit
+      pkl-vscode
     ];
     userSettings = {
       "git.confirmSync" = false;
