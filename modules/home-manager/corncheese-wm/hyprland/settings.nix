@@ -1,6 +1,6 @@
-{ config, pkgs, settings, inputs, ... }:
+{ config, pkgs, inputs, ... }:
 let
-  details = settings.themeDetails;
+  themeDetails = config.corncheese.theming.themeDetails;
 in
 {
   home.packages = with pkgs; [
@@ -36,7 +36,7 @@ in
 
     decoration = {
       dim_special = 0.5;
-      rounding = details.rounding;
+      rounding = themeDetails.roundingRadius;
       blur = {
         enabled = true;
         special = true;
@@ -47,7 +47,7 @@ in
         size = 5;
       };
 
-      drop_shadow = details.shadow;
+      drop_shadow = themeDetails.shadows;
       shadow_ignore_window = false;
       shadow_offset = "2 2";
       shadow_range = 20;

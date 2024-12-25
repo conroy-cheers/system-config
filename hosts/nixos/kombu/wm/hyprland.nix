@@ -1,12 +1,9 @@
 { inputs, config, pkgs, ... }:
 
-let
-  settings = (import ../settings.nix { inherit pkgs; });
-in
 {
   imports = [
     (import ./common/wayland.nix)
-    (import ./common/fonts.nix { inherit config pkgs settings; })
+    (import ./common/fonts.nix { inherit config pkgs; })
   ];
 
   environment.systemPackages = with pkgs; [

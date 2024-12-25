@@ -1,5 +1,5 @@
 {
-  description = "reo101's NixOS, nix-on-droid and nix-darwin configs";
+  description = "corncheese's NixOS, nix-on-droid and nix-darwin configs";
 
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } ({ withSystem, flake-parts-lib, ... }: {

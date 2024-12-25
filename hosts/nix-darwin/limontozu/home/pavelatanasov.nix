@@ -62,7 +62,11 @@
     android-tools
   ];
 
-  reo101 = {
+  corncheese = {
+    theming = {
+      enable = true;
+      theme = "catppuccin";
+    };
     shell = {
       enable = true;
       atuin = true;
@@ -81,7 +85,7 @@
 
   programs.git = {
     enable = true;
-    userName = "reo101";
+    userName = "corncheese";
     # userEmail = "pavel.atanasov@limechain.tech";
     userEmail = "pavel.atanasov2001@gmail.com";
     signing = {

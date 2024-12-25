@@ -4,10 +4,10 @@ final: prev:
 {
   lib = prev.lib // {
     maintainers = {
-      reo101 = {
+      corncheese = {
         name = "Pavel Atanasov";
         email = "pavel.atanasov2001@gmail.com";
-        github = "reo101";
+        github = "corncheese";
         githubId = "37866329";
         keys = [
           {

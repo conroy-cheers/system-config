@@ -1,4 +1,4 @@
-![nix](https://socialify.git.ci/reo101/rix101/image?description=1&font=Source%20Code%20Pro&forks=1&issues=1&logo=https%3A%2F%2Fpablo.tools%2Fnixoscolorful.svg&owner=1&pattern=Circuit%20Board&pulls=1&stargazers=1&theme=Dark)
+![nix](https://socialify.git.ci/corncheese/rix101/image?description=1&font=Source%20Code%20Pro&forks=1&issues=1&logo=https%3A%2F%2Fpablo.tools%2Fnixoscolorful.svg&owner=1&pattern=Circuit%20Board&pulls=1&stargazers=1&theme=Dark)
 
 <!-- <div align="center">
     <p>
@@ -10,17 +10,6 @@
         </a>
         <a href="https://github.com/LnL7/nix-darwin">
             <img src="https://img.shields.io/badge/nix%2Ddarwin?style=flat-square&logo=nix" alt="nix-darwin"/>
-        </a>
-    </p>
-    <p>
-        <a href="https://nixos.org/">
-            <img src="https://img.shields.io/badge/Made%20with%20Nix-lightblue.svg?style=for-the-badge&logo=nix" alt="Nix"/>
-        </a>
-        <a href="https://github.com/reo101/rix101/blob/main/LICENSE">
-            <img src="https://img.shields.io/github/license/reo101/rix101?style=flat-square&logo=MIT&label=License" alt="License"/>
-        </a>
-        <a href="https://github.com/reo101/rix101/pulse">
-            <img alt="Last Commit" src="https://img.shields.io/github/last-commit/reo101/rix101"/>
         </a>
     </p>
 </div> -->
@@ -128,7 +117,7 @@ sudo xcodebuild -license
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
 # Apply configuration
-git clone https://www.github.com/reo101/rix101 ~/.config/rix101
+git clone https://www.github.com/corncheese/rix101 ~/.config/rix101
 cd ~/.config/rix101
 nix build ".#darwinConfigurations.${HOSTNAME}.system"
 ./result/sw/bin/darwin-rebuild switch --flake .

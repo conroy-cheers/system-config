@@ -1,4 +1,4 @@
-{config, lib, pkgs, ...}:
+{ config, lib, pkgs, ... }:
 
 let
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
@@ -13,7 +13,7 @@ let
       name = "pkl-vscode-0.18.1.zip";
     };
   };
-in 
+in
 {
   programs.vscode = {
     enable = true;

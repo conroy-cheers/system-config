@@ -6,8 +6,6 @@
     ./conroy/op.nix
     ./conroy/ssh.nix
     ./conroy/vscode.nix
-    ./conroy/wm/hyprland.nix
-    ../themes/stylix.nix
   ];
 
   home = {
@@ -146,6 +144,15 @@
   xdg.configFile."nvim/init.lua".enable = false;
 
   corncheese = {
+    theming = {
+      enable = true;
+      theme = "catppuccin";
+    };
+    wm = {
+      enable = true;
+      ags.enable = true;
+      hyprpaper.enable = true;
+    };
     shell = {
       enable = true;
       direnv = true;

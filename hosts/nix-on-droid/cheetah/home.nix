@@ -5,7 +5,7 @@
   # paths it should manage.
   home = {
     username = "nix-on-droid";
-    # username = "reo101";
+    # username = "corncheese";
     homeDirectory = "/data/data/com.termux.nix/files/home";
     stateVersion = "23.05";
   };
@@ -93,9 +93,9 @@
     ];
   };
 
-  reo101.shell = {
+  corncheese.shell = {
     enable = true;
-    username = "reo101";
+    username = "corncheese";
     hostname = "cheetah";
     atuin = true;
     direnv = true;
@@ -110,7 +110,7 @@
 
   programs.git = {
     enable = true;
-    userName = "reo101";
+    userName = "corncheese";
     userEmail = "pavel.atanasov2001@gmail.com";
     signing = {
       signByDefault = true;

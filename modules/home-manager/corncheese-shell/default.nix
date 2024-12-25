@@ -10,8 +10,7 @@ let
 
   shellAliases = {
     s = "kitten ssh";
-    cp = "${pkgs.advcpmv}/bin/advcp -rvi";
-    mv = "${pkgs.advcpmv}/bin/advmv -vi";
+    cp = "${pkgs.fcp}/bin/fcp";
     rebuild =
       let
         rebuild_script = pkgs.writeShellScript "rebuild" ''
@@ -197,8 +196,8 @@ in
           package = pkgs.nushell;
 
           configFile.source = ./nushell/config.nu;
-          envFile.source    = ./nushell/env.nu;
-          loginFile.source  = ./nushell/login.nu;
+          envFile.source = ./nushell/env.nu;
+          loginFile.source = ./nushell/login.nu;
 
           inherit shellAliases;
 
@@ -252,8 +251,8 @@ in
                 fi
               ''
               ''
-              bindkey '^[[1;3D' backward-word  # Alt + Left
-              bindkey '^[[1;3C' forward-word   # Alt + Right
+                bindkey '^[[1;3D' backward-word  # Alt + Left
+                bindkey '^[[1;3C' forward-word   # Alt + Right
               ''
               # cfg.extraConfig
             ];

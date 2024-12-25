@@ -2,15 +2,15 @@
 
 with lib;
 let
-  cfg = config.reo101.brew;
+  cfg = config.corncheese.brew;
 in
 {
   imports = [
   ];
 
   options = {
-    reo101.brew = {
-      enable = mkEnableOption "reo101 brew config";
+    corncheese.brew = {
+      enable = mkEnableOption "corncheese brew config";
     };
   };
 
@@ -75,6 +75,6 @@ in
   };
 
   meta = {
-    maintainers = with lib.maintainers; [ reo101 ];
+    maintainers = with lib.maintainers; [ corncheese ];
   };
 }

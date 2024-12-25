@@ -3,15 +3,15 @@
 
 with lib;
 let
-  cfg = config.reo101.system;
+  cfg = config.corncheese.system;
 in
 {
   imports = [
   ];
 
   options = {
-    reo101.system = {
-      enable = mkEnableOption "reo101 MacOS system config";
+    corncheese.system = {
+      enable = mkEnableOption "corncheese MacOS system config";
     };
   };
 
@@ -321,6 +321,6 @@ in
   };
 
   meta = {
-    maintainers = with lib.maintainers; [ reo101 ];
+    maintainers = with lib.maintainers; [ corncheese ];
   };
 }

@@ -1,13 +1,15 @@
 { inputs, pkgs, lib, config, ... }:
 let
-  details = settings.themeDetails;
-  asztal = pkgs.callPackage ../../../../non-nix/ags/default.nix { inherit inputs; };
+  cfg = config.corncheese.wm;
+  themeDetails = config.corncheese.theming.themeDetails;
+
+  asztal = pkgs.callPackage ../ags/default.nix { inherit inputs; };
   agsColors = {
-    wallpaper = details.wallpaper;
+    wallpaper = themeDetails.wallpaper;
     theme = {
-      blur = (1 - details.opacity) * 100;
-      radius = details.rounding;
-      shadows = details.shadow;
+      blur = (1 - themeDetails.opacity) * 100;
+      radius = themeDetails.roundingRadius;
+      shadows = themeDetails.shadows;
       palette = {
         primary = {
           bg = "#${config.lib.stylix.colors.base0D}";
@@ -28,32 +30,35 @@ let
       };
     };
     font = {
-      size = settings.fontSize;
-      name = "${settings.font}";
+      size = themeDetails.fontSize;
+      name = "${themeDetails.font}";
     };
     widget = {
-      opacity = details.opacity * 100;
+      opacity = themeDetails.opacity * 100;
     };
   };
-  agsOptions = lib.recursiveUpdate agsColors details.ags;
+  agsOptions = lib.recursiveUpdate agsColors themeDetails.agsOverrides;
 in
 {
   imports = [ inputs.ags.homeManagerModules.default ];
-  home.packages = with pkgs; [
-    asztal
-    bun
-    fd
-    dart-sass
-    gtk3
-    pulsemixer
-    networkmanager
-    pavucontrol
-  ];
 
-  programs.ags = {
-    enable = true;
-    configDir = ../../../../non-nix/ags;
+  config = lib.mkIf cfg.ags.enable {
+    home.packages = with pkgs; [
+      asztal
+      bun
+      fd
+      dart-sass
+      gtk3
+      pulsemixer
+      networkmanager
+      pavucontrol
+    ];
+
+    programs.ags = {
+      enable = true;
+      configDir = ../ags;
+    };
+
+    home.file.".cache/ags/options-nix.json".text = (builtins.toJSON agsOptions);
   };
-
-  home.file.".cache/ags/options-nix.json".text = (builtins.toJSON agsOptions);
 }

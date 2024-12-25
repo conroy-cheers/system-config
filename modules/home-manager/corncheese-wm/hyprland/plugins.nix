@@ -1,5 +1,9 @@
-{ config, pkgs, settings, lib, ... }:
+{ config, pkgs, lib, ... }:
 
+let
+  cfg = config.corncheese.wm;
+  themeDetails = config.corncheese.theming.themeDetails;
+in
 {
   wayland.windowManager.hyprland.extraConfig = ''
     bind=$mod,grave,hyprexpo:expo, toggle
@@ -16,7 +20,7 @@
             gesture_negative = true # positive = swipe down. Negative = swipe up.
         }
     }
-  '' + lib.optionalString settings.themeDetails.bordersPlusPlus ''
+  '' + lib.optionalString themeDetails.bordersPlusPlus ''
     plugin {
       borders-plus-plus {
           add_borders = 2 # 0 - 9

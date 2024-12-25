@@ -6,8 +6,8 @@
   ];
 
   home = {
-    username = "reo101";
-    homeDirectory = "/home/reo101";
+    username = "corncheese";
+    homeDirectory = "/home/corncheese";
     stateVersion = "24.05";
   };
 
@@ -86,11 +86,11 @@
 
   programs.git = {
     enable = true;
-    userName = "reo101";
+    userName = "corncheese";
     userEmail = "pavel.atanasov2001@gmail.com";
   };
 
-  reo101 = {
+  corncheese = {
     shell = {
       enable = true;
       direnv = true;

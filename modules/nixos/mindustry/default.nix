@@ -2,15 +2,15 @@
 
 with lib;
 let
-  cfg = config.reo101.mindustry;
+  cfg = config.corncheese.mindustry;
 in
 {
   imports = [
   ];
 
   options = {
-    reo101.mindustry = {
-      enable = mkEnableOption "reo101 Mindustry config";
+    corncheese.mindustry = {
+      enable = mkEnableOption "corncheese Mindustry config";
       version = mkOption {
         type = types.str;
         default = "146";
@@ -120,6 +120,6 @@ in
   );
 
   meta = {
-    maintainers = with lib.maintainers; [ reo101 ];
+    maintainers = with lib.maintainers; [ corncheese ];
   };
 }

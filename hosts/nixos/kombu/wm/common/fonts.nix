@@ -1,7 +1,10 @@
-{ config, pkgs, settings, ... }:
+{ config, pkgs, ... }:
 
+let
+  themeDetails = config.corncheese.theming.themeDetails;
+in
 {
   fonts.packages = with pkgs; [
-    settings.fontPkg
+    themeDetails.fontPkg
   ];
 }

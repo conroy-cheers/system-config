@@ -2,15 +2,15 @@
 
 with lib;
 let
-  cfg = config.reo101.jellyfin;
+  cfg = config.corncheese.jellyfin;
 in
 {
   imports = [
   ];
 
   options = {
-    reo101.jellyfin = {
-      enable = mkEnableOption "reo101 Jellyfin config";
+    corncheese.jellyfin = {
+      enable = mkEnableOption "corncheese Jellyfin config";
       image = mkOption {
         type = types.strMatching ".+/.+:.+";
         default = "docker.io/jellyfin/jellyfin:latest";
@@ -56,6 +56,6 @@ in
   };
 
   meta = {
-    maintainers = with lib.maintainers; [ reo101 ];
+    maintainers = with lib.maintainers; [ corncheese ];
   };
 }

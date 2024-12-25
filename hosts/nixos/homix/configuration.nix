@@ -79,7 +79,7 @@
     settings = {
       trusted-users = [
         "root"
-        "reo101"
+        "corncheese"
       ];
 
       # Add nix-community and rix101 cachix caches
@@ -195,7 +195,7 @@
   virtualisation.docker.enable = true;
 
   ### Define a user account. Don't forget to set a password with `passwd`.
-  users.users.reo101 = {
+  users.users.corncheese = {
     isNormalUser = true;
     shell = pkgs.zsh;
     extraGroups = [ "wheel" "docker" ];
@@ -222,7 +222,7 @@
   ];
 
   ### Jellyfin
-  reo101.jellyfin = {
+  corncheese.jellyfin = {
     enable = true;
   };
 

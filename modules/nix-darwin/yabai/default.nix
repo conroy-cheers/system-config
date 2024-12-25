@@ -2,15 +2,15 @@
 
 with lib;
 let
-  cfg = config.reo101.yabai;
+  cfg = config.corncheese.yabai;
 in
 {
   imports = [
   ];
 
   options = {
-    reo101.yabai = {
-      enable = mkEnableOption "reo101 yabai config";
+    corncheese.yabai = {
+      enable = mkEnableOption "corncheese yabai config";
     };
   };
 
@@ -57,26 +57,28 @@ in
       };
 
       # TODO: make builtin module work with scripts
-      launchd.user.agents.sketchybar = let
-        cfg = rec {
-          package = pkgs.sketchybar;
-          extraPackages = with pkgs; [
-            jq
-          ];
-          configFile = lib.getExe (pkgs.callPackage ./sketchybar { sketchybar = package; });
+      launchd.user.agents.sketchybar =
+        let
+          cfg = rec {
+            package = pkgs.sketchybar;
+            extraPackages = with pkgs; [
+              jq
+            ];
+            configFile = lib.getExe (pkgs.callPackage ./sketchybar { sketchybar = package; });
+          };
+        in
+        {
+          path = [ cfg.package ] ++ cfg.extraPackages ++ [ config.environment.systemPath ];
+          serviceConfig.ProgramArguments =
+            [
+              "${lib.getExe cfg.package}"
+            ] ++ optionals (cfg.configFile != null) [
+              "--config"
+              "${cfg.configFile}"
+            ];
+          serviceConfig.KeepAlive = true;
+          serviceConfig.RunAtLoad = true;
         };
-      in {
-        path = [ cfg.package ] ++ cfg.extraPackages ++ [ config.environment.systemPath ];
-        serviceConfig.ProgramArguments =
-          [
-            "${lib.getExe cfg.package}"
-          ] ++ optionals (cfg.configFile != null) [
-            "--config"
-            "${cfg.configFile}"
-          ];
-        serviceConfig.KeepAlive = true;
-        serviceConfig.RunAtLoad = true;
-      };
 
       # For sketchybar
       homebrew = {
@@ -87,9 +89,10 @@ in
           "font-sf-mono-nerd-font-ligaturized"
         ];
       };
-    });
+    }
+  );
 
   meta = {
-    maintainers = with lib.maintainers; [ reo101 ];
+    maintainers = with lib.maintainers; [ corncheese ];
   };
 }

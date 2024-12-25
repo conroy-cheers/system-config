@@ -1,10 +1,10 @@
-{ inputs, pkgs, config, ...  }:
+{ inputs, pkgs, config, ... }:
 
 {
   age.secrets."andromeda.tailscale.env" = {
     rekeyFile = "${inputs.self}/secrets/andromeda/tailscale/key.age";
   };
-  
+
   # make the tailscale command usable to users
   environment.systemPackages = [ pkgs.tailscale ];
 
@@ -13,7 +13,7 @@
 
   # NetworkManager-wait-online fails and prevents deployment
   # https://github.com/NixOS/nixpkgs/issues/180175
-  systemd.services.NetworkManager-wait-online.enable = false; 
+  systemd.services.NetworkManager-wait-online.enable = false;
 
   # create a oneshot job to authenticate to Tailscale
   systemd.services.tailscale-autoconnect = {

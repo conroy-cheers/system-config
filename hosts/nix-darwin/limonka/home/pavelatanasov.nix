@@ -93,7 +93,11 @@
     android-tools
   ];
 
-  reo101 = {
+  corncheese = {
+    theming = {
+      enable = true;
+      theme = "catppuccin";
+    };
     shell = {
       enable = true;
       shells = [ "nushell" "zsh" ];
@@ -109,14 +113,11 @@
     wezterm = {
       enable = true;
     };
-    spotify = {
-      enable = false;
-    };
   };
 
   # programs.git = {
   #   enable = true;
-  #   userName = "reo101";
+  #   userName = "corncheese";
   #   # userEmail = "pavel.atanasov@limechain.tech";
   #   userEmail = "pavel.atanasov2001@gmail.com";
   #   signing = {

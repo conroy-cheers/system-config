@@ -18,7 +18,6 @@
     ./tailscale.nix
     ./virtualisation.nix
     ./wm/hyprland.nix
-    ./themes/stylix.nix
   ];
 
   ### Set boot options
@@ -48,6 +47,13 @@
 
   ### Set your time zone.
   time.timeZone = "Australia/Melbourne";
+
+  corncheese = {
+    theming = {
+      enable = true;
+      theme = "catppuccin";
+    };
+  };
 
   age.secrets = {
     "corncheese.home.key" = {
@@ -194,7 +200,7 @@
 
   ### Wayland specific
   services.xserver = {
-    enable = false;  # disable xserver
+    enable = false; # disable xserver
     # videoDrivers = [ "amdgpu" ];
   };
 

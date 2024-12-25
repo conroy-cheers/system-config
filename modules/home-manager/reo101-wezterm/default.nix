@@ -2,7 +2,7 @@
 
 with lib;
 let
-  cfg = config.reo101.wezterm;
+  cfg = config.corncheese.wezterm;
 in
 {
   imports =
@@ -11,8 +11,8 @@ in
 
   options =
     {
-      reo101.wezterm = {
-        enable = mkEnableOption "reo101 wezterm setup";
+      corncheese.wezterm = {
+        enable = mkEnableOption "corncheese wezterm setup";
         extraConfig = mkOption {
           type = types.str;
           description = "Extra wezterm config";
@@ -42,6 +42,6 @@ in
     };
 
   meta = {
-    maintainers = with lib.maintainers; [ reo101 ];
+    maintainers = with lib.maintainers; [ corncheese ];
   };
 }
