@@ -138,6 +138,9 @@
   xdg.configFile."nvim/init.lua".enable = false;
 
   corncheese = {
+    development = {
+      vscode.enable = true;
+    };
     theming = {
       enable = true;
       theme = "catppuccin";
