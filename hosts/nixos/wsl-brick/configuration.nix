@@ -7,7 +7,6 @@
 {
   imports = [
     inputs.nixos-wsl.nixosModules.default
-    ./virtualisation.nix
   ];
 
   networking.hostName = "wsl-brick"; # Define your hostname.
@@ -24,6 +23,10 @@
   time.timeZone = "Australia/Melbourne";
 
   corncheese = {
+    development = {
+      enable = true;
+      remoteBuilders.enable = true;
+    };
     theming = {
       enable = true;
       theme = "catppuccin";
@@ -71,59 +74,11 @@
   # };
 
   nix = {
-    package = pkgs.nixVersions.stable;
-
-    # Enable flakes, the new `nix` commands and better support for flakes in it
-    extraOptions = ''
-      experimental-features = nix-command flakes
-      builders-use-substitutes = true
-    '';
-
-    distributedBuilds = true;
-
-    # This will add each flake input as a registry
-    # To make nix3 commands consistent with your flake
-    registry = lib.mapAttrs (_: value: { flake = value; }) inputs;
-
-    # This will additionally add your inputs to the system's legacy channels
-    # Making legacy nix commands consistent as well, awesome!
-    nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
-
     settings = {
       trusted-users = [
-        "root"
         "conroy"
       ];
-
-      # Add nix-community cachix cache
-      substituters = [
-        "https://nix-community.cachix.org"
-        "https://hyprland.cachix.org"
-        "s3://andromedarobotics-artifacts?region=ap-southeast-2"
-      ];
-      trusted-public-keys = [
-        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-        "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-        "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
-      ];
     };
-
-    buildMachines = [
-      {
-        hostName = "home.conroycheers.me";
-        system = "x86_64-linux";
-        maxJobs = 28;
-        supportedFeatures = [ "big-parallel" ];
-        publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
-      }
-      {
-        hostName = "18.136.8.225";
-        system = "aarch64-linux";
-        maxJobs = 32;
-        supportedFeatures = [ "big-parallel" ];
-        publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
-      }
-    ];
   };
 
   # nopasswd for sudo

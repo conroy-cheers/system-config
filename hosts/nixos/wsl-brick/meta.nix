@@ -6,7 +6,7 @@
   # `deploy-rs` configuration
   deploy = {
     # This is the hostname by which you'll refer to this machine using reploy-rs
-    hostname = "kombu";
+    hostname = "wsl-brick";
 
     # This is the user that deploy-rs will use when connecting.
     # This will default to your own username if not specified anywhere
