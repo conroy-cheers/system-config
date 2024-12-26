@@ -229,7 +229,7 @@
   virtualisation.docker.enable = true;
 
   age.secrets."conroy.user.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/kombu/user/password.age";
+    rekeyFile = "${inputs.self}/secrets/home/conroy/user/password.age";
     mode = "440";
   };
 

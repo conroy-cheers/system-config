@@ -228,18 +228,18 @@
   # Virtualisation
   virtualisation.docker.enable = true;
 
-  # age.secrets."conroy.user.password" = {
-  #   rekeyFile = "${inputs.self}/secrets/home/wsl-brick/user/password.age";
-  #   mode = "440";
-  # };
+  age.secrets."conroy.user.password" = {
+    rekeyFile = "${inputs.self}/secrets/home/conroy/user/password.age";
+    mode = "440";
+  };
 
   ### Define a user account. Don't forget to set a password with `passwd`.
   users.users.conroy = {
     isNormalUser = true;
-    # hashedPasswordFile = config.age.secrets."conroy.user.password".path;
+    hashedPasswordFile = config.age.secrets."conroy.user.password".path;
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w" # kombu system key
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEUE2OxmW9PcRNvSY6wXsaxxoXNeRSYM2wj4UXR/pcW/" # brick system key
     ];
     shell = pkgs.zsh;
     extraGroups = [ "wheel" "docker" "plugdev" ];

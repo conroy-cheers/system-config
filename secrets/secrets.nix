@@ -15,11 +15,14 @@ let
   #    cat /etc/ssh/ssh_host_ed25519_key.pub
   # Generated automatically when running `sshd`
   kombu_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINdi5yynd4jv2CUqM51TVT0hkPS6osXNc5bLq11dpB/f root@kombu";
-  systems = [ kombu_system ];
+  brick_system = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEUE2OxmW9PcRNvSY6wXsaxxoXNeRSYM2wj4UXR/pcW/ root@brick";
+  systems = [ kombu_system brick_system ];
 in
 {
-  "home/wifi/conf.age".publicKeys = users ++ systems;
-  "home/kombu/user/password.age".publicKeys = users ++ [ kombu_system ];
-  "andromeda/aws-cache/env.age".publicKeys = users ++ [ kombu_system ];
+  "andromeda/aws-cache/env.age".publicKeys = users ++ [ kombu_system brick_system ];
+  "andromeda/aws-experiments/key.age".publicKeys = users ++ [ kombu_system brick_system ];
   "andromeda/tailscale/key.age".publicKeys = users ++ [ kombu_system ];
+  "corncheese/home/key.age".publicKeys = users ++ [ kombu_system brick_system ];
+  "home/conroy/user/password.age".publicKeys = users ++ [ kombu_system brick_system ];
+  "home/wifi/conf.age".publicKeys = users ++ systems;
 }
