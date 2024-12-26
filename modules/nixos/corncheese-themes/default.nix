@@ -1,4 +1,4 @@
-{ pkgs, lib, config, ... }:
+{ inputs, pkgs, lib, config, ... }:
 let
   cfg = config.corncheese.theming;
   themeDetails = import (../../common + "/themes/${cfg.theme}.nix") { inherit pkgs; };
@@ -18,6 +18,10 @@ in
       };
     };
   };
+
+  imports = [
+    inputs.stylix.nixosModules.stylix
+  ];
 
   config = lib.mkIf cfg.enable {
     corncheese.theming.themeDetails = themeDetails;

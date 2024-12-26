@@ -1,7 +1,10 @@
-{ ... }:
+{ lib, config, ... }:
 
+let
+  cfg = config.corncheese.wm;
+in
 {
-  wayland.windowManager.hyprland.settings = {
+  wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
     layerrule = [
       "blur, waybar"
       "blur, swaync-control-center"

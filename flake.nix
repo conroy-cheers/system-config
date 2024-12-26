@@ -93,6 +93,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # NixOS-WSL
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     mac-app-util = {
       url = "github:hraban/mac-app-util";
     };

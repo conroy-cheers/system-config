@@ -42,7 +42,7 @@ in
 {
   imports = [ inputs.ags.homeManagerModules.default ];
 
-  config = lib.mkIf cfg.ags.enable {
+  config = lib.mkIf (cfg.enable && cfg.ags.enable) {
     home.packages = with pkgs; [
       asztal
       bun

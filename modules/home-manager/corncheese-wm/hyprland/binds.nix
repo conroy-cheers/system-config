@@ -1,7 +1,10 @@
-{ config, pkgs, ... }:
+{ lib, config, pkgs, ... }:
 
+let
+  cfg = config.corncheese.wm;
+in
 {
-  wayland.windowManager.hyprland.settings = {
+  wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
     "$mod" = "ALT";
 
     # Mouse bindings.

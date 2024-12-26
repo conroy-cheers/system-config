@@ -6,43 +6,19 @@
 
 {
   imports = [
-    ./hardware-configuration.nix
-    ./disko.nix
-    inputs.impermanence.nixosModules.impermanence
-    ./impermanence.nix
-    ./fans.nix
-    ./network.nix
-    ./root-aws.nix
-    ./wireguard.nix
-    ./tailscale.nix
+    inputs.nixos-wsl.nixosModules.default
     ./virtualisation.nix
-    ./wm/hyprland.nix
   ];
 
-  ### Set boot options
-  boot = {
-    # Use the systemd-boot boot loader.
-    loader = {
-      systemd-boot.enable = true;
-      efi.canTouchEfiVariables = true;
-    };
-
-    # Enable running aarch64 binaries using qemu
-    binfmt = {
-      emulatedSystems = [
-        "aarch64-linux"
-        "wasm32-wasi"
-        "x86_64-windows"
-      ];
-    };
-
-    supportedFilesystems = lib.mkForce [ "btrfs" ];
-  };
-
-  networking.hostName = "kombu"; # Define your hostname.
+  networking.hostName = "wsl-brick"; # Define your hostname.
   ### Pick only one of the below networking options.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
   # networking.networkmanager.enable = true;  # Easiest to use and most distros use this by default.
+
+  wsl = {
+    enable = true;
+    defaultUser = "conroy";
+  };
 
   ### Set your time zone.
   time.timeZone = "Australia/Melbourne";
@@ -54,33 +30,33 @@
     };
   };
 
-  age.secrets = {
-    "corncheese.home.key" = {
-      rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
-      mode = "400";
-    };
-    "andromeda.aws-experiments.key" = {
-      rekeyFile = "${inputs.self}/secrets/andromeda/aws-experiments/key.age";
-      mode = "400";
-    };
-  };
-  programs.ssh = {
-    extraConfig = ''
-      # bigbrain-direct
-      Host home.conroycheers.me
-        User conroy
-        HostName home.conroycheers.me
-        Port 8022
-        IdentityFile ${config.age.secrets."corncheese.home.key".path}
+  # age.secrets = {
+  #   "corncheese.home.key" = {
+  #     rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
+  #     mode = "400";
+  #   };
+  #   "andromeda.aws-experiments.key" = {
+  #     rekeyFile = "${inputs.self}/secrets/andromeda/aws-experiments/key.age";
+  #     mode = "400";
+  #   };
+  # };
+  # programs.ssh = {
+  #   extraConfig = ''
+  #     # bigbrain-direct
+  #     Host home.conroycheers.me
+  #       User conroy
+  #       HostName home.conroycheers.me
+  #       Port 8022
+  #       IdentityFile ${config.age.secrets."corncheese.home.key".path}
       
-      # build-thing
-      Host 18.136.8.225
-        User root
-        HostName 18.136.8.225
-        Port 22
-        IdentityFile ${config.age.secrets."andromeda.aws-experiments.key".path}
-    '';
-  };
+  #     # build-thing
+  #     Host 18.136.8.225
+  #       User root
+  #       HostName 18.136.8.225
+  #       Port 22
+  #       IdentityFile ${config.age.secrets."andromeda.aws-experiments.key".path}
+  #   '';
+  # };
 
   ### Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
@@ -297,15 +273,15 @@
   # Virtualisation
   virtualisation.docker.enable = true;
 
-  age.secrets."conroy.user.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/kombu/user/password.age";
-    mode = "440";
-  };
+  # age.secrets."conroy.user.password" = {
+  #   rekeyFile = "${inputs.self}/secrets/home/wsl-brick/user/password.age";
+  #   mode = "440";
+  # };
 
   ### Define a user account. Don't forget to set a password with `passwd`.
   users.users.conroy = {
     isNormalUser = true;
-    hashedPasswordFile = config.age.secrets."conroy.user.password".path;
+    # hashedPasswordFile = config.age.secrets."conroy.user.password".path;
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w" # kombu system key

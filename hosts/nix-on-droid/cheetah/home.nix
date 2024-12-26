@@ -56,10 +56,6 @@
     # dhall
     # dhall-lsp-server
 
-    # Zig
-    # zigpkgs.master
-    # inputs.zls-overlay.packages.aarch64-linux.default
-
     # Emacs
     # emacs
 

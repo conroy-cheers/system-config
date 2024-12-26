@@ -32,13 +32,8 @@
     # slurp # select regions from wayland
     # grim # grap images from regions
     # playerctl # music control
-    gparted
-    audacity
-    qalculate-gtk
-    libreoffice-qt6-fresh
     jujutsu
 
-    slack
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
@@ -152,6 +147,9 @@
       direnv = true;
       zoxide = true;
       shells = [ "zsh" ];
+    };
+    development = {
+      vscode.enable = true;
     };
     wezterm = {
       enable = true;

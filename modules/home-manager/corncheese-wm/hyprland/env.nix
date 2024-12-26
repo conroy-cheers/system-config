@@ -1,7 +1,10 @@
-{ config, pkgs, ... }:
+{ lib, config, pkgs, ... }:
 
+let
+  cfg = config.corncheese.wm;
+in
 {
-  wayland.windowManager.hyprland.settings = {
+  wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
     env = [
       "XDG_CURRENT_DESKTOP,Hyprland"
       "XDG_SESSION_TYPE,wayland"

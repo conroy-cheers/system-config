@@ -6,8 +6,8 @@
   ];
 
   home = {
-    username = "corncheese";
-    homeDirectory = "/home/corncheese";
+    username = "reo101";
+    homeDirectory = lib.mkForce "/home/reo101";
     stateVersion = "24.05";
   };
 
@@ -32,12 +32,12 @@
 
     ## Core
     neovim
-    fennel-language-server
+    fennel-ls
     git
     gnupg
     firefox
     discord
-    armcord # modded discord
+    legcord # modded discord
     vifm # file editor
     pciutils # lspci
     usbutils # lsusb
@@ -67,14 +67,6 @@
     clang
     openssl
     pkg-config
-
-    ## Vim FMI
-    vim-fmi-cli
-
-    ## Zig
-    # zigpkgs."0.10.1"
-    zigpkgs.master
-    # inputs.zls-overlay.packages.x86_64-linux.default
   ];
 
   # Enable the GPG Agent daemon.
@@ -95,9 +87,6 @@
       enable = true;
       direnv = true;
       zoxide = true;
-    };
-    river = {
-      enable = true;
     };
     wezterm = {
       enable = true;

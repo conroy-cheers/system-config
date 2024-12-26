@@ -206,6 +206,9 @@ in
       ];
 
       # Zsh
+      home.file = mkIf (builtins.elem "zsh" cfg.shells && cfg.p10k) {
+        ".config/zsh/.p10k.zsh".text = builtins.readFile ./p10k.zsh;
+      };
       programs.zsh = mkIf (builtins.elem "zsh" cfg.shells) {
         enable = true;
         package = pkgs.zsh;
