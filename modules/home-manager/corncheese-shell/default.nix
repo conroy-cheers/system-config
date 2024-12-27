@@ -98,10 +98,12 @@ in
           type = types.bool;
           default = true;
         };
+        bat = mkEnableOption "bat (instead of cat)" // { default = true; };
+        autosuggestions = mkEnableOption "zsh-autosuggestions" // { default = true; };
         flakePath = mkOption {
           description = "Flake path (for `rebuild`)";
           type = types.str;
-          default = "${config.xdg.configHome}/rix101";
+          default = "${config.xdg.configHome}/system-config";
         };
       };
     };
@@ -148,7 +150,7 @@ in
       };
 
       # Bat
-      programs.bat = {
+      programs.bat = mkIf cfg.bat {
         enable = true;
       };
 
@@ -206,8 +208,10 @@ in
       ];
 
       # Zsh
-      home.file = mkIf (builtins.elem "zsh" cfg.shells && cfg.p10k) {
-        ".config/zsh/.p10k.zsh".text = builtins.readFile ./p10k.zsh;
+      home.file = {
+        ".config/zsh/.p10k.zsh" = mkIf (builtins.elem "zsh" cfg.shells && cfg.p10k) {
+          text = builtins.readFile ./p10k.zsh;
+        };
       };
       programs.zsh = mkIf (builtins.elem "zsh" cfg.shells) {
         enable = true;
@@ -223,7 +227,7 @@ in
         };
 
         history = {
-          size = 50000;
+          size = 5000;
           path = "${config.xdg.dataHome}/zsh/history";
         };
 
@@ -239,14 +243,6 @@ in
                 source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
                 test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
               '')
-              # NOTE: done by `programs.direnv`
-              # (optionalString cfg.direnv ''
-              #   eval "$(${pkgs.direnv}/bin/direnv hook zsh)"
-              # '')
-              # NOTE: done by `programs.zoxide`
-              # (optionalString cfg.zoxide ''
-              #   eval "$(${pkgs.zoxide}/bin/zoxide init zsh)"
-              # '')
               ''
                 # Prevent macOS updates from destroying nix
                 if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''$''\{SHLVL''\}" -eq 1 ]; then
@@ -257,7 +253,6 @@ in
                 bindkey '^[[1;3D' backward-word  # Alt + Left
                 bindkey '^[[1;3C' forward-word   # Alt + Right
               ''
-              # cfg.extraConfig
             ];
 
         plugins = [
@@ -281,7 +276,7 @@ in
               hash = "sha256-RVX9ZSzjBW3LpFs2W86lKI6vtcvDWP6EPxzeTcRZua4=";
             };
           }
-          {
+          (mkIf cfg.autosuggestions {
             name = "zsh-autosuggestions";
             file = "zsh-autosuggestions.plugin.zsh";
             src = pkgs.fetchFromGitHub {
@@ -290,8 +285,8 @@ in
               rev = "c3d4e576c9c86eac62884bd47c01f6faed043fc5";
               hash = "sha256-B+Kz3B7d97CM/3ztpQyVkE6EfMipVF8Y4HJNfSRXHtU=";
             };
-          }
-          {
+          })
+          (mkIf cfg.bat {
             name = "zsh-bat";
             file = "zsh-bat.plugin.zsh";
             src = pkgs.fetchFromGitHub {
@@ -300,7 +295,7 @@ in
               rev = "c47f2de99d0c4c778e9de56ac8e527ddfd9b02e2";
               hash = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
             };
-          }
+          })
           (mkIf cfg.p10k
             ({
               name = "powerlevel10k";

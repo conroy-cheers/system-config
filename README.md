@@ -1,5 +1,3 @@
-![nix](https://socialify.git.ci/corncheese/rix101/image?description=1&font=Source%20Code%20Pro&forks=1&issues=1&logo=https%3A%2F%2Fpablo.tools%2Fnixoscolorful.svg&owner=1&pattern=Circuit%20Board&pulls=1&stargazers=1&theme=Dark)
-
 <!-- <div align="center">
     <p>
         <a href="https://github.com/NixOS">
@@ -13,20 +11,6 @@
         </a>
     </p>
 </div> -->
-
-<!-- ```
-      ___         ___             ___      
-     /  /\       /  /\           /__/|     
-    /  /::\     /  /:/          |  |:|     
-   /  /:/\:\   /__/::\          |  |:|     
-  /  /:/~/:/   \__\/\:\       __|__|:|     
- /__/:/ /:/___    \  \:\     /__/::::\____ 
- \  \:\/:::::/     \  \:\__     ~\~~\::::/ 
-  \  \::/~~~~       \  \:\/\     |~~|:|~~  
-   \  \:\            \__\::/     |  |:|    
-    \  \:\           /__/:/      |  |:|    
-     \__\/           \__\/       |__|/     
-``` -->
 
 <!-- TODO: badges? -->
 <div align="center">
@@ -117,8 +101,8 @@ sudo xcodebuild -license
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
 # Apply configuration
-git clone https://www.github.com/corncheese/rix101 ~/.config/rix101
-cd ~/.config/rix101
+git clone https://www.github.com/conroy-cheers/system-config ~/.config/system-config
+cd ~/.config/system-config
 nix build ".#darwinConfigurations.${HOSTNAME}.system"
 ./result/sw/bin/darwin-rebuild switch --flake .
 
@@ -131,6 +115,4 @@ csrutil enable --without fs --without debug --without nvram
 
 # Credits
 
-- [`Misterio77`](https://github.com/Misterio77) for his amazing [`nix-starter-configs`](https://github.com/Misterio77/nix-starter-configs), on which this was based originally
-- [`disko`](https://github.com/nix-community/disko) for making disk partioning a breeze
-- [`oddlama`](https://github.com/oddlama) for creating the amazing [`agenix-rekey`](https://github.com/oddlama/agenix-rekey) and [`nix-topology`](https://github.com/oddlama/nix-topology) projects
+Based on [`reo101`](https://github.com/reo101)'s [`rix101`](https://github.com/reo101/rix101) config.

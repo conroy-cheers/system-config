@@ -3,8 +3,6 @@
 {
   imports = [
     inputs.wired.homeManagerModules.default
-    ./conroy/op.nix
-    ./conroy/ssh.nix
   ];
 
   home = {
@@ -13,27 +11,41 @@
     stateVersion = "24.05";
   };
 
-  stylix = {
-    targets.hyprland.enable = true;
-    targets.kitty.enable = true;
+  corncheese = {
+    wsl = {
+      _1password.enable = true;
+    };
+    theming = {
+      enable = false;
+      theme = "catppuccin";
+    };
+    wm = {
+      enable = false;
+    };
+    shell = {
+      enable = true;
+      starship = false;
+      p10k = true;
+      atuin = false;
+      direnv = false;
+      zoxide = false;
+      bat = true;
+      autosuggestions = false;
+      shells = [ "zsh" ];
+    };
+    development = {
+      vscode.enable = true;
+      ssh.enable = true;
+    };
+    wezterm = {
+      enable = true;
+    };
   };
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
   home.packages = with pkgs; [
-    ## WM
-    # river
-    # swww # wallpaper deamon
-    # # wired-notify # dunst on wayland
-    # waybar # status bar
-    # xwayland
-    # wl-clipboard
-    # slurp # select regions from wayland
-    # grim # grap images from regions
-    # playerctl # music control
-    jujutsu
-
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
@@ -43,22 +55,11 @@
     lttng-tools
     lttng-ust
 
-    grimblast
-
-    plexamp
-
-    ## Dhall
-    dhall
-    # dhall-lsp-server
-
     ## Nix
     nil
     direnv
     nixpkgs-fmt
     nix-output-monitor
-
-    ## Torrents
-    tremc
 
     ## Python
     ruff
@@ -85,13 +86,6 @@
     enableSshSupport = true;
   };
 
-  programs.kitty = {
-    enable = true;
-    settings = {
-      scrollback_lines = 20000;
-    };
-  };
-
   programs.firefox = {
     enable = true;
   };
@@ -116,7 +110,7 @@
     enable = true;
     lfs.enable = true;
     userName = "Conroy Cheers";
-    userEmail = "conroy@dromeda.com.au";
+    userEmail = "conroy@corncheese.org";
     delta = {
       enable = true;
     };
@@ -132,45 +126,9 @@
   };
   xdg.configFile."nvim/init.lua".enable = false;
 
-  corncheese = {
-    theming = {
-      enable = true;
-      theme = "catppuccin";
-    };
-    wm = {
-      enable = true;
-      ags.enable = true;
-      hyprpaper.enable = true;
-    };
-    shell = {
-      enable = true;
-      direnv = true;
-      zoxide = true;
-      shells = [ "zsh" ];
-    };
-    development = {
-      vscode.enable = true;
-    };
-    wezterm = {
-      enable = true;
-    };
-  };
-
   home.file = {
     ".config/nvim" = {
       source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/src/reovim";
     };
   };
-
-  # home.file.".stack/config.yaml".text = lib.generators.toYAML {} {
-  #   templates = {
-  #     scm-init = "git";
-  #     params = with config.programs.git; {
-  #       author-name = userName;
-  #       author-email = userEmail;
-  #       github-username = userName;
-  #     };
-  #   };
-  #   nix.enable = true;
-  # };
 }
