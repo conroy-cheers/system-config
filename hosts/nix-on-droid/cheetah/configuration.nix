@@ -29,9 +29,7 @@
 
   terminal.font =
     let
-      firacode = pkgs.nerdfonts.override {
-        fonts = [ "FiraCode" ];
-      };
+      firacode = nerd-fonts.fira-code;
       fontPath = "share/fonts/truetype/NerdFonts/FiraCodeNerdFontMono-Regular.ttf";
     in
     "${firacode}/${fontPath}";

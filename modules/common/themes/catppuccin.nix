@@ -12,7 +12,7 @@
   btopTheme = "catppuccin";
 
   font = "JetBrains Mono";
-  fontPkg = (pkgs.nerdfonts.override { fonts = [ "JetBrainsMono" ]; });
+  fontPkg = pkgs.nerd-fonts.jetbrains-mono;
   fontSize = 12;
 
   wallpaper = pkgs.corncheese-wallpapers.paths.green;

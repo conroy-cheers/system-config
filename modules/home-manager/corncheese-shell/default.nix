@@ -147,6 +147,16 @@ in
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
+
+	daemon.enable = true;
+	
+	settings = {
+	  auto_sync = true;
+	  sync_frequency = "5m";
+	  sync_address = "https://atuin.corncheese.org";
+	  
+	  inline_height = 20;
+	};
       };
 
       # Bat
