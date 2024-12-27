@@ -26,11 +26,11 @@
       enable = true;
       starship = false;
       p10k = true;
-      atuin = false;
-      direnv = false;
-      zoxide = false;
+      atuin = true;
+      direnv = true;
+      zoxide = true;
       bat = true;
-      autosuggestions = false;
+      autosuggestions = true;
       shells = [ "zsh" ];
     };
     development = {

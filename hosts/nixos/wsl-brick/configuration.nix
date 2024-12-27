@@ -14,6 +14,7 @@
   wsl = {
     enable = true;
     defaultUser = "conroy";
+    wslConf.interop.appendWindowsPath = false;
   };
 
   ### Set your time zone.
@@ -137,7 +138,6 @@
     enable = true;
     package = pkgs.gitFull;
     config = {
-      core.sshCommand = "ssh.exe";
       credential.helper = "libsecret";
     };
   };
