@@ -168,16 +168,4 @@
       source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/src/reovim";
     };
   };
-
-  # home.file.".stack/config.yaml".text = lib.generators.toYAML {} {
-  #   templates = {
-  #     scm-init = "git";
-  #     params = with config.programs.git; {
-  #       author-name = userName;
-  #       author-email = userEmail;
-  #       github-username = userName;
-  #     };
-  #   };
-  #   nix.enable = true;
-  # };
 }

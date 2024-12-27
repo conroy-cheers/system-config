@@ -3,6 +3,9 @@
 let
   cfg = config.corncheese.development;
 
+  onePassPath = "~/.1password/agent.sock";
+  homeJumpHosts = [ "pve" "bigbrain" ];
+
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
     mktplcRef = {
       name = "pkl-vscode";
@@ -19,6 +22,7 @@ in
 {
   options = {
     corncheese.development = {
+      ssh.enable = lib.mkEnableOption "corncheese developer ssh config";
       vscode = {
         enable = lib.mkEnableOption "corncheese vscode config";
       };
@@ -56,6 +60,52 @@ in
           "workbench.action.tasks.runTask"
         ];
         "remote.SSH.useLocalServer" = false;
+      };
+    };
+
+    home.file = lib.mkIf cfg.ssh.enable (let
+      # Get all files from the source directory
+      sshFiles = builtins.readDir ./pubkeys;
+      
+      # Create a set of file mappings for each identity file
+      fileMapper = filename: {
+        # Target path will be in ~/.ssh/
+        ".ssh/${filename}".source = ./pubkeys + "/${filename}";
+      };
+    in
+      lib.foldl (acc: filename: acc // (fileMapper filename)) {} (builtins.attrNames sshFiles));
+
+    programs.ssh = lib.mkIf cfg.ssh.enable {
+      enable = true;
+      forwardAgent = false;
+      hashKnownHosts = true;
+
+      # 1Password SSH agent config
+      extraConfig = ''
+        Host *
+            IdentityAgent ${onePassPath}
+      '';
+
+      matchBlocks = {
+        "beluga" = {
+          hostname = "corncheese.org";
+          user = "conroycheers";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        "pve" = {
+          hostname = "10.1.1.3";
+          user = "root";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        "bigbrain" = {
+          hostname = "bigbrain.lan";
+          user = "conroy";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        home = {
+          host = (lib.concatStringsSep " " homeJumpHosts);
+          proxyJump = "beluga";
+        };
       };
     };
   };

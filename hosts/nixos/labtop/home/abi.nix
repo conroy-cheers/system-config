@@ -6,8 +6,8 @@
   ];
 
   home = {
-    username = "conroy";
-    homeDirectory = "/home/conroy";
+    username = "abi";
+    homeDirectory = "/home/abi";
     stateVersion = "24.05";
   };
 
@@ -31,9 +31,6 @@
       zoxide = true;
       shells = [ "zsh" ];
     };
-    wezterm = {
-      enable = true;
-    };
   };
   andromeda = {
     development.enable = true;
@@ -48,23 +45,10 @@
   programs.home-manager.enable = true;
 
   home.packages = with pkgs; [
-    ## WM
-    # river
-    # swww # wallpaper deamon
-    # # wired-notify # dunst on wayland
-    # waybar # status bar
-    # xwayland
-    # wl-clipboard
-    # slurp # select regions from wayland
-    # grim # grap images from regions
-    # playerctl # music control
-    gparted
     audacity
     qalculate-gtk
     libreoffice-qt6-fresh
-    jujutsu
 
-    slack
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
@@ -76,20 +60,11 @@
 
     grimblast
 
-    plexamp
-
-    ## Dhall
-    dhall
-    # dhall-lsp-server
-
     ## Nix
     nil
     direnv
     nixpkgs-fmt
     nix-output-monitor
-
-    ## Torrents
-    tremc
 
     ## Python
     ruff
@@ -146,8 +121,8 @@
   programs.git = {
     enable = true;
     lfs.enable = true;
-    userName = "Conroy Cheers";
-    userEmail = "conroy@dromeda.com.au";
+    userName = "Abi Andromeda";
+    userEmail = "anyone@dromeda.com.au";
     delta = {
       enable = true;
     };
@@ -168,16 +143,4 @@
       source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/src/reovim";
     };
   };
-
-  # home.file.".stack/config.yaml".text = lib.generators.toYAML {} {
-  #   templates = {
-  #     scm-init = "git";
-  #     params = with config.programs.git; {
-  #       author-name = userName;
-  #       author-email = userEmail;
-  #       github-username = userName;
-  #     };
-  #   };
-  #   nix.enable = true;
-  # };
 }
