@@ -1,7 +1,7 @@
 {
   system = "x86_64-linux";
 
-  pubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w";
+  pubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEUE2OxmW9PcRNvSY6wXsaxxoXNeRSYM2wj4UXR/pcW/";
 
   # `deploy-rs` configuration
   deploy = {
