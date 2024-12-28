@@ -7,7 +7,6 @@ in
   config = lib.mkIf cfg.enable {
     programs.hyprlock.enable = true;
     programs.hyprlock.settings = {
-      path = "screenshot";
       general = {
         grace = 0;
         ignore_empty_input = true;

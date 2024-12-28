@@ -2,12 +2,19 @@
 { pkgs
 , inputs
 , ...
-}: pkgs.mkShellNoCC {
+}:
+let
+  pkgs' = import inputs.nixpkgs {
+    system = pkgs.system;
+    overlays = [ inputs.agenix-rekey.overlays.default ];
+  };
+in
+pkgs.mkShellNoCC {
   NIX_CONFIG = ''
     extra-experimental-features = nix-command flakes
   '';
   nativeBuildInputs = with pkgs; [
-    nixVersions.monitored.latest
+    pkgs.nixVersions.monitored.latest
     home-manager
     git
     wireguard-tools
@@ -15,7 +22,7 @@
     # inputs.agenix.packages.${pkgs.system}.agenix
     # inputs.ragenix.packages.${pkgs.system}.ragenix
     rage
-    inputs.agenix-rekey.packages.${pkgs.system}.agenix-rekey
+    pkgs'.agenix-rekey
     age-plugin-fido2-hmac
   ];
 }

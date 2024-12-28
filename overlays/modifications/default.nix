@@ -45,6 +45,12 @@ final: prev:
                 "nix_2_15"
                 "nix_2_16"
                 "nix_2_17"
+                "nix_2_18"
+                "nix_2_19"
+                "nix_2_20"
+                "nix_2_21"
+                "nix_2_22"
+                "nix_2_23"
                 "unstable"
               ])
             (final.lib.isDerivation package))
