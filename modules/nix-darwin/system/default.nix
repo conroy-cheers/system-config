@@ -17,7 +17,6 @@ in
 
   config = mkIf cfg.enable {
 
-    services.activate-system.enable = true;
     services.nix-daemon.enable = true;
     # programs.nix-index.enable = true;
 
@@ -201,109 +200,109 @@ in
       '';
 
       # User-level settings
-      activationScripts.postUserActivation.text = ''
-        echo "Show the ~/Library folder"
-        chflags nohidden ~/Library
+      # activationScripts.postUserActivation.text = ''
+      #   echo "Show the ~/Library folder"
+      #   chflags nohidden ~/Library
 
-        echo "Enable dock magnification"
-        defaults write com.apple.dock magnification -bool true
+      #   echo "Enable dock magnification"
+      #   defaults write com.apple.dock magnification -bool true
 
-        echo "Set dock magnification size"
-        defaults write com.apple.dock largesize -int 48
+      #   echo "Set dock magnification size"
+      #   defaults write com.apple.dock largesize -int 48
 
-        echo "Set dock autohide delays (0)"
-        defaults write com.apple.dock autohide-time-modifier -float 0
-        defaults write com.apple.dock autohide-delay -float 0
-        defaults write com.apple.dock expose-animation-duration -float 0
-        defaults write com.apple.dock springboard-show-duration -float 0
-        defaults write com.apple.dock springboard-hide-duration -float 0
-        defaults write com.apple.dock springboard-page-duration -float 0
+      #   echo "Set dock autohide delays (0)"
+      #   defaults write com.apple.dock autohide-time-modifier -float 0
+      #   defaults write com.apple.dock autohide-delay -float 0
+      #   defaults write com.apple.dock expose-animation-duration -float 0
+      #   defaults write com.apple.dock springboard-show-duration -float 0
+      #   defaults write com.apple.dock springboard-hide-duration -float 0
+      #   defaults write com.apple.dock springboard-page-duration -float 0
 
-        echo "Disable Hot Corners"
-        ## wvous-**-corner
-        ## 0 - Nothing
-        ## 1 - Disabled
-        ## 2 - Mission Control
-        ## 3 - Notifications
-        ## 4 - Show the desktop
-        ## 5 - Start screen saver
-        ##
-        ## wvous-**-modifier
-        ## 0 - _
-        ## 131072 - Shift+_
-        ## 1048576 - Command+_
-        ## 524288 - Option+_
-        ## 262144 - Control+_
-        ##
-        # Top Left
-        defaults write com.apple.dock wvous-tl-corner -int 0
-        # Top Right
-        defaults write com.apple.dock wvous-tr-corner -int 0
-        # Bottom Left
-        defaults write com.apple.dock wvous-bl-corner -int 0
-        # Bottom Right
-        defaults write com.apple.dock wvous-br-corner -int 0
+      #   echo "Disable Hot Corners"
+      #   ## wvous-**-corner
+      #   ## 0 - Nothing
+      #   ## 1 - Disabled
+      #   ## 2 - Mission Control
+      #   ## 3 - Notifications
+      #   ## 4 - Show the desktop
+      #   ## 5 - Start screen saver
+      #   ##
+      #   ## wvous-**-modifier
+      #   ## 0 - _
+      #   ## 131072 - Shift+_
+      #   ## 1048576 - Command+_
+      #   ## 524288 - Option+_
+      #   ## 262144 - Control+_
+      #   ##
+      #   # Top Left
+      #   defaults write com.apple.dock wvous-tl-corner -int 0
+      #   # Top Right
+      #   defaults write com.apple.dock wvous-tr-corner -int 0
+      #   # Bottom Left
+      #   defaults write com.apple.dock wvous-bl-corner -int 0
+      #   # Bottom Right
+      #   defaults write com.apple.dock wvous-br-corner -int 0
 
-        echo "Disable Finder animations"
-        defaults write com.apple.finder DisableAllAnimations -bool true
+      #   echo "Disable Finder animations"
+      #   defaults write com.apple.finder DisableAllAnimations -bool true
 
-        echo "Disable Mail animations"
-        defaults write com.apple.Mail DisableSendAnimations -bool true
-        defaults write com.apple.Mail DisableReplyAnimations -bool true
+      #   echo "Disable Mail animations"
+      #   defaults write com.apple.Mail DisableSendAnimations -bool true
+      #   defaults write com.apple.Mail DisableReplyAnimations -bool true
 
-        # echo "Disable \"Save in Keychain\" for pinentry-mac"
-        # defaults write org.gpgtools.common DisableKeychain -bool yes
+      #   # echo "Disable \"Save in Keychain\" for pinentry-mac"
+      #   # defaults write org.gpgtools.common DisableKeychain -bool yes
 
-        echo "Disable bezels (volume/brightness popups)"
-        launchctl unload -wF /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist
+      #   echo "Disable bezels (volume/brightness popups)"
+      #   launchctl unload -wF /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist
 
-        echo "Define dock icon function"
-        __dock_item() {
-            echo "${
-              lib.pipe
-                ''
-                  <dict>
-                    <key>
-                      tile-data
-                    </key>
-                    <dict>
-                      <key>
-                        file-data
-                      </key>
-                      <dict>
-                        <key>
-                          _CFURLString
-                        </key>
-                        <string>
-                          ''${1}
-                        </string>
-                        <key>
-                          _CFURLStringType
-                        </key>
-                        <integer>
-                          0
-                        </integer>
-                      </dict>
-                    </dict>
-                  </dict>
-                ''
-                [
-                  (lib.splitString "\n")
-                  (map
-                    (lib.flip lib.pipe
-                      [
-                        (builtins.match "[[:space:]]*(.*)")
-                        head
-                      ]))
-                  lib.concatStrings
-                ]
-            }"
-        }
+      #   echo "Define dock icon function"
+      #   __dock_item() {
+      #       echo "${
+      #         lib.pipe
+      #           ''
+      #             <dict>
+      #               <key>
+      #                 tile-data
+      #               </key>
+      #               <dict>
+      #                 <key>
+      #                   file-data
+      #                 </key>
+      #                 <dict>
+      #                   <key>
+      #                     _CFURLString
+      #                   </key>
+      #                   <string>
+      #                     ''${1}
+      #                   </string>
+      #                   <key>
+      #                     _CFURLStringType
+      #                   </key>
+      #                   <integer>
+      #                     0
+      #                   </integer>
+      #                 </dict>
+      #               </dict>
+      #             </dict>
+      #           ''
+      #           [
+      #             (lib.splitString "\n")
+      #             (map
+      #               (lib.flip lib.pipe
+      #                 [
+      #                   (builtins.match "[[:space:]]*(.*)")
+      #                   head
+      #                 ]))
+      #             lib.concatStrings
+      #           ]
+      #       }"
+      #   }
 
-        echo "Choose and order dock icons"
-        defaults write com.apple.dock persistent-apps -array \
-            "$(__dock_item "/System/Applications/System Settings.app")"
-      '';
+      #   echo "Choose and order dock icons"
+      #   defaults write com.apple.dock persistent-apps -array \
+      #       "$(__dock_item "/System/Applications/System Settings.app")"
+      # '';
       # defaults write com.apple.dock persistent-apps -array \
       #     "$(__dock_item /Applications/1Password.app)" \
       #     "$(__dock_item ${pkgs.slack}/Applications/Slack.app)" \

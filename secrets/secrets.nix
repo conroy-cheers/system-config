@@ -22,6 +22,7 @@ in
   "andromeda/aws-cache/env.age".publicKeys = users ++ [ kombu_system brick_system ];
   "andromeda/aws-experiments/key.age".publicKeys = users ++ [ kombu_system brick_system ];
   "andromeda/tailscale/key.age".publicKeys = users ++ [ kombu_system ];
+  "corncheese/atuin/key.age".publicKeys = users ++ [ kombu_system brick_system ];
   "corncheese/home/key.age".publicKeys = users ++ [ kombu_system brick_system ];
   "home/conroy/user/password.age".publicKeys = users ++ [ kombu_system brick_system ];
   "home/wifi/conf.age".publicKeys = users ++ systems;
