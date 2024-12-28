@@ -53,6 +53,16 @@
     wm.enable = true;
   };
 
+  # log conroy into atuin sync
+  age.secrets."corncheese.atuin.key" = {
+    file = "${inputs.self}/secrets/corncheese/atuin/key.age";
+  };
+  home-manager.users.conroy = {
+    corncheese = {
+      shell.atuin.key = config.age.secrets."corncheese.atuin.key".path;
+    };
+  };
+
   andromeda = {
     development = {
       enable = true;

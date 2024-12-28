@@ -43,7 +43,6 @@ in
 {
   imports =
     [
-      inputs.agenix.homeManagerModules.age
     ];
 
   options =
@@ -87,6 +86,10 @@ in
         atuin = {
           enable = mkEnableOption "atuin history search" // { default = true; };
           sync = mkEnableOption "syncing atuin history to corncheese server";
+          key = mkOption {
+            type = with types; path;
+            description = "Runtime path of decrypted Atuin sync key";
+          };
         };
         direnv = mkOption {
           description = "Integrate with direnv";
@@ -110,10 +113,6 @@ in
 
   config = mkMerge [
     {
-      age = {
-        secretsDir = "${config.home.homeDirectory}/.agenix/agenix";
-        secretsMountPoint = "${config.home.homeDirectory}/.agenix/agenix.d";
-      };
     }
     (mkIf cfg.enable {
       home.packages = with pkgs;
@@ -148,10 +147,6 @@ in
       };
 
       # Atuin
-      age.secrets."corncheese.atuin.key" = mkIf cfg.atuin.sync {
-        file = "${inputs.self}/secrets/corncheese/atuin/key.age";
-      };
-
       programs.atuin = mkIf cfg.atuin.enable {
         enable = true;
 
@@ -170,7 +165,7 @@ in
             auto_sync = true;
             sync_frequency = "5m";
             sync_address = "https://atuin.corncheese.org";
-            key_path = config.age.secrets."corncheese.atuin.key".path;
+            key_path = cfg.atuin.key;
           })
         ];
       };

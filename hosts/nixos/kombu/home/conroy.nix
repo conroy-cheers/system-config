@@ -29,6 +29,10 @@
       enable = true;
       direnv = true;
       zoxide = true;
+      atuin = {
+        enable = true;
+        sync = true;
+      };
       shells = [ "zsh" ];
     };
     wezterm = {
