@@ -3,6 +3,15 @@
 {
   environment.systemPackages = with pkgs; [ ];
 
+  users.users.conroy = {
+    description = "Conroy Cheers";
+    home = "/Users/conroy";
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
+    ];
+    shell = pkgs.zsh;
+  };
+
   corncheese = {
     system.enable = true;
     theming = {
@@ -11,13 +20,14 @@
     };
   };
 
-  users.users.conroy = {
-    description = "Conroy Cheers";
-    home = "/Users/conroy";
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
-    ];
-    shell = pkgs.zsh;
+  # log conroy into atuin sync
+  age.secrets."corncheese.atuin.key" = {
+    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
+  };
+  home-manager.users.conroy = {
+    corncheese = {
+      shell.atuin.key = config.age.secrets."corncheese.atuin.key".path;
+    };
   };
 
   # Auto upgrade nix package and the daemon service.
