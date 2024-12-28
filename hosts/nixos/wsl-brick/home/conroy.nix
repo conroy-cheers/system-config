@@ -26,7 +26,10 @@
       enable = true;
       starship = false;
       p10k = true;
-      atuin = true;
+      atuin = {
+        enable = true;
+        sync = true;
+      };
       direnv = true;
       zoxide = true;
       bat = true;

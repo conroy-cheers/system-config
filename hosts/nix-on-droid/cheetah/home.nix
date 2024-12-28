@@ -93,7 +93,7 @@
     enable = true;
     username = "corncheese";
     hostname = "cheetah";
-    atuin = true;
+    atuin.enable = true;
     direnv = true;
     zoxide = true;
   };

@@ -1,4 +1,4 @@
-{ lib, pkgs, config, ... }:
+{ inputs, lib, pkgs, config, ... }:
 
 let
   cfg = config.corncheese.shell;
@@ -43,6 +43,7 @@ in
 {
   imports =
     [
+      inputs.agenix.homeManagerModules.age
     ];
 
   options =
@@ -83,10 +84,9 @@ in
           type = types.bool;
           default = true;
         };
-        atuin = mkOption {
-          description = "Integrate with atuin";
-          type = types.bool;
-          default = true;
+        atuin = {
+          enable = mkEnableOption "atuin history search" // { default = true; };
+          sync = mkEnableOption "syncing atuin history to corncheese server";
         };
         direnv = mkOption {
           description = "Integrate with direnv";
@@ -108,8 +108,14 @@ in
       };
     };
 
-  config =
-    mkIf cfg.enable {
+  config = mkMerge [
+    {
+      age = {
+        secretsDir = "${config.home.homeDirectory}/.agenix/agenix";
+        secretsMountPoint = "${config.home.homeDirectory}/.agenix/agenix.d";
+      };
+    }
+    (mkIf cfg.enable {
       home.packages = with pkgs;
         builtins.concatLists [
           (builtins.map
@@ -142,21 +148,31 @@ in
       };
 
       # Atuin
-      programs.atuin = mkIf cfg.atuin {
+      age.secrets."corncheese.atuin.key" = mkIf cfg.atuin.sync {
+        file = "${inputs.self}/secrets/corncheese/atuin/key.age";
+      };
+
+      programs.atuin = mkIf cfg.atuin.enable {
         enable = true;
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
 
-	daemon.enable = true;
-	
-	settings = {
-	  auto_sync = true;
-	  sync_frequency = "5m";
-	  sync_address = "https://atuin.corncheese.org";
-	  
-	  inline_height = 20;
-	};
+        daemon.enable = true;
+        
+        settings = mkMerge [
+          {
+            enter_accept = true;
+            inline_height = 20;
+            dialect = "uk";
+          }
+          (mkIf cfg.atuin.sync {
+            auto_sync = true;
+            sync_frequency = "5m";
+            sync_address = "https://atuin.corncheese.org";
+            key_path = config.age.secrets."corncheese.atuin.key".path;
+          })
+        ];
       };
 
       # Bat
@@ -315,7 +331,8 @@ in
           )
         ];
       };
-    };
+    })
+  ];
 
   meta = {
     maintainers = with lib.maintainers; [ conroy-cheers ];
