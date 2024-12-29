@@ -37,9 +37,17 @@
     owner = "conroy";
     mode = "0400";
   };
+  age.secrets."corncheese.atuin.session" = {
+    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/session.age";
+    owner = "conroy";
+    mode = "0400";
+  };
   home-manager.users.conroy = {
     corncheese = {
-      shell.atuin.key = config.age.secrets."corncheese.atuin.key".path;
+      shell.atuin = {
+        key = config.age.secrets."corncheese.atuin.key".path;
+        sessionToken = config.age.secrets."corncheese.atuin.session".path;
+      };
     };
   };
 

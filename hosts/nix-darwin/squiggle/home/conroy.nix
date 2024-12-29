@@ -22,6 +22,9 @@
     age.secrets."corncheese.atuin.key" = {
       rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
     };
+    age.secrets."corncheese.atuin.session" = {
+      rekeyFile = "${inputs.self}/secrets/corncheese/atuin/session.age";
+    };
 
     corncheese = {
       development = {
@@ -41,6 +44,7 @@
           enable = true;
           sync = true;
           key = config.age.secrets."corncheese.atuin.key".path;
+          sessionToken = config.age.secrets."corncheese.atuin.session".path;
         };
         direnv = true;
         zoxide = true;

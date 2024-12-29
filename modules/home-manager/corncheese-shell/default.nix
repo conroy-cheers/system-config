@@ -90,6 +90,10 @@ in
             type = with types; str;
             description = "Runtime path of decrypted Atuin sync key";
           };
+          sessionToken = mkOption {
+            type = with types; str;
+            description = "Runtime path of decrypted Atuin session token";
+          };
         };
         direnv = mkOption {
           description = "Integrate with direnv";
@@ -166,6 +170,7 @@ in
             sync_frequency = "5m";
             sync_address = "https://atuin.corncheese.org";
             key_path = cfg.atuin.key;
+            session_path = cfg.atuin.sessionToken;
           })
         ];
       };
