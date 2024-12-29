@@ -6,6 +6,11 @@
 
 {
   imports = [
+    inputs.hardware.nixosModules.common-cpu-amd
+    inputs.hardware.nixosModules.common-cpu-amd-pstate
+    inputs.hardware.nixosModules.common-gpu-amd
+    inputs.hardware.nixosModules.common-gpu-nvidia-sync
+    inputs.hardware.nixosModules.common-ssd
     ./hardware-configuration.nix
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence

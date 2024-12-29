@@ -6,10 +6,25 @@
       (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
-  boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "sd_mod" ];
-  boot.initrd.kernelModules = [ "amdgpu" ];
-  boot.kernelModules = [ "kvm-amd" ];
-  boot.extraModulePackages = [ ];
+  boot = {
+    initrd = {
+      availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "sd_mod" ];
+    };
+    kernelModules = [ "kvm-amd" ];
+    kernelParams = [
+      "mem_sleep_default=deep"
+      "pcie_aspm.policy=powersupersave"
+    ];
+    blacklistedKernelModules = [ "nouveau" ];
+  };
+
+  hardware.nvidia.prime = {
+    # Bus ID of the AMD GPU.
+    amdgpuBusId = lib.mkDefault "PCI:63:0:0";
+
+    # Bus ID of the NVIDIA GPU.
+    nvidiaBusId = lib.mkDefault "PCI:1:0:0";
+  };
 
   swapDevices = [ ];
 
