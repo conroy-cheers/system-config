@@ -41,7 +41,7 @@ in
         rounding = themeDetails.roundingRadius;
         blur = {
           enabled = true;
-          special = true;
+          special = false;
           brightness = 1.0;
           contrast = 1.0;
           noise = 0.02;
@@ -49,10 +49,12 @@ in
           size = 5;
         };
 
-        drop_shadow = themeDetails.shadows;
-        shadow_ignore_window = false;
-        shadow_offset = "2 2";
-        shadow_range = 20;
+        shadow = {
+          enabled = themeDetails.shadows;
+          ignore_window = false;
+          offset = "2 2";
+          range = 20;
+        };
         # "col.shadow" = "rgba(${config.lib.stylix.colors.base00}ff)";
       };
 
