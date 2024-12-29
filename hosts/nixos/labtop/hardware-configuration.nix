@@ -1,5 +1,8 @@
 { lib, pkgs, config, modulesPath, ... }:
 
+let
+  nvidiaPackage = config.hardware.nvidia.package;
+in
 {
   imports =
     [
@@ -25,6 +28,7 @@
     # Bus ID of the NVIDIA GPU.
     nvidiaBusId = lib.mkDefault "PCI:1:0:0";
   };
+  hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
 
   swapDevices = [ ];
 
