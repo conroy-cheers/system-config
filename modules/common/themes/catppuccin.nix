@@ -11,8 +11,8 @@
   overrideBtop = true;
   btopTheme = "catppuccin";
 
-  font = "JetBrains Mono";
-  fontPkg = pkgs.nerd-fonts.jetbrains-mono;
+  font = "Meslo LG";
+  fontPkg = pkgs.nerd-fonts.meslo-lg;
   fontSize = 12;
 
   wallpaper = pkgs.corncheese-wallpapers.paths.green;

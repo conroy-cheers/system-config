@@ -20,18 +20,6 @@
     };
   };
 
-  # log conroy into atuin sync
-  age.secrets."corncheese.atuin.key" = {
-    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
-    owner = "conroy";
-    mode = "0400";
-  };
-  home-manager.users.conroy = {
-    corncheese = {
-      shell.atuin.key = config.age.secrets."corncheese.atuin.key".path;
-    };
-  };
-
   # Auto upgrade nix package and the daemon service.
   services.nix-daemon.enable = true;
 

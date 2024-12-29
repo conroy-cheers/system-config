@@ -87,7 +87,7 @@ in
           enable = mkEnableOption "atuin history search" // { default = true; };
           sync = mkEnableOption "syncing atuin history to corncheese server";
           key = mkOption {
-            type = with types; path;
+            type = with types; str;
             description = "Runtime path of decrypted Atuin sync key";
           };
         };

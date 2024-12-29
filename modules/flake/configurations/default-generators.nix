@@ -31,7 +31,15 @@ let
       # make deploying work
       backupFileExtension = "hm-backup";
       # Default import all of our exported `home-manager` modules
-      sharedModules = builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"};
+      sharedModules = builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"} ++ [
+        # (r)agenix && agenix-rekey
+        inputs.ragenix.homeManagerModules.default
+        inputs.agenix-rekey.homeManagerModules.default
+        # (lib.optionalAttrs (meta.pubkey != null) {
+        #   age.rekey.hostPubkey = meta.pubkey;
+        # })
+        ./agenix-rekey/home.nix
+      ];
       # Pass in `inputs`, `hostname` and `meta`
       extraSpecialArgs = {
         inherit inputs;

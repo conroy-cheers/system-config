@@ -42,24 +42,20 @@ in
         enableKeyMapping = true; # Allows for skhd
         userKeyMapping = [
           # { HIDKeyboardModifierMappingSrc = 30064771172; HIDKeyboardModifierMappingDst = 30064771125; }
-          { HIDKeyboardModifierMappingSrc = 30064771125; HIDKeyboardModifierMappingDst = 30064771172; }
+          # { HIDKeyboardModifierMappingSrc = 30064771125; HIDKeyboardModifierMappingDst = 30064771172; }
         ];
       };
 
       defaults = {
         NSGlobalDomain = {
-
-          # Set to dark mode
           AppleInterfaceStyle = "Dark";
-
-          # Don't change from dark to light automatically
-          # AppleInterfaceSwitchesAutomatically = false;
+          AppleInterfaceStyleSwitchesAutomatically = true;
 
           # Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)
           AppleKeyboardUIMode = 3;
 
           # Automatically show and hide the menu bar
-          _HIHideMenuBar = true;
+          _HIHideMenuBar = false;
 
           # Expand save panel by default
           NSNavPanelExpandedStateForSaveMode = true;
@@ -71,7 +67,7 @@ in
           ApplePressAndHoldEnabled = false;
 
           # Set a fast key repeat rate
-          KeyRepeat = 2;
+          KeyRepeat = 4;
 
           # Shorten delay before key repeat begins
           InitialKeyRepeat = 12;
@@ -113,7 +109,7 @@ in
         dock = {
 
           # Automatically show and hide the dock
-          autohide = true;
+          autohide = false;
 
           # Add translucency in dock for hidden applications
           showhidden = true;
