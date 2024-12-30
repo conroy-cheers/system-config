@@ -210,7 +210,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    ags.url = "github:Aylur/ags";
+    ags.url = "github:Aylur/ags/v1";
     hyprland = {
       type = "git";
       url = "https://github.com/hyprwm/Hyprland";
