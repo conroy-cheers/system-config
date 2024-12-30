@@ -57,10 +57,30 @@
     wm.enable = true;
   };
 
+  # log conroy into atuin sync
+  age.secrets."corncheese.atuin.key" = {
+    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
+    owner = "conroy";
+    mode = "0400";
+  };
+  age.secrets."corncheese.atuin.session" = {
+    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/session.age";
+    owner = "conroy";
+    mode = "0400";
+  };
+  home-manager.users.conroy = {
+    corncheese = {
+      shell.atuin = {
+        key = config.age.secrets."corncheese.atuin.key".path;
+        sessionToken = config.age.secrets."corncheese.atuin.session".path;
+      };
+    };
+  };
+
   andromeda = {
     development = {
       enable = true;
-      tailscale.enable = true;
+      tailscale.enable = false;
       remoteBuilders.enable = true;
     };
   };

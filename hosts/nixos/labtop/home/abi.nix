@@ -41,6 +41,13 @@
     targets.kitty.enable = true;
   };
 
+  wayland.windowManager.hyprland.settings = {
+    monitor = [
+      "eDP-1,3072x1920@120,0x0,1.5"
+      ",preferred,auto,1"
+    ];
+  };
+
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 

@@ -43,6 +43,13 @@
     development.enable = true;
   };
 
+  wayland.windowManager.hyprland.settings = {
+    monitor = [
+      "DP-1,3440x1440@160,0x0,1"
+      ",preferred,auto,1"
+    ];
+  };
+
   stylix = {
     targets.hyprland.enable = true;
     targets.kitty.enable = true;

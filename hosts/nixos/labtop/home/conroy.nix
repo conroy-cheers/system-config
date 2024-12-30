@@ -11,6 +11,10 @@
     stateVersion = "24.05";
   };
 
+  age.rekey = {
+    hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH+vrY30vY/RtO3baHUmS0Pc3bm05fqihUJu2oqV4mvA conroy@labtop";
+  };
+
   corncheese = {
     development = {
       vscode.enable = true;
@@ -27,6 +31,10 @@
     };
     shell = {
       enable = true;
+      atuin = {
+        enable = true;
+        sync = true;
+      };
       direnv = true;
       zoxide = true;
       shells = [ "zsh" ];
@@ -37,6 +45,22 @@
   };
   andromeda = {
     development.enable = true;
+  };
+
+  wayland.windowManager.hyprland.settings = let
+    internalDisplayString = "eDP-1,3072x1920@120,0x0,1.2";
+  in
+  {
+    monitor = [
+      internalDisplayString
+      ",preferred,auto,1"
+    ];
+    bindl = [
+      # trigger when the switch is turning on
+      ", switch:on:Lid Switch, exec, hyprctl keyword monitor \"eDP-1,disable\""
+      # trigger when the switch is turning off
+      ", switch:off:Lid Switch, exec, hyprctl keyword monitor \"${internalDisplayString}\""
+    ];
   };
 
   stylix = {
