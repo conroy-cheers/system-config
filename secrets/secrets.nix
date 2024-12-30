@@ -25,7 +25,6 @@ in
   "andromeda/aws-experiments/key.age".publicKeys = users ++ [ kombu_system brick_system squiggle_conroy ];
   "andromeda/tailscale/key.age".publicKeys = users ++ [ kombu_system ];
   "corncheese/atuin/key.age".publicKeys = users ++ [ kombu_system brick_system labtop_system squiggle_conroy ];
-  "corncheese/atuin/session.age".publicKeys = users ++ [ kombu_system brick_system labtop_system squiggle_conroy ];
   "corncheese/home/key.age".publicKeys = users ++ [ kombu_system brick_system squiggle_conroy ];
   "home/conroy/user/password.age".publicKeys = users ++ [ kombu_system brick_system ];
   "home/wifi/conf.age".publicKeys = users ++ systems;
