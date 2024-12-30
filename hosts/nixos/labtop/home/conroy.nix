@@ -28,6 +28,7 @@
       enable = true;
       ags.enable = true;
       hyprpaper.enable = true;
+      firefox.enable = true;
     };
     shell = {
       enable = true;

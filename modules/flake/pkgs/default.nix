@@ -7,6 +7,7 @@
       # WARN: not including `self.packages` overlay
       #       because it causes an infinite recursion
       overlays = lib.attrValues self.overlays ++ [
+        inputs.nur.overlays.default
         inputs.neovim-nightly-overlay.overlays.default
         inputs.zig-overlay.overlays.default
         inputs.nix-topology.overlays.default

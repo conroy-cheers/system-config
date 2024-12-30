@@ -175,6 +175,7 @@
     # Nix User Repository
     nur = {
       url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     spicetify-nix = {

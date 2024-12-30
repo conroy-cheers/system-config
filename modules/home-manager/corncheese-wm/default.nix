@@ -23,6 +23,7 @@ in
         enable = mkEnableOption "corncheese window manager setup";
         ags.enable = mkEnableOption "ags widget system";
         hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
+        firefox.enable = mkEnableOption "firefox configuration";
       };
     };
 
@@ -50,6 +51,17 @@ in
       home.file.".wayland-session" = {
         source = "${pkgs.hyprland}/bin/Hyprland";
         executable = true;
+      };
+
+      programs.firefox = mkIf cfg.firefox.enable {
+        profiles.conroy = {
+          id = 0;
+          isDefault = true;
+          extensions = with pkgs.nur.repos.rycee.firefox-addons; [
+            onepassword-password-manager
+            ublock-origin
+          ];
+        };
       };
     };
 
