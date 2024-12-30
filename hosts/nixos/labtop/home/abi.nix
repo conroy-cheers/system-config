@@ -15,7 +15,6 @@
     development = {
       vscode.enable = true;
       ssh.enable = true;
-      ssh.onePassword = true;
     };
     theming = {
       enable = true;
