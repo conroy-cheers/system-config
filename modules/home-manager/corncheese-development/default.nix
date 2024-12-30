@@ -22,7 +22,10 @@ in
 {
   options = {
     corncheese.development = {
-      ssh.enable = lib.mkEnableOption "corncheese developer ssh config";
+      ssh = {
+        enable = lib.mkEnableOption "corncheese developer ssh config";
+        onePassword = lib.mkEnableOption "corncheese developer ssh 1password integration";
+      };
       vscode = {
         enable = lib.mkEnableOption "corncheese vscode config";
       };
@@ -73,7 +76,24 @@ in
         ".ssh/${filename}".source = ./pubkeys + "/${filename}";
       };
     in
-      lib.foldl (acc: filename: acc // (fileMapper filename)) {} (builtins.attrNames sshFiles));
+      lib.mkMerge [
+        (lib.foldl (acc: filename: acc // (fileMapper filename)) {} (builtins.attrNames sshFiles))
+      ]);
+
+    xdg.configFile = lib.mkIf cfg.ssh.onePassword {
+      "1Password/ssh/agent.toml".text = ''
+        [[ssh-keys]]
+        vault = "Private"
+        item = "conroy-home"
+
+        [[ssh-keys]]
+        vault = "Private"
+        item = "GitHub"
+
+        [[ssh-keys]]
+        vault = "Work"
+      '';
+    };
 
     programs.ssh = lib.mkIf cfg.ssh.enable {
       enable = true;
