@@ -14,6 +14,7 @@
   wsl = {
     enable = true;
     defaultUser = "conroy";
+    useWindowsDriver = true;
     wslConf.interop.appendWindowsPath = false;
   };
 
@@ -154,6 +155,13 @@
     config = {
       credential.helper = "libsecret";
     };
+  };
+
+  services.ollama = {
+    enable = true;
+    host = "0.0.0.0";
+    port = 11434;
+    acceleration = "cuda";
   };
 
   # Firewall not necessary on WSL2
