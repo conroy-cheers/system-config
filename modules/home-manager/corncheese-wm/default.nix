@@ -63,6 +63,10 @@ in
           ];
         };
       };
+
+      programs.kitty.extraConfig = ''
+        touch_scroll_multiplier 8.0
+      '';
     };
 
   meta = {

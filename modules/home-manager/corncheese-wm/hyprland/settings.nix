@@ -88,6 +88,8 @@ in
         follow_mouse = true;
         touchpad = {
           natural_scroll = true;
+          scroll_factor = 0.3;
+          clickfinger_behavior = true;
         };
       };
 
