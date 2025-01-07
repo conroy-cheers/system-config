@@ -13,7 +13,10 @@ in
     andromeda.development = {
       enable = mkEnableOption "andromeda development environment";
       tailscale.enable = mkEnableOption "andromeda tailnet";
-      remoteBuilders.enable = lib.mkEnableOption "andromeda remote builders";
+      remoteBuilders = {
+        enable = lib.mkEnableOption "andromeda remote builders";
+        useHomeBuilders = lib.mkEnableOption "using home builders by default";
+      };
     };
   };
 

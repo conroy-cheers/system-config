@@ -95,6 +95,19 @@ in
       '';
     };
 
+    home.packages = with pkgs; [
+      meld  # Visual diff tool
+    ];
+
+    programs.git = {
+      enable = true;
+      extraConfig = {
+        merge.tool = "meld";
+        mergetool.meld.cmd = "meld \"$LOCAL\" \"$BASE\" \"$REMOTE\" --output \"$MERGED\"";
+        diff.algorithm = "patience";
+      };
+    };
+
     programs.ssh = lib.mkIf cfg.ssh.enable {
       enable = true;
       forwardAgent = false;

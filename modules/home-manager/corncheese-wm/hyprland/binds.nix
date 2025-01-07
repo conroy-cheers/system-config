@@ -26,9 +26,9 @@ in
       # Window/Session actions.
       "$mod, Q, killactive,"
       "$mod, W, fullscreen, 1"
-      "$mode SHIFT, W, fullscreen,"
+      "$mod SHIFT, W, fullscreen,"
       "$mod, E, togglefloating,"
-      "$mod, delete, exit,"
+      "$mod CTRL, delete, exit,"
 
       # Dwindle
       "$mod, O, togglesplit,"
