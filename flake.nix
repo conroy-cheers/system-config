@@ -172,6 +172,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nix-jetbrains-plugins = {
+      url = "github:theCapypara/nix-jetbrains-plugins";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Nix User Repository
     nur = {
       url = "github:nix-community/NUR";

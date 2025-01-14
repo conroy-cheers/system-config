@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ inputs, config, lib, pkgs, meta, ... }:
 
 let
   cfg = config.corncheese.development;
@@ -9,13 +9,13 @@ let
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
     mktplcRef = {
       name = "pkl-vscode";
-      version = "0.18.1";
+      version = "0.18.2";
       publisher = "apple";
     };
     vsix = builtins.fetchurl {
-      url = "https://github.com/apple/pkl-vscode/releases/download/0.18.1/pkl-vscode-0.18.1.vsix";
-      sha256 = "sha256:1vsizpwvlrm3qacrciyq7kdzklk9a4xqvakb890fny909sp2b86n";
-      name = "pkl-vscode-0.18.1.zip";
+      url = "https://github.com/apple/pkl-vscode/releases/download/0.18.2/pkl-vscode-0.18.2.vsix";
+      sha256 = "sha256:0lvsf1y9ib05n6idbl0171ncdjb0r01kibp6128k2j8ncxyvpvy3";
+      name = "pkl-vscode-0.18.2.zip";
     };
   };
 in
@@ -28,6 +28,12 @@ in
       };
       vscode = {
         enable = lib.mkEnableOption "corncheese vscode config";
+      };
+      electronics = {
+        enable = lib.mkEnableOption "corncheese electronics suite";
+      };
+      jetbrains = {
+        enable = lib.mkEnableOption "corncheese jetbrains suite";
       };
     };
   };
@@ -95,9 +101,28 @@ in
       '';
     };
 
-    home.packages = with pkgs; [
-      meld  # Visual diff tool
+    home.packages = with pkgs; builtins.concatLists [
+      [
+        meld  # Visual diff tool
+        jdk23
+      ]
+      (lib.optionals cfg.electronics.enable [
+        kicad
+      ])
+      (lib.optionals cfg.jetbrains.enable (with inputs.nix-jetbrains-plugins.lib."${meta.system}"; [
+        (buildIdeWithPlugins pkgs.jetbrains "pycharm-professional" [
+          "com.intellij.plugins.vscodekeymap"
+          "com.github.catppuccin.jetbrains"
+        ])
+      ]))
     ];
+
+    # programs.jetbrains-remote = {
+    #   enable = true;
+    #   ides = with pkgs.jetbrains; [
+    #     pycharm-professional
+    #   ];
+    # };
 
     programs.git = {
       enable = true;

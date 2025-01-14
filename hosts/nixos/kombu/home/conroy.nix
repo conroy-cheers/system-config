@@ -13,6 +13,8 @@
 
   corncheese = {
     development = {
+      electronics.enable = true;
+      jetbrains.enable = true;
       vscode.enable = true;
       ssh.enable = true;
       ssh.onePassword = true;
