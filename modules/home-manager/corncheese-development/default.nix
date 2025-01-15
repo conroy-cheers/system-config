@@ -105,6 +105,7 @@ in
       [
         meld  # Visual diff tool
         jdk23
+        inputs.pkl-flake.packages.${meta.system}.default  # pkl-cli
       ]
       (lib.optionals cfg.electronics.enable [
         kicad
@@ -113,6 +114,8 @@ in
         (buildIdeWithPlugins pkgs.jetbrains "pycharm-professional" [
           "com.intellij.plugins.vscodekeymap"
           "com.github.catppuccin.jetbrains"
+          "com.koxudaxi.ruff"
+          "nix-idea"
         ])
       ]))
     ];

@@ -2351,6 +2351,26 @@
         "type": "github"
       }
     },
+    "pkl-flake": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1734972076,
+        "narHash": "sha256-ZIeHwf8r19kH0LEUR6OnnCFnL2UklX720t2KuSpJXL4=",
+        "owner": "capslock",
+        "repo": "pkl-flake",
+        "rev": "bcdfce27422a3c2b37f0cf7b2cc93b051f17132b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "capslock",
+        "repo": "pkl-flake",
+        "type": "github"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat_2",
@@ -2520,6 +2540,7 @@
         "nixpkgs": "nixpkgs_4",
         "nixvim": "nixvim",
         "nur": "nur",
+        "pkl-flake": "pkl-flake",
         "ragenix": "ragenix",
         "spicetify-nix": "spicetify-nix",
         "stylix": "stylix",
