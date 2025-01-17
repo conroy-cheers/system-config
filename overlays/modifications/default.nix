@@ -4,14 +4,14 @@ final: prev:
 {
   lib = prev.lib // {
     maintainers = {
-      corncheese = {
-        name = "Pavel Atanasov";
-        email = "pavel.atanasov2001@gmail.com";
-        github = "corncheese";
-        githubId = "37866329";
+      conroy-cheers = {
+        name = "Conroy Cheers";
+        email = "conroy@corncheese.org";
+        github = "conroy-cheers";
+        githubId = "9310662";
         keys = [
           {
-            fingerprint = "8A29 0250 C775 7813 1DD1  DC57 7275 0ABE E181 26D0";
+            # fingerprint = "8A29 0250 C775 7813 1DD1  DC57 7275 0ABE E181 26D0";
           }
         ];
       };

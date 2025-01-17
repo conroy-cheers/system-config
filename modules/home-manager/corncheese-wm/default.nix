@@ -3,7 +3,7 @@
 let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
-  inherit (lib) mkEnableOption mkIf;
+  inherit (lib) mkEnableOption mkOption mkIf;
 in
 {
   imports = [
@@ -21,6 +21,22 @@ in
     {
       corncheese.wm = {
         enable = mkEnableOption "corncheese window manager setup";
+        environment = mkOption {
+          type = with lib.types; attrsOf str;
+          default = {};
+          example = {
+            XCURSOR_SIZE = "24";
+            WLR_NO_HARDWARE_CURSORS = "1";
+            NIXOS_OZONE_WL = "1";
+          };
+          description = lib.mdDoc ''
+            Environment variables to be set when launching Hyprland.
+            These variables will be exported in the wrapper script before executing Hyprland.
+
+            Each attribute in this set represents an environment variable, where the attribute name
+            is the variable name and its value is the variable's value.
+          '';
+        };
         ags.enable = mkEnableOption "ags widget system";
         hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
         firefox.enable = mkEnableOption "firefox configuration";
@@ -49,8 +65,13 @@ in
       # NOTE: this executable is used by greetd to start a wayland session when system boot up
       # with such a vendor-no-locking script, we can switch to another wayland compositor without modifying greetd's config in NixOS module
       home.file.".wayland-session" = {
-        source = "${pkgs.hyprland}/bin/Hyprland";
-        executable = true;
+        text = ''
+          #!${pkgs.bash}/bin/bash
+          ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: 
+            "export ${name}=\"${value}\"") cfg.environment))}
+          exec ${pkgs.hyprland}/bin/Hyprland
+        '';
+	      executable = true;
       };
 
       programs.firefox = mkIf cfg.firefox.enable {

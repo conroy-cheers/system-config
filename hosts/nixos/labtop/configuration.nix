@@ -9,13 +9,20 @@
     inputs.hardware.nixosModules.common-cpu-amd
     inputs.hardware.nixosModules.common-cpu-amd-pstate
     inputs.hardware.nixosModules.common-gpu-amd
-    inputs.hardware.nixosModules.common-gpu-nvidia-sync
+    inputs.hardware.nixosModules.common-gpu-nvidia
     ./hardware-configuration.nix
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
   ];
+
+  nixpkgs = {
+    overlays = [
+      # If you want to use overlays your own flake exports (from overlays dir):
+      inputs.self.overlays.cuda
+    ];
+  };
 
   ### Set boot options
   boot = {
@@ -149,7 +156,7 @@
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
-    # videoDrivers = [ "amdgpu" ];
+    videoDrivers = [ "nvidia" ];
   };
 
   # services.displayManager = {
@@ -244,7 +251,10 @@
   # services.xserver.libinput.enable = true;
 
   # Virtualisation
-  virtualisation.docker.enable = true;
+  virtualisation.docker = {
+    enable = true;
+  };
+  hardware.nvidia-container-toolkit.enable = true;
 
   age.secrets."conroy.user.password" = {
     rekeyFile = "${inputs.self}/secrets/home/conroy/user/password.age";

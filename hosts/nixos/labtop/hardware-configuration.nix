@@ -13,7 +13,7 @@ in
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "sd_mod" ];
     };
-    kernelModules = [ "kvm-amd" ];
+    kernelModules = [ ];
     kernelParams = [
       "mem_sleep_default=deep"
       "pcie_aspm.policy=powersupersave"
@@ -21,14 +21,20 @@ in
     blacklistedKernelModules = [ "nouveau" ];
   };
 
-  hardware.nvidia.prime = {
-    # Bus ID of the AMD GPU.
-    amdgpuBusId = lib.mkDefault "PCI:63:0:0";
-
-    # Bus ID of the NVIDIA GPU.
-    nvidiaBusId = lib.mkDefault "PCI:1:0:0";
+  hardware.nvidia = {
+    modesetting.enable = true;
+    prime = {
+      offload = {
+        enable = true;
+        enableOffloadCmd = true;
+      };
+      amdgpuBusId = lib.mkDefault "PCI:63:0:0";
+      nvidiaBusId = lib.mkDefault "PCI:1:0:0";
+    };
+    open = false;
+    nvidiaSettings = true;
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
-  hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
 
   swapDevices = [ ];
 

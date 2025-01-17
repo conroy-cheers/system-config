@@ -27,6 +27,10 @@
     };
     wm = {
       enable = true;
+      environment = {
+        # AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card:/dev/dri/by-path/pci-0000:63:00.0-card"; # Prefer discrete GPU
+        # AQ_DRM_DEVICES = "/dev/dri/card0"; # Use discrete GPU
+      };
       ags.enable = true;
       hyprpaper.enable = true;
       firefox.enable = true;
@@ -55,6 +59,7 @@
   {
     monitor = [
       internalDisplayString
+      "desc:Dell Inc. DELL U2720Q 8LXMZ13,preferred,auto,1.5"
       ",preferred,auto,1"
     ];
     bindl = [
