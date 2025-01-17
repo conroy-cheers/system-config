@@ -83,6 +83,7 @@ in
         vscode-extensions.charliermarsh.ruff
         vscode-extensions.ms-vscode-remote.remote-ssh
         vscode-extensions.ms-vscode-remote.remote-ssh-edit
+        vscode-extensions.rust-lang.rust-analyzer
         pkl-vscode
       ];
       userSettings = {
