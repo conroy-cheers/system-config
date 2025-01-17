@@ -17,6 +17,12 @@
 
   corncheese = {
     development = {
+      electronics.enable = true;
+      mechanical.enable = true;
+      jetbrains = {
+        enable = true;
+        clion.versionOverride = "2023.2.5";
+      };
       vscode.enable = true;
       ssh.enable = true;
       ssh.onePassword = true;
@@ -29,7 +35,7 @@
       enable = true;
       environment = {
         # AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card:/dev/dri/by-path/pci-0000:63:00.0-card"; # Prefer discrete GPU
-        # AQ_DRM_DEVICES = "/dev/dri/card0"; # Use discrete GPU
+        #AQ_DRM_DEVICES = "/dev/dri/card0"; # Use discrete GPU
       };
       ags.enable = true;
       hyprpaper.enable = true;
