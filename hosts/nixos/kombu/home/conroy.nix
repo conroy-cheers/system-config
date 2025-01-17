@@ -14,7 +14,11 @@
   corncheese = {
     development = {
       electronics.enable = true;
-      jetbrains.enable = true;
+      mechanical.enable = true;
+      jetbrains = {
+        enable = true;
+        clion.versionOverride = "2023.2.5";
+      };
       vscode.enable = true;
       ssh.enable = true;
       ssh.onePassword = true;

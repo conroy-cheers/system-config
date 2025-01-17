@@ -18,6 +18,21 @@ let
       name = "pkl-vscode-0.18.2.zip";
     };
   };
+
+  clionHashes = import ./clion-hashes.nix;
+  mkClion = { clionPkg, version }:
+    if ! (builtins.hasAttr version clionHashes) then
+      throw "Invalid CLion version '${version}'. Available versions: ${lib.concatStringsSep ", " (builtins.attrNames clionHashes)}"
+    else
+      clionPkg.overrideAttrs rec {
+        inherit version;
+        src = pkgs.fetchurl {
+          url = "https://download.jetbrains.com/cpp/CLion-${version}.tar.gz";
+          hash = clionHashes.${version};
+        };
+      };
+  clionVersion = cfg.jetbrains.clion.versionOverride or pkgs.jetbrains.clion.version;
+
 in
 {
   options = {
@@ -32,8 +47,19 @@ in
       electronics = {
         enable = lib.mkEnableOption "corncheese electronics suite";
       };
+      mechanical = {
+        enable = lib.mkEnableOption "corncheese mechanical suite";
+      };
       jetbrains = {
         enable = lib.mkEnableOption "corncheese jetbrains suite";
+        clion = {
+          versionOverride = lib.mkOption
+            {
+              type = with lib.types; nullOr str;
+              description = "Override the version of CLion to install";
+              default = null;
+            };
+        };
       };
     };
   };
@@ -72,19 +98,21 @@ in
       };
     };
 
-    home.file = lib.mkIf cfg.ssh.enable (let
-      # Get all files from the source directory
-      sshFiles = builtins.readDir ./pubkeys;
-      
-      # Create a set of file mappings for each identity file
-      fileMapper = filename: {
-        # Target path will be in ~/.ssh/
-        ".ssh/${filename}".source = ./pubkeys + "/${filename}";
-      };
-    in
+    home.file = lib.mkIf cfg.ssh.enable (
+      let
+        # Get all files from the source directory
+        sshFiles = builtins.readDir ./pubkeys;
+
+        # Create a set of file mappings for each identity file
+        fileMapper = filename: {
+          # Target path will be in ~/.ssh/
+          ".ssh/${filename}".source = ./pubkeys + "/${filename}";
+        };
+      in
       lib.mkMerge [
-        (lib.foldl (acc: filename: acc // (fileMapper filename)) {} (builtins.attrNames sshFiles))
-      ]);
+        (lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles))
+      ]
+    );
 
     xdg.configFile = lib.mkIf cfg.ssh.onePassword {
       "1Password/ssh/agent.toml".text = ''
@@ -103,20 +131,32 @@ in
 
     home.packages = with pkgs; builtins.concatLists [
       [
-        meld  # Visual diff tool
+        meld # Visual diff tool
         jdk23
-        inputs.pkl-flake.packages.${meta.system}.default  # pkl-cli
+        inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
       ]
       (lib.optionals cfg.electronics.enable [
         kicad
       ])
-      (lib.optionals cfg.jetbrains.enable (with inputs.nix-jetbrains-plugins.lib."${meta.system}"; [
-        (buildIdeWithPlugins pkgs.jetbrains "pycharm-professional" [
+      (lib.optionals cfg.mechanical.enable [
+        orca-slicer
+        freecad-wayland
+      ])
+      (lib.optionals cfg.jetbrains.enable ([
+        (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "pycharm-professional" [
           "com.intellij.plugins.vscodekeymap"
           "com.github.catppuccin.jetbrains"
           "com.koxudaxi.ruff"
           "nix-idea"
         ])
+        (pkgs.jetbrains.plugins.addPlugins (mkClion {
+          clionPkg = pkgs.jetbrains.clion;
+          version = clionVersion;
+        }) (with inputs.nix-jetbrains-plugins.plugins."${meta.system}"; [
+          clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
+          clion."${clionVersion}"."com.github.catppuccin.jetbrains"
+          clion."${clionVersion}"."nix-idea"
+        ]))
       ]))
     ];
 
@@ -134,6 +174,19 @@ in
         mergetool.meld.cmd = "meld \"$LOCAL\" \"$BASE\" \"$REMOTE\" --output \"$MERGED\"";
         diff.algorithm = "patience";
       };
+      # TODO: move this to scm module
+      ignores = let
+        gitignoreSrc = pkgs.fetchFromGitHub {
+          owner = "github";
+          repo = "gitignore";
+          rev = "ceea7cab239eece5cb9fd9416e433a9497c2d747";
+          hash = "sha256-YOPkqYJXinGHCbuCpHLS76iIWqUvYZh6SaJ0ROGoHc4=";
+        };
+        gitignoreText = builtins.concatStringsSep "\n" [
+          (builtins.readFile "${gitignoreSrc}/Global/JetBrains.gitignore")
+        ];
+      in 
+      lib.filter (value: !(lib.hasPrefix "#" value || value == "")) (lib.splitString "\n" gitignoreText);
     };
 
     programs.ssh = lib.mkIf cfg.ssh.enable {
