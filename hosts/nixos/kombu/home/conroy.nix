@@ -17,7 +17,7 @@
       mechanical.enable = true;
       jetbrains = {
         enable = true;
-        clion.versionOverride = "2023.2.5";
+        # clion.versionOverride = "2023.2.5";
       };
       vscode.enable = true;
       ssh.enable = true;

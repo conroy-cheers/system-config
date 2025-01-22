@@ -21,7 +21,8 @@ let
 
   clionHashes = import ./clion-hashes.nix;
   mkClion = { clionPkg, version }:
-    if ! (builtins.hasAttr version clionHashes) then
+    if (version == clionPkg.version) then clionPkg else
+    (if ! (builtins.hasAttr version clionHashes) then
       throw "Invalid CLion version '${version}'. Available versions: ${lib.concatStringsSep ", " (builtins.attrNames clionHashes)}"
     else
       clionPkg.overrideAttrs rec {
@@ -30,8 +31,8 @@ let
           url = "https://download.jetbrains.com/cpp/CLion-${version}.tar.gz";
           hash = clionHashes.${version};
         };
-      };
-  clionVersion = cfg.jetbrains.clion.versionOverride or pkgs.jetbrains.clion.version;
+      });
+  clionVersion = cfg.jetbrains.clion.versionOverride;
 
 in
 {
@@ -57,7 +58,7 @@ in
             {
               type = with lib.types; nullOr str;
               description = "Override the version of CLion to install";
-              default = null;
+              default = pkgs.jetbrains.clion.version;
             };
         };
       };
@@ -150,14 +151,16 @@ in
           "com.koxudaxi.ruff"
           "nix-idea"
         ])
-        (pkgs.jetbrains.plugins.addPlugins (mkClion {
-          clionPkg = pkgs.jetbrains.clion;
-          version = clionVersion;
-        }) (with inputs.nix-jetbrains-plugins.plugins."${meta.system}"; [
-          clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
-          clion."${clionVersion}"."com.github.catppuccin.jetbrains"
-          clion."${clionVersion}"."nix-idea"
-        ]))
+        (pkgs.jetbrains.plugins.addPlugins
+          (mkClion {
+            clionPkg = pkgs.jetbrains.clion;
+            version = clionVersion;
+          })
+          (with inputs.nix-jetbrains-plugins.plugins."${meta.system}"; [
+            clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
+            clion."${clionVersion}"."com.github.catppuccin.jetbrains"
+            clion."${clionVersion}"."nix-idea"
+          ]))
       ]))
     ];
 
@@ -176,18 +179,19 @@ in
         diff.algorithm = "patience";
       };
       # TODO: move this to scm module
-      ignores = let
-        gitignoreSrc = pkgs.fetchFromGitHub {
-          owner = "github";
-          repo = "gitignore";
-          rev = "ceea7cab239eece5cb9fd9416e433a9497c2d747";
-          hash = "sha256-YOPkqYJXinGHCbuCpHLS76iIWqUvYZh6SaJ0ROGoHc4=";
-        };
-        gitignoreText = builtins.concatStringsSep "\n" [
-          (builtins.readFile "${gitignoreSrc}/Global/JetBrains.gitignore")
-        ];
-      in 
-      lib.filter (value: !(lib.hasPrefix "#" value || value == "")) (lib.splitString "\n" gitignoreText);
+      ignores =
+        let
+          gitignoreSrc = pkgs.fetchFromGitHub {
+            owner = "github";
+            repo = "gitignore";
+            rev = "ceea7cab239eece5cb9fd9416e433a9497c2d747";
+            hash = "sha256-YOPkqYJXinGHCbuCpHLS76iIWqUvYZh6SaJ0ROGoHc4=";
+          };
+          gitignoreText = builtins.concatStringsSep "\n" [
+            (builtins.readFile "${gitignoreSrc}/Global/JetBrains.gitignore")
+          ];
+        in
+        lib.filter (value: !(lib.hasPrefix "#" value || value == "")) (lib.splitString "\n" gitignoreText);
     };
 
     programs.ssh = lib.mkIf cfg.ssh.enable {
