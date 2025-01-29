@@ -243,8 +243,9 @@
   };
 
   ### udev packages
-  services.udev.packages = [
-    pkgs.teensy-udev-rules
+  services.udev.packages = with pkgs; [
+    teensy-udev-rules
+    picoprobe-udev-rules
   ];
 
   ### Enable touchpad support (enabled default in most desktopManager).
