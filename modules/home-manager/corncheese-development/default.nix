@@ -36,6 +36,10 @@ let
 
 in
 {
+  imports = [
+    inputs.vscode-server.homeModules.default
+  ];
+
   options = {
     corncheese.development = {
       ssh = {
@@ -66,6 +70,8 @@ in
   };
 
   config = {
+    services.vscode-server.enable = true;
+
     programs.vscode = lib.mkIf cfg.vscode.enable {
       enable = true;
       package = pkgs.vscodium;

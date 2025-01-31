@@ -6,6 +6,7 @@ in
 {
   imports = [
     ./virtualisation.nix
+    inputs.vscode-server.nixosModules.default
   ];
 
   options = {
@@ -47,6 +48,9 @@ in
           ];
         };
       };
+
+      # Fix VSCode server
+      services.vscode-server.enable = true;
     }
     ((lib.mkIf cfg.remoteBuilders.enable) {
       age.secrets = {
