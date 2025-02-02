@@ -50,7 +50,7 @@ in
         package = pkgs.hyprland;
         systemd.enable = true;
         plugins = [
-          pkgs.hyprlandPlugins.hyprexpo
+          # pkgs.hyprlandPlugins.hyprexpo
         ] ++ lib.optional themeDetails.bordersPlusPlus
           pkgs.hyprlandPlugins.borders-plus-plus;
       };
