@@ -103,6 +103,7 @@ in
           "workbench.action.tasks.runTask"
         ];
         "remote.SSH.useLocalServer" = false;
+        "pkl.cli.path" = "${inputs.pkl-flake.packages.${meta.system}.default}/bin/pkl";
       };
     };
 

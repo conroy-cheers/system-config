@@ -44,7 +44,7 @@
   corncheese = {
     development = {
       enable = true;
-      remoteBuilders.enable = true;
+      remoteBuilders.enable = false;  # this machine isn't colocated with the corncheese builders
     };
     theming = {
       enable = true;

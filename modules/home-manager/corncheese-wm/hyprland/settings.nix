@@ -113,7 +113,7 @@ in
 
       master = {
         orientation = "center";
-        always_center_master = true;
+        mfact = 0.65;
       };
 
       misc = {
