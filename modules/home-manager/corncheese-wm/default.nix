@@ -99,6 +99,14 @@ in
         extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
       };
 
+      xdg.userDirs = {
+        enable = true;
+        createDirectories = true;
+        extraConfig = {
+          XDG_SCREENSHOTS_DIR = "${config.home.homeDirectory}/Screenshots";
+        };
+      };
+
       systemd.user.services."1password" = {
         Unit = {
           Description = "1Password";
