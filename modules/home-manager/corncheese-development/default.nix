@@ -3,7 +3,7 @@
 let
   cfg = config.corncheese.development;
 
-  onePassPath = "~/.1password/agent.sock";
+  onePassPath = if pkgs.hostPlatform.isDarwin then "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"" else "~/.1password/agent.sock";
   homeJumpHosts = [ "pve" "bigbrain" ];
 
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
