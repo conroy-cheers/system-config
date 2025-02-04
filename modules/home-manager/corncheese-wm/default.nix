@@ -98,6 +98,23 @@ in
         };
         extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
       };
+
+      systemd.user.services."1password" = {
+        Unit = {
+          Description = "1Password";
+          Requires = [ "graphical-session.target" ];
+          After = [ "graphical-session.target" ];
+        };
+        Install = {
+          Alias = "1password.service";
+          WantedBy = [ "graphical-session.target" ];
+        };
+        Service = {
+          ExecStart = "${pkgs._1password-gui}/bin/1password --silent";
+          Type = "exec";
+          TimeoutSec = 60;
+        };
+      };
     };
 
   meta = {
