@@ -37,29 +37,22 @@ in
       hyprland = {
         enable = true;
         xwayland.enable = true;
+        withUWSM = true;
         package = inputs.hyprland.packages.${pkgs.system}.default;
-        portalPackage = inputs.hyprland.packages.${pkgs.system}.xdg-desktop-portal-hyprland;
+        portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
       };
     };
 
-    #    programs.hyprland.package = let
-    #      patch = ./displaylink-custom.patch;
-    #    in
-    #    inputs.hyprland.packages.${pkgs.system}.default.overrideAttrs (self: super: {
-    #      postUnpack = ''
-    #        rm $sourceRoot/subprojects/wlroots-hyprland/patches/nvidia-hardware-cursors.patch
-    #        cp ${patch} $sourceRoot/subprojects/wlroots-hyprland/patches
-    #      '';
-    #    });
+    # For home-manager xdg portal config
+    environment.pathsToLink = [ "/share/xdg-desktop-portal" "/share/applications" ];
 
     xdg.portal = {
       enable = true;
       xdgOpenUsePortal = true;
       config = {
-        common.default = [ "*" ];
+        common.default = [ "gtk" ];
         hyprland.default = [ "hyprland" ];
       };
-
       extraPortals = [
         pkgs.xdg-desktop-portal-gtk
       ];

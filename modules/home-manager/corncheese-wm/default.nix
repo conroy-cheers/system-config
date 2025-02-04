@@ -23,7 +23,7 @@ in
         enable = mkEnableOption "corncheese window manager setup";
         environment = mkOption {
           type = with lib.types; attrsOf str;
-          default = {};
+          default = { };
           example = {
             XCURSOR_SIZE = "24";
             WLR_NO_HARDWARE_CURSORS = "1";
@@ -71,7 +71,7 @@ in
             "export ${name}=\"${value}\"") cfg.environment))}
           exec ${pkgs.hyprland}/bin/Hyprland
         '';
-	      executable = true;
+        executable = true;
       };
 
       programs.firefox = mkIf cfg.firefox.enable {
@@ -88,6 +88,16 @@ in
       programs.kitty.extraConfig = ''
         touch_scroll_multiplier 8.0
       '';
+
+      xdg.portal = {
+        enable = true;
+        xdgOpenUsePortal = true;
+        config = {
+          common.default = [ "gtk" ];
+          hyprland.default = [ "hyprland" ];
+        };
+        extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+      };
     };
 
   meta = {

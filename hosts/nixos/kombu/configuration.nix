@@ -168,20 +168,6 @@
     };
   };
 
-  # Enable desktop portal
-  # xdg.portal = {
-  #   enable = true;
-  #   wlr = {
-  #     enable = true;
-  #   };
-  #   extraPortals = [
-  #     pkgs.xdg-desktop-portal-gtk
-  #     pkgs.xdg-desktop-portal-wlr
-  #   ];
-  #   # TODO: research <https://github.com/flatpak/xdg-desktop-portal/blob/1.18.1/doc/portals.conf.rst.in>
-  #   config.common.default = "*";
-  # };
-
   ## X11 specific
   # services.xserver = {
   #   xkb.layout = "us";
@@ -280,8 +266,6 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-    xdg-desktop-portal
-    xdg-desktop-portal-wlr
     xdg-utils
     neovim
     wget

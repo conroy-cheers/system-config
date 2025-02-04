@@ -45,7 +45,7 @@ in
           color = "#${config.lib.stylix.colors.base05}";
 
           font_size = 64
-          font_family = JetBrains Mono Nerd Font 10
+          font_family = MesloLGM Nerd Font Propo
 
           position = 0, -40
           halign = center
@@ -58,7 +58,7 @@ in
           color = "#${config.lib.stylix.colors.base05}";
 
           font_size = 24
-          font_family = JetBrains Mono Nerd Font 10
+          font_family = MesloLGM Nerd Font Propo
 
           position = 0, -120
           halign = center
