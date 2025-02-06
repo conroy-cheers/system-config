@@ -173,6 +173,7 @@ in
       # Bat
       programs.bat = mkIf cfg.bat {
         enable = true;
+        extraPackages = with pkgs.bat-extras; [ batman batgrep ];
       };
 
       # Starship
@@ -245,6 +246,8 @@ in
         shellAliases = shellAliases // {
           ls = "${pkgs.lsd}/bin/lsd";
           mkdir = "mkdir -vp";
+        } // lib.optionalAttrs cfg.bat {
+          man = "batman";
         };
 
         history = {
