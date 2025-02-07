@@ -32,6 +32,14 @@
     };
   };
 
+  andromeda = {
+    development = {
+      enable = true;
+      tailscale.enable = false;
+      remoteBuilders.enable = false;
+    };
+  };
+
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {
     rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
