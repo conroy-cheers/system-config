@@ -109,6 +109,11 @@
   #   ];
   # };
 
+  ### Audio (via WSLg)
+  hardware.pulseaudio = {
+    enable = true;
+  };
+
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
