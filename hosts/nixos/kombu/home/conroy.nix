@@ -11,6 +11,10 @@
     stateVersion = "24.05";
   };
 
+  age.rekey = {
+    hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICRx2JKfGPwRMXztYXQs0dIEnkn6oKqfc8GmuhBVK9fV conroy@kombu";
+  };
+
   corncheese = {
     development = {
       electronics.enable = true;
