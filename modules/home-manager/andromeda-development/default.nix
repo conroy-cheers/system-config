@@ -1,9 +1,8 @@
-{
-  config,
-  lib,
-  pkgs,
-  inputs,
-  ...
+{ config
+, lib
+, pkgs
+, inputs
+, ...
 }:
 
 let
@@ -44,8 +43,7 @@ in
           ".ssh/${filename}".source = ./pubkeys + "/${filename}";
         };
       in
-      lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles)
-      // {
+      lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles) // {
         "${config.home.homeDirectory}/.aws/credentials".source =
           config.lib.file.mkOutOfStoreSymlink
             config.age.secrets."andromeda.aws-home-config.credentials".path;
@@ -57,10 +55,12 @@ in
       hashKnownHosts = true;
 
       matchBlocks =
-        (lib.concatMapAttrs (name: hostname: {
-          "${name}".hostname = hostname;
-          "${name}-root".hostname = hostname;
-        }) abiHostnames)
+        (lib.concatMapAttrs
+          (name: hostname: {
+            "${name}".hostname = hostname;
+            "${name}-root".hostname = hostname;
+          })
+          abiHostnames)
         // {
           abi-dev = {
             host = (lib.concatStringsSep " " abiHosts);
