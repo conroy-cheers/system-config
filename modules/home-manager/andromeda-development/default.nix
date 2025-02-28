@@ -28,6 +28,10 @@ in
       rekeyFile = "${inputs.self}/secrets/andromeda/aws-home-config/credentials.age";
     };
 
+    home.sessionVariables = {
+      ROS_DOMAIN_ID = "38";
+    };
+
     home.file =
       let
         # Get all files from the source directory

@@ -150,6 +150,7 @@ in
       ])
       (lib.optionals cfg.mechanical.enable [
         orca-slicer
+        prusa-slicer
         freecad-wayland
       ])
       (lib.optionals cfg.jetbrains.enable ([
