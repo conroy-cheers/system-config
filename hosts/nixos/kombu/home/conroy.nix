@@ -35,6 +35,7 @@
       enable = true;
       ags.enable = true;
       hyprpaper.enable = true;
+      chromium.enable = true;
     };
     shell = {
       enable = true;

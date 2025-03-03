@@ -40,6 +40,7 @@ in
         ags.enable = mkEnableOption "ags widget system";
         hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
         firefox.enable = mkEnableOption "firefox configuration";
+        chromium.enable = mkEnableOption "chromium configuration";
       };
     };
 
@@ -83,6 +84,14 @@ in
             ublock-origin
           ];
         };
+      };
+
+      programs.chromium = {
+        enable = true;
+        package = pkgs.ungoogled-chromium;
+        extensions = [
+          { id = "aeblfdkhhhdcdjpifhhbdiojplfjncoa"; }  # 1Password
+        ];
       };
 
       programs.kitty.extraConfig = ''
