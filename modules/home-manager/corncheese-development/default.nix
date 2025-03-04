@@ -55,6 +55,9 @@ in
       mechanical = {
         enable = lib.mkEnableOption "corncheese mechanical suite";
       };
+      audio = {
+        enable = lib.mkEnableOption "corncheese audio suite";
+      };
       jetbrains = {
         enable = lib.mkEnableOption "corncheese jetbrains suite";
         clion = {
@@ -154,6 +157,9 @@ in
         orca-slicer
         prusa-slicer
         freecad-wayland
+      ])
+      (lib.optionals cfg.audio.enable [
+        ardour
       ])
       (lib.optionals cfg.jetbrains.enable ([
         (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "pycharm-professional" [
