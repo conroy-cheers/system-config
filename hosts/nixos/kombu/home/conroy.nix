@@ -17,7 +17,10 @@
 
   corncheese = {
     development = {
-      electronics.enable = true;
+      electronics = {
+        enable = true;
+        probe-rs = true;
+      };
       mechanical.enable = true;
       audio.enable = true;
       jetbrains = {

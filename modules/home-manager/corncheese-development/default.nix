@@ -51,6 +51,7 @@ in
       };
       electronics = {
         enable = lib.mkEnableOption "corncheese electronics suite";
+        probe-rs = lib.mkEnableOption "probe-rs and vscode extension";
       };
       mechanical = {
         enable = lib.mkEnableOption "corncheese mechanical suite";
@@ -78,38 +79,47 @@ in
     programs.vscode = lib.mkIf cfg.vscode.enable {
       enable = true;
       package = pkgs.vscodium;
-      profiles.default = {
-        enableUpdateCheck = false;
-        enableExtensionUpdateCheck = false;
-        extensions = with pkgs; [
-          vscode-extensions.continue.continue
-          vscode-extensions.ms-vscode.cpptools-extension-pack
-          vscode-extensions.xaver.clang-format
-          vscode-extensions.ms-vscode.cmake-tools
-          vscode-extensions.eamodio.gitlens
-          vscode-extensions.jnoortheen.nix-ide
-          vscode-extensions.ms-python.python
-          vscode-extensions.ms-python.vscode-pylance
-          vscode-extensions.ms-python.debugpy
-          vscode-extensions.charliermarsh.ruff
-          vscode-extensions.ms-vscode-remote.remote-ssh
-          vscode-extensions.ms-vscode-remote.remote-ssh-edit
-          vscode-extensions.rust-lang.rust-analyzer
-          pkl-vscode
-        ];
-        userSettings = {
-          "git.confirmSync" = false;
-          "explorer.confirmDelete" = false;
-          "explorer.confirmDragAndDrop" = false;
-          "terminal.integrated.fontFamily" = lib.mkForce "FiraCode Nerd Font";
-          "cmake.pinnedCommands" = [
-            "workbench.action.tasks.configureTaskRunner"
-            "workbench.action.tasks.runTask"
+      profiles.default =
+        let
+          nix-vscode-extensions = inputs.nix-vscode-extensions.extensions.${meta.system};
+        in
+        {
+          enableUpdateCheck = false;
+          enableExtensionUpdateCheck = false;
+          extensions = with pkgs; builtins.concatLists [
+            [
+              vscode-extensions.continue.continue
+              vscode-extensions.ms-vscode.cpptools-extension-pack
+              vscode-extensions.xaver.clang-format
+              vscode-extensions.ms-vscode.cmake-tools
+              vscode-extensions.eamodio.gitlens
+              vscode-extensions.jnoortheen.nix-ide
+              vscode-extensions.ms-python.python
+              vscode-extensions.ms-python.vscode-pylance
+              vscode-extensions.ms-python.debugpy
+              vscode-extensions.charliermarsh.ruff
+              vscode-extensions.ms-vscode-remote.remote-ssh
+              vscode-extensions.ms-vscode-remote.remote-ssh-edit
+              vscode-extensions.rust-lang.rust-analyzer
+              pkl-vscode
+            ]
+            (lib.optionals cfg.electronics.probe-rs [
+              nix-vscode-extensions.open-vsx.probe-rs.probe-rs-debugger
+            ])
           ];
-          "remote.SSH.useLocalServer" = false;
-          "pkl.cli.path" = "${inputs.pkl-flake.packages.${meta.system}.default}/bin/pkl";
+          userSettings = {
+            "git.confirmSync" = false;
+            "explorer.confirmDelete" = false;
+            "explorer.confirmDragAndDrop" = false;
+            "terminal.integrated.fontFamily" = lib.mkForce "FiraCode Nerd Font";
+            "cmake.pinnedCommands" = [
+              "workbench.action.tasks.configureTaskRunner"
+              "workbench.action.tasks.runTask"
+            ];
+            "remote.SSH.useLocalServer" = false;
+            "pkl.cli.path" = "${inputs.pkl-flake.packages.${meta.system}.default}/bin/pkl";
+          };
         };
-      };
     };
 
     home.file = lib.mkIf cfg.ssh.enable (
@@ -153,6 +163,9 @@ in
       (lib.optionals cfg.electronics.enable [
         kicad
       ])
+      (lib.optionals (cfg.electronics.enable && cfg.electronics.probe-rs) [
+        probe-rs
+      ])
       (lib.optionals cfg.mechanical.enable [
         orca-slicer
         prusa-slicer
@@ -178,6 +191,11 @@ in
             clion."${clionVersion}"."com.github.catppuccin.jetbrains"
             clion."${clionVersion}"."nix-idea"
           ]))
+        (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "rust-rover" [
+          "com.intellij.plugins.vscodekeymap"
+          "com.github.catppuccin.jetbrains"
+          "nix-idea"
+        ])
       ]))
     ];
 
