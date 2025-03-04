@@ -19,6 +19,7 @@
     development = {
       electronics.enable = true;
       mechanical.enable = true;
+      audio.enable = true;
       jetbrains = {
         enable = true;
         # clion.versionOverride = "2023.2.5";
