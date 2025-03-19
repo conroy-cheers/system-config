@@ -51,13 +51,15 @@ in
       };
       electronics = {
         enable = lib.mkEnableOption "corncheese electronics suite";
-        probe-rs = lib.mkEnableOption "probe-rs and vscode extension";
       };
       mechanical = {
         enable = lib.mkEnableOption "corncheese mechanical suite";
       };
       audio = {
         enable = lib.mkEnableOption "corncheese audio suite";
+      };
+      rust = {
+        enable = lib.mkEnableOption "Rust development tools";
       };
       jetbrains = {
         enable = lib.mkEnableOption "corncheese jetbrains suite";
@@ -88,7 +90,7 @@ in
           enableExtensionUpdateCheck = false;
           extensions = with pkgs; builtins.concatLists [
             [
-              vscode-extensions.continue.continue
+              # vscode-extensions.continue.continue
               vscode-extensions.ms-vscode.cpptools-extension-pack
               vscode-extensions.xaver.clang-format
               vscode-extensions.ms-vscode.cmake-tools
@@ -100,10 +102,13 @@ in
               vscode-extensions.charliermarsh.ruff
               vscode-extensions.ms-vscode-remote.remote-ssh
               vscode-extensions.ms-vscode-remote.remote-ssh-edit
-              vscode-extensions.rust-lang.rust-analyzer
+              nix-vscode-extensions.open-vsx.rooveterinaryinc.roo-cline
               pkl-vscode
             ]
-            (lib.optionals cfg.electronics.probe-rs [
+            (lib.optionals cfg.rust.enable [
+              vscode-extensions.rust-lang.rust-analyzer
+            ])
+            (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
               nix-vscode-extensions.open-vsx.probe-rs.probe-rs-debugger
             ])
           ];
@@ -163,8 +168,15 @@ in
       (lib.optionals cfg.electronics.enable [
         kicad
       ])
-      (lib.optionals (cfg.electronics.enable && cfg.electronics.probe-rs) [
+      (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
         probe-rs
+      ])
+      (lib.optionals cfg.rust.enable [
+        rustc
+        cargo
+        clippy
+        rustfmt
+        rust-analyzer
       ])
       (lib.optionals cfg.mechanical.enable [
         orca-slicer

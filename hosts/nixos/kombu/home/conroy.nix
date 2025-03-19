@@ -19,7 +19,6 @@
     development = {
       electronics = {
         enable = true;
-        probe-rs = true;
       };
       mechanical.enable = true;
       audio.enable = true;
@@ -27,6 +26,7 @@
         enable = true;
         # clion.versionOverride = "2023.2.5";
       };
+      rust.enable = true;
       vscode.enable = true;
       ssh.enable = true;
       ssh.onePassword = true;
@@ -121,10 +121,6 @@
     ## Python
     ruff
 
-    ## Rust
-    rustc
-    cargo
-    rust-analyzer
     clang
     openssl
     pkg-config
