@@ -90,7 +90,7 @@ in
         enable = true;
         package = pkgs.ungoogled-chromium;
         extensions = [
-          { id = "aeblfdkhhhdcdjpifhhbdiojplfjncoa"; }  # 1Password
+          { id = "aeblfdkhhhdcdjpifhhbdiojplfjncoa"; } # 1Password
         ];
       };
 
@@ -113,6 +113,18 @@ in
         createDirectories = true;
         extraConfig = {
           XDG_SCREENSHOTS_DIR = "${config.home.homeDirectory}/Screenshots";
+        };
+      };
+
+      xdg.mimeApps = {
+        enable = true;
+        defaultApplications = {
+          "default-web-browser" = [ "firefox.desktop" ];
+          "text/html" = [ "firefox.desktop" ];
+          "x-scheme-handler/http" = [ "firefox.desktop" ];
+          "x-scheme-handler/https" = [ "firefox.desktop" ];
+          "x-scheme-handler/about" = [ "firefox.desktop" ];
+          "x-scheme-handler/unknown" = [ "firefox.desktop" ];
         };
       };
 
