@@ -30,7 +30,7 @@
       ];
     };
 
-    supportedFilesystems = lib.mkForce [ "btrfs" ];
+    supportedFilesystems = [ "btrfs" ];
   };
 
   networking.hostName = "kombu"; # Define your hostname.
@@ -44,7 +44,7 @@
   corncheese = {
     development = {
       enable = true;
-      remoteBuilders.enable = false;  # this machine isn't colocated with the corncheese builders
+      remoteBuilders.enable = false; # this machine isn't colocated with the corncheese builders
     };
     theming = {
       enable = true;
@@ -72,6 +72,10 @@
       enable = true;
       tailscale.enable = true;
       remoteBuilders.enable = true;
+      tftpServer = {
+        enable = true;
+        rootDirectory = "/tmp/tftp-server";
+      };
     };
   };
 

@@ -20,6 +20,7 @@ in
   options = {
     andromeda.development = {
       enable = lib.mkEnableOption "andromeda development config";
+      tftpServer.enable = lib.mkEnableOption "andromeda tftp dev server";
     };
   };
 
@@ -32,8 +33,8 @@ in
       ROS_DOMAIN_ID = "38";
     };
 
-    home.file =
-      let
+    home.file = lib.mkMerge [
+      (let
         # Get all files from the source directory
         sshFiles = builtins.readDir ./pubkeys;
 
@@ -47,7 +48,25 @@ in
         "${config.home.homeDirectory}/.aws/credentials".source =
           config.lib.file.mkOutOfStoreSymlink
             config.age.secrets."andromeda.aws-home-config.credentials".path;
-      };
+      })
+      {
+        ".config/nix-vm/vm.nix" = {
+          text = ''
+            {
+              nixpkgs.hostPlatform = "${pkgs.stdenv.hostPlatform.system}";
+              virtualisation.vmVariant = {
+                virtualisation = {
+                  host.pkgs = import <nixpkgs> { };
+                  cores = 4;
+                  memorySize = 8192;
+                  resolution = { x = 1280; y = 720; };
+                };
+              };
+            }
+          '';
+        };
+      }
+    ];
 
     programs.ssh = {
       enable = true;
