@@ -141,7 +141,7 @@ const options = mkOptions(OPTIONS, {
             max: opt(6),
             favorites: opt([
                 [
-                    "firefox",
+                    "chromium",
                     "Browse the filesystem", // Thunar
                 ],
             ]),

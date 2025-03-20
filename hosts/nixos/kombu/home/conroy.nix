@@ -39,6 +39,7 @@
       enable = true;
       ags.enable = true;
       hyprpaper.enable = true;
+      firefox.enable = true;
       chromium.enable = true;
     };
     shell = {
@@ -144,10 +145,6 @@
     settings = {
       scrollback_lines = 20000;
     };
-  };
-
-  programs.firefox = {
-    enable = true;
   };
 
   programs.vifm = {

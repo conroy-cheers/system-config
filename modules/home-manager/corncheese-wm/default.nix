@@ -76,10 +76,11 @@ in
       };
 
       programs.firefox = mkIf cfg.firefox.enable {
-        profiles.conroy = {
+        enable = true;
+        profiles.default = {
           id = 0;
           isDefault = true;
-          extensions = with pkgs.nur.repos.rycee.firefox-addons; [
+          extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
             onepassword-password-manager
             ublock-origin
           ];
@@ -88,9 +89,10 @@ in
 
       programs.chromium = {
         enable = true;
-        package = pkgs.ungoogled-chromium;
+        package = pkgs.chromium;
         extensions = [
           { id = "aeblfdkhhhdcdjpifhhbdiojplfjncoa"; } # 1Password
+          { id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; } # uBlock Origin
         ];
       };
 
@@ -119,12 +121,12 @@ in
       xdg.mimeApps = {
         enable = true;
         defaultApplications = {
-          "default-web-browser" = [ "firefox.desktop" ];
-          "text/html" = [ "firefox.desktop" ];
-          "x-scheme-handler/http" = [ "firefox.desktop" ];
-          "x-scheme-handler/https" = [ "firefox.desktop" ];
-          "x-scheme-handler/about" = [ "firefox.desktop" ];
-          "x-scheme-handler/unknown" = [ "firefox.desktop" ];
+          "default-web-browser" = [ "chromium.desktop" ];
+          "text/html" = [ "chromium.desktop" ];
+          "x-scheme-handler/http" = [ "chromium.desktop" ];
+          "x-scheme-handler/https" = [ "chromium.desktop" ];
+          "x-scheme-handler/about" = [ "chromium.desktop" ];
+          "x-scheme-handler/unknown" = [ "chromium.desktop" ];
         };
       };
 

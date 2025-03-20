@@ -41,7 +41,7 @@ in
       "$mod, Return, exec, kitty"
       "$mod SHIFT, Return, exec, kitty --class floating"
       "$mod, D, exec, neovide --no-vsync"
-      "$mod, F, exec, firefox"
+      "$mod, F, exec, chromium"
 
       # Special workspace
       "$mod, S, togglespecialworkspace"
