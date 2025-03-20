@@ -75,6 +75,18 @@ in
         executable = true;
       };
 
+      home.pointerCursor = {
+        enable = true;
+        package = pkgs.catppuccin-cursors.mochaLavender;
+        name = "catppuccin-mocha-lavender-cursors";
+        size = 24;
+        gtk.enable = true;
+        hyprcursor = {
+          enable = true;
+          # size = 24;
+        };
+      };
+
       programs.firefox = mkIf cfg.firefox.enable {
         enable = true;
         profiles.default = {
