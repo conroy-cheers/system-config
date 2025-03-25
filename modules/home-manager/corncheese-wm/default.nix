@@ -63,6 +63,14 @@ in
       # Stylix tries to set hyprlock wallpaper. We don't want this
       stylix.targets.hyprlock.enable = false;
 
+      gtk = {
+        enable = true;
+        iconTheme = {
+          package = pkgs.papirus-icon-theme;
+          name = "Papirus";
+        };
+      };
+
       # NOTE: this executable is used by greetd to start a wayland session when system boot up
       # with such a vendor-no-locking script, we can switch to another wayland compositor without modifying greetd's config in NixOS module
       home.file.".wayland-session" = {
