@@ -50,6 +50,10 @@ in
           position = 0, -40
           halign = center
           valign = center
+
+          shadow_passes = 4
+          shadow_size = 4
+          shadow_boost = 0.8
       }
 
       label {
@@ -63,6 +67,10 @@ in
           position = 0, -120
           halign = center
           valign = center
+
+          shadow_passes = 4
+          shadow_size = 4
+          shadow_boost = 0.8
       }
     '';
   };
