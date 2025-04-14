@@ -17,12 +17,16 @@
 
   corncheese = {
     development = {
-      electronics.enable = true;
+      electronics = {
+        enable = true;
+      };
       mechanical.enable = true;
+      audio.enable = true;
       jetbrains = {
         enable = true;
-        clion.versionOverride = "2023.2.5";
+        # clion.versionOverride = "2023.2.5";
       };
+      rust.enable = true;
       vscode.enable = true;
       ssh.enable = true;
       ssh.onePassword = true;
@@ -40,15 +44,16 @@
       ags.enable = true;
       hyprpaper.enable = true;
       firefox.enable = true;
+      chromium.enable = true;
     };
     shell = {
       enable = true;
+      direnv = true;
+      zoxide = true;
       atuin = {
         enable = true;
         sync = true;
       };
-      direnv = true;
-      zoxide = true;
       shells = [ "zsh" ];
     };
     wezterm = {
@@ -131,10 +136,6 @@
     ## Python
     ruff
 
-    ## Rust
-    rustc
-    cargo
-    rust-analyzer
     clang
     openssl
     pkg-config
