@@ -16,8 +16,6 @@ in
   };
 
   config = mkIf cfg.enable {
-
-    services.nix-daemon.enable = true;
     # programs.nix-index.enable = true;
 
     environment.systemPackages = [
@@ -29,7 +27,7 @@ in
       pkgs.nushell
     ];
 
-    security.pam.enableSudoTouchIdAuth = true;
+    security.pam.services.sudo_local.touchIdAuth = true;
 
     system = {
       startup = {
@@ -107,8 +105,6 @@ in
         };
 
         dock = {
-
-          # Automatically show and hide the dock
           autohide = false;
 
           # Add translucency in dock for hidden applications
@@ -163,7 +159,7 @@ in
         # };
 
         # Where to save screenshots
-        screencapture.location = "~/Downloads";
+        screencapture.location = "~/Desktop";
       };
 
       # Settings that don't have an option in nix-darwin

@@ -255,7 +255,7 @@ in
           path = "${config.xdg.dataHome}/zsh/history";
         };
 
-        initExtra =
+        initContent =
           builtins.concatStringsSep "\n"
             [
               ''

@@ -57,7 +57,12 @@
     home.packages = with pkgs; [
       # Nix
       nil
+      nixfmt-rfc-style
     ];
+
+    programs.btop = {
+      enable = true;
+    };
 
     programs.git = {
       enable = true;
@@ -66,6 +71,13 @@
       userEmail = "conroy@corncheese.org";
       delta = {
         enable = true;
+      };
+    };
+
+    programs.kitty = {
+      enable = true;
+      settings = {
+        scrollback_lines = 20000;
       };
     };
 
