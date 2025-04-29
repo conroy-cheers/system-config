@@ -95,6 +95,15 @@ in
         };
       };
 
+      programs.thunderbird = {
+        enable = true;
+        profiles = {
+          default = {
+            isDefault = true;
+          };
+        };
+      };
+
       programs.firefox = mkIf cfg.firefox.enable {
         enable = true;
         profiles.default = {

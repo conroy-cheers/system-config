@@ -167,6 +167,7 @@ in
       ]
       (lib.optionals cfg.electronics.enable [
         kicad
+        stm32cubemx
       ])
       (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
         probe-rs

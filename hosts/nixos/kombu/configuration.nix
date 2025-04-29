@@ -247,7 +247,7 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w" # kombu system key
     ];
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "docker" "plugdev" ];
+    extraGroups = [ "wheel" "docker" "plugdev" "dialout" ];
   };
 
   programs.zsh = {

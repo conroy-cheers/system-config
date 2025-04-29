@@ -11,6 +11,7 @@ let
   abiUser = "abi";
   abiHostnames = {
     "flabi" = "abi-andr-dev-1";
+    "abi5" = "abi-andr-dev-5";
     "agx" = "10.11.120.231";
   };
   abiHosts = builtins.attrNames abiHostnames;
