@@ -16,6 +16,9 @@
     defaultUser = "conroy";
     useWindowsDriver = true;
     wslConf.interop.appendWindowsPath = false;
+    usbip = {
+      enable = true;
+    };
   };
 
   ### Set your time zone.
