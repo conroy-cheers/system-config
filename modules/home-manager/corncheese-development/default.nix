@@ -102,6 +102,7 @@ in
               vscode-extensions.charliermarsh.ruff
               vscode-extensions.ms-vscode-remote.remote-ssh
               vscode-extensions.ms-vscode-remote.remote-ssh-edit
+              vscode-extensions.arrterian.nix-env-selector
               nix-vscode-extensions.open-vsx.rooveterinaryinc.roo-cline
               pkl-vscode
             ]
