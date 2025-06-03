@@ -37,21 +37,23 @@ in
     };
 
     home.file = lib.mkMerge [
-      (let
-        # Get all files from the source directory
-        sshFiles = builtins.readDir ./pubkeys;
+      (
+        let
+          # Get all files from the source directory
+          sshFiles = builtins.readDir ./pubkeys;
 
-        # Create a set of file mappings for each identity file
-        fileMapper = filename: {
-          # Target path will be in ~/.ssh/
-          ".ssh/${filename}".source = ./pubkeys + "/${filename}";
-        };
-      in
-      lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles) // {
-        "${config.home.homeDirectory}/.aws/credentials".source =
-          config.lib.file.mkOutOfStoreSymlink
-            config.age.secrets."andromeda.aws-home-config.credentials".path;
-      })
+          # Create a set of file mappings for each identity file
+          fileMapper = filename: {
+            # Target path will be in ~/.ssh/
+            ".ssh/${filename}".source = ./pubkeys + "/${filename}";
+          };
+        in
+        lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles) // {
+          "${config.home.homeDirectory}/.aws/credentials".source =
+            config.lib.file.mkOutOfStoreSymlink
+              config.age.secrets."andromeda.aws-home-config.credentials".path;
+        }
+      )
       {
         ".config/nix-vm/vm.nix" = {
           text = ''

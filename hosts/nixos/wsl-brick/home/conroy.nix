@@ -10,7 +10,7 @@
     homeDirectory = "/home/conroy";
     stateVersion = "24.05";
   };
-  
+
   age.rekey = {
     hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJhF3xq3frIeDn1n0GxQFOUVR2FYGQT4+XBHe/jbAyYb conroy@wsl-brick";
   };

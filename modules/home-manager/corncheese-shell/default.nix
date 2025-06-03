@@ -112,8 +112,7 @@ in
     };
 
   config = mkMerge [
-    {
-    }
+    { }
     (mkIf cfg.enable {
       home.packages = with pkgs;
         builtins.concatLists [
@@ -154,7 +153,7 @@ in
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
 
         daemon.enable = true;
-        
+
         settings = mkMerge [
           {
             enter_accept = true;

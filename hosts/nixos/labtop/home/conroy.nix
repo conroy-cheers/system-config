@@ -64,22 +64,23 @@
     development.enable = true;
   };
 
-  wayland.windowManager.hyprland.settings = let
-    internalDisplayString = "eDP-1,3072x1920@120,0x0,1.2";
-  in
-  {
-    monitor = [
-      internalDisplayString
-      "desc:Dell Inc. DELL U2720Q 8LXMZ13,preferred,auto,1.5"
-      ",preferred,auto,1"
-    ];
-    bindl = [
-      # trigger when the switch is turning on
-      ", switch:on:Lid Switch, exec, hyprctl keyword monitor \"eDP-1,disable\""
-      # trigger when the switch is turning off
-      ", switch:off:Lid Switch, exec, hyprctl keyword monitor \"${internalDisplayString}\""
-    ];
-  };
+  wayland.windowManager.hyprland.settings =
+    let
+      internalDisplayString = "eDP-1,3072x1920@120,0x0,1.2";
+    in
+    {
+      monitor = [
+        internalDisplayString
+        "desc:Dell Inc. DELL U2720Q 8LXMZ13,preferred,auto,1.5"
+        ",preferred,auto,1"
+      ];
+      bindl = [
+        # trigger when the switch is turning on
+        ", switch:on:Lid Switch, exec, hyprctl keyword monitor \"eDP-1,disable\""
+        # trigger when the switch is turning off
+        ", switch:off:Lid Switch, exec, hyprctl keyword monitor \"${internalDisplayString}\""
+      ];
+    };
 
   stylix = {
     targets.hyprland.enable = true;

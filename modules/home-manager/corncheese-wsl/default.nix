@@ -14,7 +14,7 @@ in
   config = lib.mkMerge [
     (lib.mkIf cfg._1password.enable {
       home = {
-        file.".1password/.keep".text = "";  # Create ~/.1password directory
+        file.".1password/.keep".text = ""; # Create ~/.1password directory
         file.".agent-bridge.sh" = {
           executable = true;
           text = ''

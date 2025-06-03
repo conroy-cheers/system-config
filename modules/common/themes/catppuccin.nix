@@ -16,7 +16,7 @@
   fontSize = 12;
 
   wallpaper = pkgs.corncheese-wallpapers.paths.green;
-  
+
   # Hyprland and ags.
   opacity = 0.8; # affects theme.blur in ags.
   roundingRadius = 15; # affects theme.rounding in ags.
