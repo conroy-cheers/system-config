@@ -3146,6 +3146,26 @@
         "type": "github"
       }
     },
+    "waveforms": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1748247366,
+        "narHash": "sha256-+uQh9e8F8KjC5HzHCztvDvW4xZdI4TZVxNFjaesL338=",
+        "owner": "liff",
+        "repo": "waveforms-flake",
+        "rev": "7b5dc468bfb2a284f97d29b91f9a9fe5acd5a673",
+        "type": "github"
+      },
+      "original": {
+        "owner": "liff",
+        "repo": "waveforms-flake",
+        "type": "github"
+      }
+    },
     "wired": {
       "inputs": {
         "flake-parts": "flake-parts_8",
