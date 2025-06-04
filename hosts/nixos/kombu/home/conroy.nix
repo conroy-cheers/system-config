@@ -125,6 +125,16 @@
     clang
     openssl
     pkg-config
+
+    ## Windows
+    lutris
+    
+    ## Wine
+    # winetricks (all versions)
+    winetricks
+    # native wayland support (unstable)
+    wineWowPackages.waylandFull
+    samba
   ];
 
   home.sessionVariables = {
