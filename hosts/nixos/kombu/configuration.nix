@@ -11,6 +11,7 @@
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
+    inputs.waveforms.nixosModule
   ];
 
   ### Set boot options
@@ -286,6 +287,10 @@
   programs._1password-gui = {
     enable = true;
     polkitPolicyOwners = [ "conroy" ];
+  };
+
+  programs.steam = {
+    enable = true;
   };
 
   ### Transmission

@@ -169,6 +169,7 @@ in
       (lib.optionals cfg.electronics.enable [
         kicad
         stm32cubemx
+        waveforms
       ])
       (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
         probe-rs
