@@ -12,7 +12,9 @@ let
   abiHostnames = {
     "flabi" = "abi-andr-dev-1";
     "abi5" = "abi-andr-dev-5";
+    "abi6" = "abi-andr-dev-6";
     "agx" = "10.11.120.231";
+    "audiobox" = "10.11.3.77";
   };
   abiHosts = builtins.attrNames abiHostnames;
   abiRootHosts = map (host: host + "-root") abiHosts;
