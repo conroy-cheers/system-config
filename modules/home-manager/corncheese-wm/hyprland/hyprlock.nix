@@ -21,9 +21,9 @@ in
             on-timeout = "hyprlock";
           }
           {
-            timeout = 1200;
+            timeout = 7200;
             on-timeout = "hyprctl dispatch dpms off";
-            on-resume = "hyprctl dispatch dpms on";
+            on-resume = "hyprctl dispatch dpms on && kill -9 $(pgrep ags) && ags &!";
           }
         ];
       };
