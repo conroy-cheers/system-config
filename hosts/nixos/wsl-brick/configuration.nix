@@ -39,7 +39,7 @@
     development = {
       enable = true;
       tailscale.enable = false;
-      remoteBuilders.enable = false;
+      remoteBuilders.enable = true;
     };
   };
 
@@ -112,6 +112,21 @@
   #   ];
   # };
 
+  # hardware.nvidia.open = true;
+  # https://github.com/nix-community/NixOS-WSL/issues/454
+  environment.sessionVariables = {
+    CUDA_PATH = "${pkgs.cudatoolkit}";
+    EXTRA_LDFLAGS = "-L/lib -L${pkgs.linuxPackages.nvidia_x11}/lib";
+    EXTRA_CCFLAGS = "-I/usr/include";
+    LD_LIBRARY_PATH = [
+      "/usr/lib/wsl/lib"
+      "${pkgs.linuxPackages.nvidia_x11}/lib"
+      "${pkgs.ncurses5}/lib"
+      "/run/opengl-driver/lib"
+    ];
+    MESA_D3D12_DEFAULT_ADAPTER_NAME = "Nvidia";
+  };
+
   ### Audio (via WSLg)
   hardware.pulseaudio = {
     enable = true;
@@ -120,7 +135,7 @@
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
-    # videoDrivers = [ "amdgpu" ];
+    # videoDrivers = [ "nvidia" ];
   };
 
   ### Enable the OpenSSH daemon.
