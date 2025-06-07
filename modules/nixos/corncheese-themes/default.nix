@@ -1,7 +1,9 @@
 { inputs, pkgs, lib, config, ... }:
 let
   cfg = config.corncheese.theming;
-  themeDetails = import (../../common + "/themes/${cfg.theme}.nix") { inherit pkgs; };
+  themeDetails = lib.recursiveUpdate (import (../../common + "/themes/${cfg.theme}.nix") {
+    inherit pkgs;
+  }) cfg.themeOverrides;
 in
 {
   options = {
@@ -10,6 +12,11 @@ in
       theme = lib.mkOption {
         type = with lib.types; str;
         description = "Theme to use";
+      };
+      themeOverrides = lib.mkOption {
+        type = with lib.types; anything;
+        description = "Overrides for imported theme data";
+        default = { };
       };
       themeDetails = lib.mkOption {
         type = with lib.types; anything;

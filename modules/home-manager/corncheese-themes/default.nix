@@ -1,7 +1,14 @@
-{ pkgs, lib, config, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 let
   cfg = config.corncheese.theming;
-  themeDetails = import (../../common + "/themes/${cfg.theme}.nix") { inherit pkgs; };
+  themeDetails = lib.recursiveUpdate (import (../../common + "/themes/${cfg.theme}.nix") {
+    inherit pkgs;
+  }) cfg.themeOverrides;
 in
 {
   options = {
@@ -10,6 +17,11 @@ in
       theme = lib.mkOption {
         type = with lib.types; str;
         description = "Theme to use";
+      };
+      themeOverrides = lib.mkOption {
+        type = with lib.types; anything;
+        description = "Overrides for imported theme data";
+        default = { };
       };
       themeDetails = lib.mkOption {
         type = with lib.types; anything;
@@ -26,8 +38,9 @@ in
       enable = true;
       polarity = "dark";
       image = themeDetails.wallpaper;
-      base16Scheme = lib.mkIf (cfg.theme != null)
-        "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
+      base16Scheme = lib.mkIf (
+        cfg.theme != null
+      ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
       override = lib.mkIf (cfg.themeDetails.stylixOverride != null) cfg.themeDetails.stylixOverride;
       opacity = {
         terminal = cfg.themeDetails.opacity;
@@ -41,8 +54,7 @@ in
         };
       };
 
-      targets.nixvim.enable =
-        lib.mkIf (cfg.theme != null) false;
+      targets.nixvim.enable = lib.mkIf (cfg.theme != null) false;
 
       targets.vscode.profileNames = [ "default" ];
       targets.firefox.profileNames = [ "default" ];

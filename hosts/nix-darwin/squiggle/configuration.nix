@@ -17,10 +17,26 @@
     theming = {
       enable = true;
       theme = "catppuccin";
+      themeOverrides = {
+        opacity = lib.mkForce 0.92;
+        fontSize = lib.mkForce 10;
+      };
     };
   };
 
-  nix.package = pkgs.nix;
+  nixpkgs = {
+    overlays = [
+      # If you want to use overlays your own flake exports (from overlays dir):
+      inputs.self.overlays.karabiner
+    ];
+  };
+
+  nix = {
+    package = pkgs.nixVersions.monitored.latest;
+    extraOptions = ''
+      experimental-features = nix-command flakes
+    '';
+  };
 
   programs.zsh.enable = true;
 
@@ -28,6 +44,12 @@
   fonts.packages = with pkgs; [
     nerd-fonts.meslo-lg
   ];
+
+  services = {
+    karabiner-elements = {
+      enable = true;
+    };
+  };
 
   # Keyboard
   system.keyboard.enableKeyMapping = true;
