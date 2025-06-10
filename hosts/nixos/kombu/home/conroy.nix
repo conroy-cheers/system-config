@@ -1,4 +1,10 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
   imports = [
@@ -39,6 +45,10 @@
       enable = true;
       ags.enable = true;
       hyprpaper.enable = true;
+    };
+    desktop = {
+      enable = true;
+      thunderbird.enable = true;
       firefox.enable = true;
       chromium.enable = true;
     };
@@ -128,7 +138,7 @@
 
     ## Windows
     lutris
-    
+
     ## Wine
     # winetricks (all versions)
     winetricks

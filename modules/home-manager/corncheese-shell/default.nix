@@ -25,7 +25,7 @@ let
             if isx86_64 && isLinux then
               "sudo --validate && sudo nixos-rebuild"
             else if isDarwin then
-              "darwin-rebuild"
+              "sudo darwin-rebuild"
             else if isAarch64 then
               "nix-on-droid"
             else

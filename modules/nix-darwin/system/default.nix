@@ -1,5 +1,10 @@
 { inputs, ... }:
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 with lib;
 let
@@ -35,7 +40,7 @@ in
       };
 
       keyboard = {
-        remapCapsLockToControl = true;
+        remapCapsLockToControl = false;
         # nonUS.remapTilde = true;
         enableKeyMapping = true; # Allows for skhd
         userKeyMapping = [
@@ -48,107 +53,95 @@ in
         NSGlobalDomain = {
           AppleInterfaceStyle = "Dark";
           AppleInterfaceStyleSwitchesAutomatically = true;
-
           # Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)
           AppleKeyboardUIMode = 3;
-
           # Automatically show and hide the menu bar
           _HIHideMenuBar = false;
-
           # Expand save panel by default
           NSNavPanelExpandedStateForSaveMode = true;
-
           # Expand print panel by default
           PMPrintingExpandedStateForPrint = true;
-
           # Replace press-and-hold with key repeat
           ApplePressAndHoldEnabled = false;
-
           # Set a fast key repeat rate
-          KeyRepeat = 4;
-
+          KeyRepeat = 5;
           # Shorten delay before key repeat begins
           InitialKeyRepeat = 12;
-
           # Save to local disk by default, not iCloud
           NSDocumentSaveNewDocumentsToCloud = false;
-
           # Disable autocorrect capitalization
           NSAutomaticCapitalizationEnabled = false;
-
           # Disable autocorrect smart dashes
           NSAutomaticDashSubstitutionEnabled = false;
-
           # Disable autocorrect adding periods
           NSAutomaticPeriodSubstitutionEnabled = false;
-
           # Disable autocorrect smart quotation marks
           NSAutomaticQuoteSubstitutionEnabled = false;
-
           # Disable autocorrect spellcheck
           NSAutomaticSpellingCorrectionEnabled = false;
-
-          # (Effectively) disable resize animations
-          NSWindowResizeTime = 0.003;
-
+          # Set resize animation time
+          NSWindowResizeTime = 0.1;
           # Disable scrollbar animations
           NSScrollAnimationEnabled = false;
-
           # Disable automatic window animations
           NSAutomaticWindowAnimationsEnabled = false;
-        };
-
-        CustomUserPreferences = {
-          "NSGlobalDomain" = {
-            "AppleSpacesSwitchOnActivate" = 0;
-          };
+          # Switch workspace on application activate
+          AppleSpacesSwitchOnActivate = true;
         };
 
         dock = {
           autohide = false;
-
           # Add translucency in dock for hidden applications
           showhidden = true;
-
           # Enable spring loading on all dock items
           enable-spring-load-actions-on-all-items = true;
-
           # Highlight hover effect in dock stack grid view
           mouse-over-hilite-stack = true;
-
           mineffect = "genie";
           orientation = "bottom";
           show-recents = false;
           tilesize = 44;
+
+          persistent-apps = [
+            {
+              app = "/Applications/Safari.app";
+            }
+            {
+              app = "/System/Applications/Messages.app";
+            }
+            {
+              app = "/System/Applications/Mail.app";
+            }
+            {
+              spacer = {
+                small = true;
+              };
+            }
+          ];
+          persistent-others = [
+            "/Users/${config.system.primaryUser}/Downloads"
+          ];
         };
 
         finder = {
-
           # Default Finder window set to column view
           FXPreferredViewStyle = "clmv";
-
           # Finder search in current folder by default
           FXDefaultSearchScope = "SCcf";
-
           # Show all extensions
           AppleShowAllExtensions = true;
-
           # Disable warning when changing file extension
           FXEnableExtensionChangeWarning = false;
-
           # Show full paths
           ShowPathbar = true;
-
           # Show POSIX paths in title
           _FXShowPosixPathInTitle = true;
-
           # Allow quitting of Finder application
           QuitMenuItem = true;
         };
 
         # Disable "Are you sure you want to open" dialog
         LaunchServices.LSQuarantine = false;
-
         # Disable trackpad tap to click
         trackpad.Clicking = false;
 
@@ -188,7 +181,9 @@ in
         # echo "Set hostname"
         # sudo scutil --set HostName $hostname
 
-        ${inputs.mac-app-util.packages.${pkgs.stdenv.system}.default}/bin/mac-app-util sync-trampolines "/Applications/Nix Apps" "/Applications/Nix Trampolines"
+        ${
+          inputs.mac-app-util.packages.${pkgs.stdenv.system}.default
+        }/bin/mac-app-util sync-trampolines "/Applications/Nix Apps" "/Applications/Nix Trampolines"
       '';
 
       # User-level settings

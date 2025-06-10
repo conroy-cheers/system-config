@@ -1,4 +1,10 @@
-{ inputs, config, lib, pkgs, ... }:
+{
+  inputs,
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.corncheese.wm;
@@ -7,175 +13,164 @@ let
 in
 {
   imports = [
-    (import ./hyprland/ags.nix { inherit inputs pkgs lib config; })
+    (import ./hyprland/ags.nix {
+      inherit
+        inputs
+        pkgs
+        lib
+        config
+        ;
+    })
     (import ./hyprland/env.nix { inherit pkgs lib config; })
     (import ./hyprland/binds.nix { inherit pkgs lib config; })
     (import ./hyprland/scripts.nix { inherit pkgs lib config; })
     (import ./hyprland/rules.nix { inherit pkgs lib config; })
-    (import ./hyprland/settings.nix { inherit inputs pkgs lib config; })
+    (import ./hyprland/settings.nix {
+      inherit
+        inputs
+        pkgs
+        lib
+        config
+        ;
+    })
     (import ./hyprland/plugins.nix { inherit pkgs lib config; })
     (import ./hyprland/hyprlock.nix { inherit pkgs lib config; })
   ];
 
-  options =
-    {
-      corncheese.wm = {
-        enable = mkEnableOption "corncheese window manager setup";
-        environment = mkOption {
-          type = with lib.types; attrsOf str;
-          default = { };
-          example = {
-            XCURSOR_SIZE = "24";
-            WLR_NO_HARDWARE_CURSORS = "1";
-            NIXOS_OZONE_WL = "1";
-          };
-          description = lib.mdDoc ''
-            Environment variables to be set when launching Hyprland.
-            These variables will be exported in the wrapper script before executing Hyprland.
-
-            Each attribute in this set represents an environment variable, where the attribute name
-            is the variable name and its value is the variable's value.
-          '';
+  options = {
+    corncheese.wm = {
+      enable = mkEnableOption "corncheese window manager setup";
+      environment = mkOption {
+        type = with lib.types; attrsOf str;
+        default = { };
+        example = {
+          XCURSOR_SIZE = "24";
+          WLR_NO_HARDWARE_CURSORS = "1";
+          NIXOS_OZONE_WL = "1";
         };
-        ags.enable = mkEnableOption "ags widget system";
-        hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
-        firefox.enable = mkEnableOption "firefox configuration";
-        chromium.enable = mkEnableOption "chromium configuration";
-      };
-    };
+        description = lib.mdDoc ''
+          Environment variables to be set when launching Hyprland.
+          These variables will be exported in the wrapper script before executing Hyprland.
 
-  config =
-    mkIf cfg.enable {
-      wayland.windowManager.hyprland = {
-        enable = true;
-        package = pkgs.hyprland;
-        systemd.enable = true;
-        plugins = [
-          # pkgs.hyprlandPlugins.hyprexpo
-        ] ++ lib.optional themeDetails.bordersPlusPlus
-          pkgs.hyprlandPlugins.borders-plus-plus;
-      };
-
-      services.hyprpaper = mkIf cfg.hyprpaper.enable {
-        enable = true;
-      };
-
-      # Stylix tries to set hyprlock wallpaper. We don't want this
-      stylix.targets.hyprlock.enable = false;
-
-      gtk = {
-        enable = true;
-        iconTheme = {
-          package = pkgs.papirus-icon-theme;
-          name = "Papirus";
-        };
-      };
-
-      # NOTE: this executable is used by greetd to start a wayland session when system boot up
-      # with such a vendor-no-locking script, we can switch to another wayland compositor without modifying greetd's config in NixOS module
-      home.file.".wayland-session" = {
-        text = ''
-          #!${pkgs.bash}/bin/bash
-          ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: 
-            "export ${name}=\"${value}\"") cfg.environment))}
-          exec ${pkgs.hyprland}/bin/Hyprland
+          Each attribute in this set represents an environment variable, where the attribute name
+          is the variable name and its value is the variable's value.
         '';
-        executable = true;
       };
+      ags.enable = mkEnableOption "ags widget system";
+      hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
+    };
+  };
 
-      home.pointerCursor = {
-        enable = true;
-        package = pkgs.catppuccin-cursors.mochaLavender;
-        name = "catppuccin-mocha-lavender-cursors";
-        size = 24;
-        gtk.enable = true;
-        hyprcursor = {
-          enable = true;
-          # size = 24;
-        };
+  config = mkIf cfg.enable {
+    wayland.windowManager.hyprland = {
+      enable = true;
+      package = pkgs.hyprland;
+      systemd.enable = true;
+      plugins = [
+        # pkgs.hyprlandPlugins.hyprexpo
+      ] ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
+    };
+
+    services.hyprpaper = mkIf cfg.hyprpaper.enable {
+      enable = true;
+    };
+
+    # Stylix tries to set hyprlock wallpaper. We don't want this
+    stylix.targets.hyprlock.enable = false;
+
+    gtk = {
+      enable = true;
+      iconTheme = {
+        package = pkgs.papirus-icon-theme;
+        name = "Papirus";
       };
+    };
 
-      programs.thunderbird = {
-        enable = true;
-        profiles = {
-          default = {
-            isDefault = true;
-          };
-        };
-      };
-
-      programs.firefox = mkIf cfg.firefox.enable {
-        enable = true;
-        profiles.default = {
-          id = 0;
-          isDefault = true;
-          extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
-            onepassword-password-manager
-            ublock-origin
-          ];
-        };
-      };
-
-      programs.chromium = {
-        enable = true;
-        package = pkgs.chromium;
-        extensions = [
-          { id = "aeblfdkhhhdcdjpifhhbdiojplfjncoa"; } # 1Password
-          { id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; } # uBlock Origin
-        ];
-      };
-
-      programs.kitty.extraConfig = ''
-        touch_scroll_multiplier 8.0
+    # NOTE: this executable is used by greetd to start a wayland session when system boot up
+    # with such a vendor-no-locking script, we can switch to another wayland compositor without modifying greetd's config in NixOS module
+    home.file.".wayland-session" = {
+      text = ''
+        #!${pkgs.bash}/bin/bash
+        ${builtins.concatStringsSep "\n" (
+          builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=\"${value}\"") cfg.environment)
+        )}
+        exec ${pkgs.hyprland}/bin/Hyprland
       '';
+      executable = true;
+    };
 
-      xdg.portal = {
+    home.pointerCursor = {
+      enable = true;
+      package = pkgs.catppuccin-cursors.mochaLavender;
+      name = "catppuccin-mocha-lavender-cursors";
+      size = 24;
+      gtk.enable = true;
+      hyprcursor = {
         enable = true;
-        xdgOpenUsePortal = true;
-        config = {
-          common.default = [ "gtk" ];
-          hyprland.default = [ "hyprland" ];
-        };
-        extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+        # size = 24;
       };
+    };
 
-      xdg.userDirs = {
-        enable = true;
-        createDirectories = true;
-        extraConfig = {
-          XDG_SCREENSHOTS_DIR = "${config.home.homeDirectory}/Screenshots";
-        };
-      };
-
-      xdg.mimeApps = {
-        enable = true;
-        defaultApplications = {
-          "default-web-browser" = [ "chromium.desktop" ];
-          "text/html" = [ "chromium.desktop" ];
-          "x-scheme-handler/http" = [ "chromium.desktop" ];
-          "x-scheme-handler/https" = [ "chromium.desktop" ];
-          "x-scheme-handler/about" = [ "chromium.desktop" ];
-          "x-scheme-handler/unknown" = [ "chromium.desktop" ];
-        };
-      };
-
-      systemd.user.services."1password" = {
-        Unit = {
-          Description = "1Password";
-          Requires = [ "graphical-session.target" ];
-          After = [ "graphical-session.target" ];
-        };
-        Install = {
-          Alias = "1password.service";
-          WantedBy = [ "graphical-session.target" ];
-        };
-        Service = {
-          ExecStart = "${pkgs._1password-gui}/bin/1password --silent";
-          Type = "exec";
-          TimeoutSec = 60;
+    programs.thunderbird = {
+      enable = true;
+      profiles = {
+        default = {
+          isDefault = true;
         };
       };
     };
+
+    programs.kitty.extraConfig = ''
+      touch_scroll_multiplier 8.0
+    '';
+
+    xdg.portal = {
+      enable = true;
+      xdgOpenUsePortal = true;
+      config = {
+        common.default = [ "gtk" ];
+        hyprland.default = [ "hyprland" ];
+      };
+      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    };
+
+    xdg.userDirs = {
+      enable = true;
+      createDirectories = true;
+      extraConfig = {
+        XDG_SCREENSHOTS_DIR = "${config.home.homeDirectory}/Screenshots";
+      };
+    };
+
+    xdg.mimeApps = {
+      enable = true;
+      defaultApplications = {
+        "default-web-browser" = [ "chromium.desktop" ];
+        "text/html" = [ "chromium.desktop" ];
+        "x-scheme-handler/http" = [ "chromium.desktop" ];
+        "x-scheme-handler/https" = [ "chromium.desktop" ];
+        "x-scheme-handler/about" = [ "chromium.desktop" ];
+        "x-scheme-handler/unknown" = [ "chromium.desktop" ];
+      };
+    };
+
+    systemd.user.services."1password" = {
+      Unit = {
+        Description = "1Password";
+        Requires = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+      };
+      Install = {
+        Alias = "1password.service";
+        WantedBy = [ "graphical-session.target" ];
+      };
+      Service = {
+        ExecStart = "${pkgs._1password-gui}/bin/1password --silent";
+        Type = "exec";
+        TimeoutSec = 60;
+      };
+    };
+  };
 
   meta = {
     maintainers = with lib.maintainers; [ conroy-cheers ];

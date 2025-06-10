@@ -1,4 +1,10 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
   imports = [
@@ -24,6 +30,9 @@
     };
 
     corncheese = {
+      macos = {
+        enable = true;
+      };
       development = {
         vscode.enable = true;
         ssh.enable = true;
@@ -32,8 +41,10 @@
         enable = true;
         theme = "catppuccin";
       };
-      wm = {
-        enable = false;
+      desktop = {
+        enable = true;
+        firefox.enable = true;
+        element.enable = true;
       };
       shell = {
         enable = true;
