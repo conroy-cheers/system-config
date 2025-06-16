@@ -10,45 +10,6 @@
 let
   cfg = config.corncheese.development;
 
-  globalIgnores = builtins.concatLists [
-    (lib.optionals pkgs.hostPlatform.isDarwin [
-      {
-        url = "https://raw.githubusercontent.com/github/gitignore/main/Global/macOS.gitignore";
-        sha256 = "sha256-06j24pyHJse90pgTOzhEsc4Q4Ndfy17rAq5hghrjVnY=";
-      }
-    ])
-    (lib.optionals pkgs.hostPlatform.isLinux [
-      {
-        url = "https://raw.githubusercontent.com/github/gitignore/main/Global/Linux.gitignore";
-        sha256 = "";
-      }
-    ])
-    (lib.optionals cfg.vscode.enable [
-      {
-        url = "https://raw.githubusercontent.com/github/gitignore/main/Global/VisualStudioCode.gitignore";
-        sha256 = "sha256-Z23dyP2ZT27bN4P3QCc2YZZ3r4I8XAFkP+Z2u6m40lQ=";
-      }
-    ])
-  ];
-  combinedGitignore = pkgs.writeText "global-gitignore" (
-    lib.concatMapStringsSep
-      ''
-
-        # ---
-      ''
-      (
-        template:
-        let
-          file = pkgs.fetchurl {
-            url = template.url;
-            sha256 = template.sha256;
-          };
-        in
-        builtins.readFile file
-      )
-      globalIgnores
-  );
-
   onePassPath =
     if pkgs.hostPlatform.isDarwin then
       ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
@@ -184,7 +145,6 @@ in
     };
 
     home.file = lib.mkMerge [
-      { "${config.home.homeDirectory}/.gitignore".source = combinedGitignore; }
       (lib.mkIf cfg.ssh.enable (
         let
           # Get all files from the source directory
@@ -290,7 +250,6 @@ in
         merge.tool = "meld";
         mergetool.meld.cmd = ''meld "$LOCAL" "$BASE" "$REMOTE" --output "$MERGED"'';
         diff.algorithm = "patience";
-        core.excludesFile = "${config.home.homeDirectory}/.gitignore";
       };
       # TODO: move this to scm module
       ignores =
@@ -301,9 +260,19 @@ in
             rev = "ceea7cab239eece5cb9fd9416e433a9497c2d747";
             hash = "sha256-YOPkqYJXinGHCbuCpHLS76iIWqUvYZh6SaJ0ROGoHc4=";
           };
-          gitignoreText = builtins.concatStringsSep "\n" [
-            (builtins.readFile "${gitignoreSrc}/Global/JetBrains.gitignore")
-          ];
+          gitignoreText = builtins.concatStringsSep "\n" (
+            builtins.concatLists [
+              (lib.optionals cfg.jetbrains.enable [
+                (builtins.readFile "${gitignoreSrc}/Global/JetBrains.gitignore")
+              ])
+              (lib.optionals pkgs.hostPlatform.isDarwin [
+                (builtins.readFile "${gitignoreSrc}/Global/macOS.gitignore")
+              ])
+              (lib.optionals pkgs.hostPlatform.isLinux [
+                (builtins.readFile "${gitignoreSrc}/Global/Linux.gitignore")
+              ])
+            ]
+          );
         in
         lib.filter (value: !(lib.hasPrefix "#" value || value == "")) (lib.splitString "\n" gitignoreText);
     };
