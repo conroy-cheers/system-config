@@ -186,11 +186,13 @@ in
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
           pyright
         ]
-        (lib.optionals cfg.electronics.enable [
-          kicad
-          stm32cubemx
-          waveforms
-        ])
+        (lib.optionals cfg.electronics.enable (
+          [
+            kicad
+            stm32cubemx
+          ]
+          ++ (lib.optionals (builtins.hasAttr "waveforms" pkgs) [ pkgs.waveforms ])
+        ))
         (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [ probe-rs ])
         (lib.optionals cfg.rust.enable [
           rustc

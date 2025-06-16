@@ -218,32 +218,32 @@ in
         }
       );
     };
-    nix-on-droid = {
-      predicate = (
-        {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
-        and [
-          meta.enable
-          (hasFiles [ "configuration.nix" "home.nix" ] configurationFiles)
-        ]
-      );
-      mkHost = (
-        {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
-        mkNixOnDroidHost {
-          inherit root;
-          inherit meta;
-        }
-      );
-    };
+    # nix-on-droid = {
+    #   predicate = (
+    #     {
+    #       root,
+    #       meta,
+    #       configurationFiles,
+    #       ...
+    #     }:
+    #     and [
+    #       meta.enable
+    #       (hasFiles [ "configuration.nix" "home.nix" ] configurationFiles)
+    #     ]
+    #   );
+    #   mkHost = (
+    #     {
+    #       root,
+    #       meta,
+    #       configurationFiles,
+    #       ...
+    #     }:
+    #     mkNixOnDroidHost {
+    #       inherit root;
+    #       inherit meta;
+    #     }
+    #   );
+    # };
     nix-darwin = {
       hostsName = "darwinHosts";
       configurationsName = "darwinConfigurations";
