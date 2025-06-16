@@ -117,7 +117,7 @@ in
             "git.confirmSync" = false;
             "explorer.confirmDelete" = false;
             "explorer.confirmDragAndDrop" = false;
-            "terminal.integrated.fontFamily" = lib.mkForce "FiraCode Nerd Font";
+            "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "cmake.pinnedCommands" = [
               "workbench.action.tasks.configureTaskRunner"
               "workbench.action.tasks.runTask"
