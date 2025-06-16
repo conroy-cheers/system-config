@@ -1,31 +1,45 @@
-{ lib, config, self, inputs, ... }:
+{
+  lib,
+  config,
+  self,
+  inputs,
+  ...
+}:
 
 {
-  imports = [
-    inputs.nix-topology.flakeModule
-  ];
+  imports = [ inputs.nix-topology.flakeModule ];
 
-  perSystem = { lib, pkgs, system, ... }:
+  perSystem =
+    {
+      lib,
+      pkgs,
+      system,
+      ...
+    }:
     let
-      removebg = { image, fuzz ? 10, ... }:
+      removebg =
+        {
+          image,
+          fuzz ? 10,
+          ...
+        }:
         pkgs.runCommand "${image.name}.png"
           {
-            buildInputs = [
-              pkgs.imagemagick
-            ];
-          } ''
-          magick ${image} \
-            -monitor \
-            -bordercolor white \
-            -border 1x1 \
-            -alpha set \
-            -channel RGBA \
-            -fuzz ${builtins.toString fuzz}% \
-            -fill none \
-            -floodfill +0+0 white \
-            -shave 1x1 \
-            $out
-        '';
+            buildInputs = [ pkgs.imagemagick ];
+          }
+          ''
+            magick ${image} \
+              -monitor \
+              -bordercolor white \
+              -border 1x1 \
+              -alpha set \
+              -channel RGBA \
+              -fuzz ${builtins.toString fuzz}% \
+              -fill none \
+              -floodfill +0+0 white \
+              -shave 1x1 \
+              $out
+          '';
       images = {
         TL-WR740N = removebg {
           image = pkgs.fetchurl {
@@ -67,7 +81,8 @@
         # };
         nixosConfigurations = self.nixosConfigurations;
         modules = [
-          ({ config, ... }:
+          (
+            { config, ... }:
             let
               inherit (config.lib.topology)
                 mkInternet
@@ -78,15 +93,18 @@
                 ;
             in
             {
-              nodes.internet = mkInternet {
-                connections = mkConnection "router1" "eth1";
-              };
+              nodes.internet = mkInternet { connections = mkConnection "router1" "eth1"; };
 
               nodes.router1 = mkRouter "router1" {
                 info = "TP-Link TL-WR740N";
                 image = images.TL-WR740N;
                 interfaceGroups = [
-                  [ "eth1" "eth2" "eth3" "eth4" ]
+                  [
+                    "eth1"
+                    "eth2"
+                    "eth3"
+                    "eth4"
+                  ]
                   [ "wan1" ]
                 ];
               };
@@ -106,7 +124,12 @@
                 image = images.ZBT-WR8305RT;
                 interfaceGroups = [
                   [ "eth0" ]
-                  [ "lan1" "lan2" "lan3" "lan4" ]
+                  [
+                    "lan1"
+                    "lan2"
+                    "lan3"
+                    "lan4"
+                  ]
                   [ "wan" ]
                 ];
                 interfaces.eth0 = {
@@ -166,7 +189,8 @@
                   physicalConnections = [ (mkConnectionRev "jeeves" "wg0") ];
                 };
               };
-            })
+            }
+          )
         ];
       };
     };

@@ -1,20 +1,21 @@
-{ lib, config, self, inputs, ... }:
+{
+  lib,
+  config,
+  self,
+  inputs,
+  ...
+}:
 
 {
-  imports = [
-    ../lib
-  ];
+  imports = [ ../lib ];
 
   options =
     let
-      inherit (lib)
-        types
-        ;
-      inherit (config.lib)
-        createThings
-        ;
+      inherit (lib) types;
+      inherit (config.lib) createThings;
 
-      createOverlays = baseDir:
+      createOverlays =
+        baseDir:
         createThings {
           inherit baseDir;
           thingType = "overlay";
@@ -34,7 +35,7 @@
               '';
               type = types.path;
               default = "${self}/overlays";
-              defaultText = ''''${self}/overlays'';
+              defaultText = "\${self}/overlays";
             };
             result = lib.mkOption {
               description = ''
@@ -43,10 +44,7 @@
               type = types.attrsOf types.unspecified;
               readOnly = true;
               internal = true;
-              default =
-                lib.optionalAttrs
-                  config.auto.overlays.enable
-                  (createOverlays config.auto.overlays.dir);
+              default = lib.optionalAttrs config.auto.overlays.enable (createOverlays config.auto.overlays.dir);
             };
           };
         });
@@ -57,14 +55,7 @@
   config = {
     flake =
       let
-        overlays =
-          lib.pipe
-            config.auto.overlays.result
-            [
-              (lib.mapAttrs
-                (name: overlay:
-                  overlay))
-            ];
+        overlays = lib.pipe config.auto.overlays.result [ (lib.mapAttrs (name: overlay: overlay)) ];
       in
       {
         inherit overlays;

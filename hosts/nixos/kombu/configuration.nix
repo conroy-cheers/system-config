@@ -2,7 +2,13 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
   imports = [
@@ -94,9 +100,7 @@
 
   nix = {
     settings = {
-      trusted-users = [
-        "conroy"
-      ];
+      trusted-users = [ "conroy" ];
     };
   };
 
@@ -109,9 +113,7 @@
     enable = false;
     extraRules = [
       {
-        users = [
-          "conroy"
-        ];
+        users = [ "conroy" ];
         commands = [
           {
             command = "ALL";
@@ -248,7 +250,12 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w" # kombu system key
     ];
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "docker" "plugdev" "dialout" ];
+    extraGroups = [
+      "wheel"
+      "docker"
+      "plugdev"
+      "dialout"
+    ];
   };
 
   programs.zsh = {

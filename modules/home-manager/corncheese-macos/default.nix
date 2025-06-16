@@ -18,13 +18,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages =
-      with pkgs;
-      builtins.concatLists [
-        [
-          betterdisplay
-        ]
-      ];
+    home.packages = with pkgs; builtins.concatLists [ [ betterdisplay ] ];
   };
 
   meta = {

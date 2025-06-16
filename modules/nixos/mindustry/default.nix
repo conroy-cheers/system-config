@@ -1,12 +1,16 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 with lib;
 let
   cfg = config.corncheese.mindustry;
 in
 {
-  imports = [
-  ];
+  imports = [ ];
 
   options = {
     corncheese.mindustry = {
@@ -73,17 +77,20 @@ in
       # };
       # mindustryCmd = "${cfg.java}/bin/java -jar ${mindustryJar}";
       mindustryConfig = lib.concatStringsSep "," [
-        ("startCommands " + lib.concatStringsSep "," [
-          "config port ${builtins.toString cfg.port}"
-          "config logging false"
-        ])
+        (
+          "startCommands "
+          + lib.concatStringsSep "," [
+            "config port ${builtins.toString cfg.port}"
+            "config logging false"
+          ]
+        )
       ];
       mindustryCmd = "${cfg.mindustry-server}/bin/mindustry-server ${mindustryConfig}";
     in
     {
       # FIXME: set log path
 
-      # systemd.services.mindustry = 
+      # systemd.services.mindustry =
       #   wantedBy = [ "multi-user.target" ];
       #   after = [ "network.target" ];
       #   description = "Start a Mindustry server instance";
@@ -98,19 +105,13 @@ in
       #   };
       # };
 
-      environment.systemPackages = with pkgs; [
-        mindustry-server
-      ];
+      environment.systemPackages = with pkgs; [ mindustry-server ];
 
       networking.firewall =
         lib.pipe
           [ "TCP" "UDP" ]
           [
-            (builtins.map
-              (protocol:
-                lib.nameValuePair
-                  "allowed${protocol}Ports"
-                  [ cfg.port ]))
+            (builtins.map (protocol: lib.nameValuePair "allowed${protocol}Ports" [ cfg.port ]))
             builtins.listToAttrs
           ];
 

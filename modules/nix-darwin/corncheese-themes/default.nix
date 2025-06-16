@@ -1,4 +1,10 @@
-{ inputs, pkgs, lib, config, ... }:
+{
+  inputs,
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 let
   cfg = config.corncheese.theming;
   themeDetails = lib.recursiveUpdate (import (../../common + "/themes/${cfg.theme}.nix") {
@@ -26,9 +32,7 @@ in
     };
   };
 
-  imports = [
-    inputs.stylix.darwinModules.stylix
-  ];
+  imports = [ inputs.stylix.darwinModules.stylix ];
 
   config = lib.mkIf cfg.enable {
     corncheese.theming.themeDetails = themeDetails;
@@ -37,8 +41,9 @@ in
       enable = true;
       polarity = "dark";
       image = themeDetails.wallpaper;
-      base16Scheme = lib.mkIf (cfg.theme != null)
-        "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
+      base16Scheme = lib.mkIf (
+        cfg.theme != null
+      ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
       override = lib.mkIf (cfg.themeDetails.stylixOverride != null) cfg.themeDetails.stylixOverride;
       opacity = {
         terminal = cfg.themeDetails.opacity;
@@ -53,8 +58,7 @@ in
         };
       };
 
-      targets.nixvim.enable =
-        lib.mkIf (cfg.theme != null) false;
+      targets.nixvim.enable = lib.mkIf (cfg.theme != null) false;
 
       # targets.btop.enable =
       #   lib.mkIf (settings.themecfg.themeDetails.btopTheme != null) false;

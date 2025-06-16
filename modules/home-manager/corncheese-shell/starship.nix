@@ -41,7 +41,7 @@
   };
 
   git_state = {
-    format = "[\($state( $progress_current of $progress_total)\)]($style) ";
+    format = "[($state( $progress_current of $progress_total))]($style) ";
     cherry_pick = "[🍒 PICKING](bold red)";
   };
 
@@ -57,22 +57,22 @@
     # renamed = "👅";
     # deleted = "🗑";
     format = "[\\[$all_status$ahead_behind\\]]($style) ";
-    conflicted = "=[\($count\)](green) ";
-    ahead = "⇡[\($count\)](green) ";
-    behind = "⇣[\($count\)](green) ";
-    diverged = "⇕[\($count\)](green) ";
-    untracked = "?[\($count\)](green) ";
-    stashed = "$[\($count\)](green) ";
-    modified = "![\($count\)](green) ";
-    staged = "+[\($count\)](green) ";
-    renamed = "»[\($count\)](green) ";
-    deleted = "✘[\($count\)](green) ";
+    conflicted = "=[($count)](green) ";
+    ahead = "⇡[($count)](green) ";
+    behind = "⇣[($count)](green) ";
+    diverged = "⇕[($count)](green) ";
+    untracked = "?[($count)](green) ";
+    stashed = "$[($count)](green) ";
+    modified = "![($count)](green) ";
+    staged = "+[($count)](green) ";
+    renamed = "»[($count)](green) ";
+    deleted = "✘[($count)](green) ";
   };
 
   status = {
     style = "bg:blue fg:red";
     symbol = "🔴";
-    format = "[\[$symbol $common_meaning$signal_name$maybe_int\]]($style) ";
+    format = "[[$symbol $common_meaning$signal_name$maybe_int]]($style) ";
     map_symbol = true;
     disabled = false;
   };
@@ -154,8 +154,12 @@
   };
 
   custom.local = {
-    shell = [ "zsh" "-d" "-f" ];
-    when = '' [ [ -z "$SSH_CLIENT" ] ] && [ [ `whoami` != "root" ] ] '';
+    shell = [
+      "zsh"
+      "-d"
+      "-f"
+    ];
+    when = ''[ [ -z "$SSH_CLIENT" ] ] && [ [ `whoami` != "root" ] ] '';
     format = "[$symbol$output]($style)[@](bold yellow)";
     command = "whoami";
     style = "fg:bright-white";
@@ -163,16 +167,24 @@
   };
 
   custom.local_root = {
-    shell = [ "zsh" "-d" "-f" ];
-    when = '' [ [ -z "$SSH_CLIENT" ] ] && [ [ `whoami` == "root" ] ] '';
+    shell = [
+      "zsh"
+      "-d"
+      "-f"
+    ];
+    when = ''[ [ -z "$SSH_CLIENT" ] ] && [ [ `whoami` == "root" ] ] '';
     format = "[ $output ]($style)[@](bold yellow)";
     command = "whoami";
     style = "bg:red fg:bright-white";
   };
 
   custom.ssh = {
-    shell = [ "zsh" "-d" "-f" ];
-    when = '' [ [ -n "$SSH_CLIENT" ] ] && [ [ `whoami` != "root" ] ] '';
+    shell = [
+      "zsh"
+      "-d"
+      "-f"
+    ];
+    when = ''[ [ -n "$SSH_CLIENT" ] ] && [ [ `whoami` != "root" ] ] '';
     format = "[ $symbol$output ]($style)[@](bold yellow)";
     command = "whoami";
     style = "bg:blue fg:bright-white";
@@ -181,8 +193,12 @@
   };
 
   custom.ssh_root = {
-    shell = [ "zsh" "-d" "-f" ];
-    when = '' [ [ -n "$SSH_CLIENT" ] ] && [ [ `whoami` == "root" ] ] '';
+    shell = [
+      "zsh"
+      "-d"
+      "-f"
+    ];
+    when = ''[ [ -n "$SSH_CLIENT" ] ] && [ [ `whoami` == "root" ] ] '';
     format = "[ $symbol$output ]($style)[@](bold yellow)";
     command = "whoami";
     style = "bg:red fg:bright-white";

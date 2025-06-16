@@ -1,8 +1,9 @@
-{ inputs
-, lib
-, pkgs
-, config
-, ...
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
 }:
 {
   # Give agenix access to the hostkey independent of impermanence activation

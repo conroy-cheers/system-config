@@ -1,18 +1,20 @@
-{ lib, config, pkgs, inputs, ... }:
+{
+  lib,
+  config,
+  pkgs,
+  inputs,
+  ...
+}:
 let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
 in
 {
   config = lib.mkIf cfg.enable {
-    home.packages = with pkgs; [
-      inputs.swww.packages.${pkgs.system}.swww
-    ];
+    home.packages = with pkgs; [ inputs.swww.packages.${pkgs.system}.swww ];
 
     wayland.windowManager.hyprland.settings = {
-      monitor = [
-        ",preferred,auto,1"
-      ];
+      monitor = [ ",preferred,auto,1" ];
 
       exec-once = [
         "swww-daemon &"
@@ -42,7 +44,7 @@ in
           special = false;
           brightness = 1.0;
           contrast = 1.0;
-          noise = 0.02;
+          noise = 2.0e-2;
           passes = 2;
           size = 5;
         };

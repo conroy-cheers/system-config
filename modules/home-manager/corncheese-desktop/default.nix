@@ -11,8 +11,7 @@ let
   inherit (lib) mkEnableOption mkOption mkIf;
 in
 {
-  imports = [
-  ];
+  imports = [ ];
 
   options = {
     corncheese.desktop = {

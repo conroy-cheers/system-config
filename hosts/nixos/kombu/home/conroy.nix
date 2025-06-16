@@ -7,9 +7,7 @@
 }:
 
 {
-  imports = [
-    inputs.wired.homeManagerModules.default
-  ];
+  imports = [ inputs.wired.homeManagerModules.default ];
 
   home = {
     username = "conroy";

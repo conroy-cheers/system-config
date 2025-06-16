@@ -1,4 +1,9 @@
-{ lib, config, pkgs, ... }:
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.corncheese.wm;
@@ -42,7 +47,7 @@ in
         blur_size = 10;
         brightness = 1.0;
         contrast = 1.0;
-        noise = 0.02;
+        noise = 2.0e-2;
       };
 
       input-field = {

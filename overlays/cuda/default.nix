@@ -1,6 +1,5 @@
 { inputs, ... }:
 
-final: prev:
-{
+final: prev: {
   cudaPackages = prev.cudaPackages_11;
 }

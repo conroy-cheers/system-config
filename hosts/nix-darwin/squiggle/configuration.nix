@@ -1,4 +1,10 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
   environment.systemPackages = with pkgs; [ ];
@@ -41,13 +47,11 @@
   programs.zsh.enable = true;
 
   # Fonts
-  fonts.packages = with pkgs; [
-    nerd-fonts.meslo-lg
-  ];
+  fonts.packages = with pkgs; [ nerd-fonts.meslo-lg ];
 
   services = {
     karabiner-elements = {
-      enable = true;
+      enable = false;
     };
   };
 

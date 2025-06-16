@@ -1,4 +1,10 @@
-{ inputs, pkgs, lib, config, ... }:
+{
+  inputs,
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;

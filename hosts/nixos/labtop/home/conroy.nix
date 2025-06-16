@@ -1,9 +1,13 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
-  imports = [
-    inputs.wired.homeManagerModules.default
-  ];
+  imports = [ inputs.wired.homeManagerModules.default ];
 
   home = {
     username = "conroy";
@@ -79,9 +83,9 @@
       ];
       bindl = [
         # trigger when the switch is turning on
-        ", switch:on:Lid Switch, exec, hyprctl keyword monitor \"eDP-1,disable\""
+        '', switch:on:Lid Switch, exec, hyprctl keyword monitor "eDP-1,disable"''
         # trigger when the switch is turning off
-        ", switch:off:Lid Switch, exec, hyprctl keyword monitor \"${internalDisplayString}\""
+        '', switch:off:Lid Switch, exec, hyprctl keyword monitor "${internalDisplayString}"''
       ];
     };
 

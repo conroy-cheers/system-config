@@ -1,12 +1,16 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 with lib;
 let
   cfg = config.corncheese.brew;
 in
 {
-  imports = [
-  ];
+  imports = [ ];
 
   options = {
     corncheese.brew = {

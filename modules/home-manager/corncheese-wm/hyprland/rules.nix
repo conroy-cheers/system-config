@@ -42,8 +42,6 @@ in
       "center,class:^(lutris)$"
     ];
 
-    workspace = [
-      "special,gapsin:24,gapsout:64"
-    ];
+    workspace = [ "special,gapsin:24,gapsout:64" ];
   };
 }

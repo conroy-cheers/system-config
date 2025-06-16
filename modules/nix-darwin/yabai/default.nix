@@ -1,12 +1,16 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 with lib;
 let
   cfg = config.corncheese.yabai;
 in
 {
-  imports = [
-  ];
+  imports = [ ];
 
   options = {
     corncheese.yabai = {
@@ -17,9 +21,7 @@ in
   config = mkIf cfg.enable (
     let
       borders = pkgs.callPackage ./borders { };
-      setbg = pkgs.callPackage ./setbg {
-        yabai = config.services.yabai.package;
-      };
+      setbg = pkgs.callPackage ./setbg { yabai = config.services.yabai.package; };
     in
     {
       environment.systemPackages = [
@@ -32,12 +34,13 @@ in
           enable = true;
           package = pkgs.yabai;
           enableScriptingAddition = true;
-          extraConfig = /* bash */ ''
-            ${builtins.readFile ./yabairc}
+          extraConfig = # bash
+            ''
+              ${builtins.readFile ./yabairc}
 
-            # Load JankyBorders
-            ${borders}/bin/borders active_color=0xffe1e3e4 inactive_color=0xff494d64 style=squared width=5.0 &
-          '';
+              # Load JankyBorders
+              ${borders}/bin/borders active_color=0xffe1e3e4 inactive_color=0xff494d64 style=squared width=5.0 &
+            '';
         };
 
         skhd = {
@@ -61,18 +64,15 @@ in
         let
           cfg = rec {
             package = pkgs.sketchybar;
-            extraPackages = with pkgs; [
-              jq
-            ];
+            extraPackages = with pkgs; [ jq ];
             configFile = lib.getExe (pkgs.callPackage ./sketchybar { sketchybar = package; });
           };
         in
         {
           path = [ cfg.package ] ++ cfg.extraPackages ++ [ config.environment.systemPath ];
           serviceConfig.ProgramArguments =
-            [
-              "${lib.getExe cfg.package}"
-            ] ++ optionals (cfg.configFile != null) [
+            [ "${lib.getExe cfg.package}" ]
+            ++ optionals (cfg.configFile != null) [
               "--config"
               "${cfg.configFile}"
             ];
@@ -82,12 +82,8 @@ in
 
       # For sketchybar
       homebrew = {
-        taps = [
-          "shaunsingh/SFMono-Nerd-Font-Ligaturized"
-        ];
-        casks = [
-          "font-sf-mono-nerd-font-ligaturized"
-        ];
+        taps = [ "shaunsingh/SFMono-Nerd-Font-Ligaturized" ];
+        casks = [ "font-sf-mono-nerd-font-ligaturized" ];
       };
     }
   );

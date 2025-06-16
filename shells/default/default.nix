@@ -1,8 +1,5 @@
 # Shell for bootstrapping flake-enabled nix and other tooling
-{ pkgs
-, inputs
-, ...
-}:
+{ pkgs, inputs, ... }:
 let
   pkgs' = import inputs.nixpkgs {
     system = pkgs.system;

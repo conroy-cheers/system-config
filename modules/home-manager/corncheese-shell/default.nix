@@ -1,12 +1,23 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 let
   cfg = config.corncheese.shell;
 
   inherit (lib)
-    mkEnableOption mkOption types
-    mkIf optionals optionalString
-    mkMerge;
+    mkEnableOption
+    mkOption
+    types
+    mkIf
+    optionals
+    optionalString
+    mkMerge
+    ;
 
   shellAliases = {
     s = "kitten ssh";
@@ -16,11 +27,13 @@ let
         rebuild_script = pkgs.writeShellScript "rebuild" ''
           ${
             let
-              inherit (lib.strings)
-                hasInfix;
+              inherit (lib.strings) hasInfix;
               inherit (pkgs.hostPlatform)
-                isx86_64 isAarch64
-                isLinux isDarwin;
+                isx86_64
+                isAarch64
+                isLinux
+                isDarwin
+                ;
             in
             if isx86_64 && isLinux then
               "sudo --validate && sudo nixos-rebuild"
@@ -31,106 +44,92 @@ let
             else
               "home-manager"
           } --flake ${
-            if cfg.hostname != null
-            then "${cfg.flakePath}#${cfg.hostname}"
-            else "${cfg.flakePath}"
-          } ''$''\{1:-switch''\} "''$''\{@:2''\}" # |& nix run nixpkgs#nix-output-monitor
+            if cfg.hostname != null then "${cfg.flakePath}#${cfg.hostname}" else "${cfg.flakePath}"
+          } ''${1:-switch} "''${@:2}" # |& nix run nixpkgs#nix-output-monitor
         '';
       in
       "${rebuild_script}";
   };
 in
 {
-  imports =
-    [
-    ];
+  imports = [ ];
 
-  options =
-    {
-      corncheese.shell = {
-        enable = mkEnableOption "corncheese shell setup";
-        username = mkOption {
-          description = "Username to be used (for prompt)";
-          type = types.str;
-          default = "${config.home.username}";
-        };
-        hostname = mkOption {
-          description = "Hostname to be used (for `rebuild`)";
-          type = types.nullOr types.str;
-          default = null;
-        };
-        shells = mkOption {
-          description = "Shells to be configured (first one is used for $SHELL)";
-          type =
-            lib.pipe
-              [
-                "nushell"
-                "zsh"
-              ]
-              [
-                types.enum
-                types.listOf
-              ];
-          default = [ "nushell" "zsh" ];
-        };
-        starship = mkOption {
-          description = "Use starship prompt";
-          type = types.bool;
-          default = false;
-        };
-        p10k = mkOption {
-          description = "Use powerlevel10k";
-          type = types.bool;
+  options = {
+    corncheese.shell = {
+      enable = mkEnableOption "corncheese shell setup";
+      username = mkOption {
+        description = "Username to be used (for prompt)";
+        type = types.str;
+        default = "${config.home.username}";
+      };
+      hostname = mkOption {
+        description = "Hostname to be used (for `rebuild`)";
+        type = types.nullOr types.str;
+        default = null;
+      };
+      shells = mkOption {
+        description = "Shells to be configured (first one is used for $SHELL)";
+        type = lib.pipe [ "nushell" "zsh" ] [ types.enum types.listOf ];
+        default = [
+          "nushell"
+          "zsh"
+        ];
+      };
+      starship = mkOption {
+        description = "Use starship prompt";
+        type = types.bool;
+        default = false;
+      };
+      p10k = mkOption {
+        description = "Use powerlevel10k";
+        type = types.bool;
+        default = true;
+      };
+      atuin = {
+        enable = mkEnableOption "atuin history search" // {
           default = true;
         };
-        atuin = {
-          enable = mkEnableOption "atuin history search" // { default = true; };
-          sync = mkEnableOption "syncing atuin history to corncheese server";
-          key = mkOption {
-            type = with types; str;
-            description = "Runtime path of decrypted Atuin sync key";
-          };
-        };
-        direnv = mkOption {
-          description = "Integrate with direnv";
-          type = types.bool;
-          default = true;
-        };
-        zoxide = mkOption {
-          description = "Integrate with zoxide";
-          type = types.bool;
-          default = true;
-        };
-        bat = mkEnableOption "bat (instead of cat)" // { default = true; };
-        autosuggestions = mkEnableOption "zsh-autosuggestions" // { default = true; };
-        flakePath = mkOption {
-          description = "Flake path (for `rebuild`)";
-          type = types.str;
-          default = "${config.xdg.configHome}/system-config";
+        sync = mkEnableOption "syncing atuin history to corncheese server";
+        key = mkOption {
+          type = with types; str;
+          description = "Runtime path of decrypted Atuin sync key";
         };
       };
+      direnv = mkOption {
+        description = "Integrate with direnv";
+        type = types.bool;
+        default = true;
+      };
+      zoxide = mkOption {
+        description = "Integrate with zoxide";
+        type = types.bool;
+        default = true;
+      };
+      bat = mkEnableOption "bat (instead of cat)" // {
+        default = true;
+      };
+      autosuggestions = mkEnableOption "zsh-autosuggestions" // {
+        default = true;
+      };
+      flakePath = mkOption {
+        description = "Flake path (for `rebuild`)";
+        type = types.str;
+        default = "${config.xdg.configHome}/system-config";
+      };
     };
+  };
 
   config = mkMerge [
     { }
     (mkIf cfg.enable {
-      home.packages = with pkgs;
+      home.packages =
+        with pkgs;
         builtins.concatLists [
-          (builtins.map
-            (lib.flip builtins.getAttr pkgs)
-            cfg.shells)
-          (optionals cfg.starship [
-            starship
-          ])
-          (optionals cfg.p10k [
-            zsh-powerlevel10k
-          ])
-          (optionals cfg.direnv [
-            direnv
-          ])
-          (optionals cfg.zoxide [
-            zoxide
-          ])
+          (builtins.map (lib.flip builtins.getAttr pkgs) cfg.shells)
+          (optionals cfg.starship [ starship ])
+          (optionals cfg.p10k [ zsh-powerlevel10k ])
+          (optionals cfg.direnv [ direnv ])
+          (optionals cfg.zoxide [ zoxide ])
         ];
 
       # Direnv
@@ -172,7 +171,10 @@ in
       # Bat
       programs.bat = mkIf cfg.bat {
         enable = true;
-        extraPackages = with pkgs.bat-extras; [ batman batgrep ];
+        extraPackages = with pkgs.bat-extras; [
+          batman
+          batgrep
+        ];
       };
 
       # Starship
@@ -181,9 +183,7 @@ in
 
         package = pkgs.starship;
 
-        settings = import ./starship.nix {
-          inherit (cfg) username;
-        };
+        settings = import ./starship.nix { inherit (cfg) username; };
       };
 
       # Zoxide
@@ -242,41 +242,40 @@ in
 
         dotDir = ".config/zsh";
 
-        shellAliases = shellAliases // {
-          ls = "${pkgs.lsd}/bin/lsd";
-          mkdir = "mkdir -vp";
-        } // lib.optionalAttrs cfg.bat {
-          man = "batman";
-        };
+        shellAliases =
+          shellAliases
+          // {
+            ls = "${pkgs.lsd}/bin/lsd";
+            mkdir = "mkdir -vp";
+          }
+          // lib.optionalAttrs cfg.bat { man = "batman"; };
 
         history = {
           size = 5000;
           path = "${config.xdg.dataHome}/zsh/history";
         };
 
-        initContent =
-          builtins.concatStringsSep "\n"
-            [
-              ''
-                function take() {
-                  mkdir -p "''$''\{@''\}" && cd "''$''\{@''\}"
-                }
-              ''
-              (optionalString cfg.p10k ''
-                source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
-                test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
-              '')
-              ''
-                # Prevent macOS updates from destroying nix
-                if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''$''\{SHLVL''\}" -eq 1 ]; then
-                  source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
-                fi
-              ''
-              ''
-                bindkey '^[[1;3D' backward-word  # Alt + Left
-                bindkey '^[[1;3C' forward-word   # Alt + Right
-              ''
-            ];
+        initContent = builtins.concatStringsSep "\n" [
+          ''
+            function take() {
+              mkdir -p "''${@}" && cd "''${@}"
+            }
+          ''
+          (optionalString cfg.p10k ''
+            source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
+            test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
+          '')
+          ''
+            # Prevent macOS updates from destroying nix
+            if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''${SHLVL}" -eq 1 ]; then
+              source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+            fi
+          ''
+          ''
+            bindkey '^[[1;3D' backward-word  # Alt + Left
+            bindkey '^[[1;3C' forward-word   # Alt + Right
+          ''
+        ];
 
         plugins = [
           {
@@ -319,13 +318,11 @@ in
               hash = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
             };
           })
-          (mkIf cfg.p10k
-            ({
-              name = "powerlevel10k";
-              file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
-              src = pkgs.zsh-powerlevel10k;
-            })
-          )
+          (mkIf cfg.p10k ({
+            name = "powerlevel10k";
+            file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+            src = pkgs.zsh-powerlevel10k;
+          }))
         ];
       };
     })

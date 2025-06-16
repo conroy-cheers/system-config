@@ -1,10 +1,63 @@
-{ inputs, config, lib, pkgs, meta, ... }:
+{
+  inputs,
+  config,
+  lib,
+  pkgs,
+  meta,
+  ...
+}:
 
 let
   cfg = config.corncheese.development;
 
-  onePassPath = if pkgs.hostPlatform.isDarwin then "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"" else "~/.1password/agent.sock";
-  homeJumpHosts = [ "pve" "bigbrain" ];
+  globalIgnores = builtins.concatLists [
+    (lib.optionals pkgs.hostPlatform.isDarwin [
+      {
+        url = "https://raw.githubusercontent.com/github/gitignore/main/Global/macOS.gitignore";
+        sha256 = "sha256-06j24pyHJse90pgTOzhEsc4Q4Ndfy17rAq5hghrjVnY=";
+      }
+    ])
+    (lib.optionals pkgs.hostPlatform.isLinux [
+      {
+        url = "https://raw.githubusercontent.com/github/gitignore/main/Global/Linux.gitignore";
+        sha256 = "";
+      }
+    ])
+    (lib.optionals cfg.vscode.enable [
+      {
+        url = "https://raw.githubusercontent.com/github/gitignore/main/Global/VisualStudioCode.gitignore";
+        sha256 = "sha256-Z23dyP2ZT27bN4P3QCc2YZZ3r4I8XAFkP+Z2u6m40lQ=";
+      }
+    ])
+  ];
+  combinedGitignore = pkgs.writeText "global-gitignore" (
+    lib.concatMapStringsSep
+      ''
+
+        # ---
+      ''
+      (
+        template:
+        let
+          file = pkgs.fetchurl {
+            url = template.url;
+            sha256 = template.sha256;
+          };
+        in
+        builtins.readFile file
+      )
+      globalIgnores
+  );
+
+  onePassPath =
+    if pkgs.hostPlatform.isDarwin then
+      ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
+    else
+      "~/.1password/agent.sock";
+  homeJumpHosts = [
+    "pve"
+    "bigbrain"
+  ];
 
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
     mktplcRef = {
@@ -20,25 +73,28 @@ let
   };
 
   clionHashes = import ./clion-hashes.nix;
-  mkClion = { clionPkg, version }:
-    if (version == clionPkg.version) then clionPkg else
-    (if ! (builtins.hasAttr version clionHashes) then
-      throw "Invalid CLion version '${version}'. Available versions: ${lib.concatStringsSep ", " (builtins.attrNames clionHashes)}"
+  mkClion =
+    { clionPkg, version }:
+    if (version == clionPkg.version) then
+      clionPkg
     else
-      clionPkg.overrideAttrs rec {
-        inherit version;
-        src = pkgs.fetchurl {
-          url = "https://download.jetbrains.com/cpp/CLion-${version}.tar.gz";
-          hash = clionHashes.${version};
-        };
-      });
+      (
+        if !(builtins.hasAttr version clionHashes) then
+          throw "Invalid CLion version '${version}'. Available versions: ${lib.concatStringsSep ", " (builtins.attrNames clionHashes)}"
+        else
+          clionPkg.overrideAttrs rec {
+            inherit version;
+            src = pkgs.fetchurl {
+              url = "https://download.jetbrains.com/cpp/CLion-${version}.tar.gz";
+              hash = clionHashes.${version};
+            };
+          }
+      );
   clionVersion = cfg.jetbrains.clion.versionOverride;
 
 in
 {
-  imports = [
-    inputs.vscode-server.homeModules.default
-  ];
+  imports = [ inputs.vscode-server.homeModules.default ];
 
   options = {
     corncheese.development = {
@@ -64,12 +120,11 @@ in
       jetbrains = {
         enable = lib.mkEnableOption "corncheese jetbrains suite";
         clion = {
-          versionOverride = lib.mkOption
-            {
-              type = with lib.types; nullOr str;
-              description = "Override the version of CLion to install";
-              default = pkgs.jetbrains.clion.version;
-            };
+          versionOverride = lib.mkOption {
+            type = with lib.types; nullOr str;
+            description = "Override the version of CLion to install";
+            default = pkgs.jetbrains.clion.version;
+          };
         };
       };
     };
@@ -88,31 +143,31 @@ in
         {
           enableUpdateCheck = false;
           enableExtensionUpdateCheck = false;
-          extensions = with pkgs; builtins.concatLists [
-            [
-              # vscode-extensions.continue.continue
-              vscode-extensions.ms-vscode.cpptools-extension-pack
-              vscode-extensions.xaver.clang-format
-              vscode-extensions.ms-vscode.cmake-tools
-              vscode-extensions.eamodio.gitlens
-              vscode-extensions.jnoortheen.nix-ide
-              vscode-extensions.ms-python.python
-              vscode-extensions.ms-python.vscode-pylance
-              vscode-extensions.ms-python.debugpy
-              vscode-extensions.charliermarsh.ruff
-              vscode-extensions.ms-vscode-remote.remote-ssh
-              vscode-extensions.ms-vscode-remote.remote-ssh-edit
-              vscode-extensions.arrterian.nix-env-selector
-              nix-vscode-extensions.open-vsx.rooveterinaryinc.roo-cline
-              pkl-vscode
-            ]
-            (lib.optionals cfg.rust.enable [
-              vscode-extensions.rust-lang.rust-analyzer
-            ])
-            (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
-              nix-vscode-extensions.open-vsx.probe-rs.probe-rs-debugger
-            ])
-          ];
+          extensions =
+            with pkgs;
+            builtins.concatLists [
+              [
+                # vscode-extensions.continue.continue
+                vscode-extensions.ms-vscode.cpptools-extension-pack
+                vscode-extensions.xaver.clang-format
+                vscode-extensions.ms-vscode.cmake-tools
+                vscode-extensions.eamodio.gitlens
+                vscode-extensions.jnoortheen.nix-ide
+                vscode-extensions.ms-python.python
+                vscode-extensions.ms-python.vscode-pylance
+                vscode-extensions.ms-python.debugpy
+                vscode-extensions.charliermarsh.ruff
+                vscode-extensions.ms-vscode-remote.remote-ssh
+                vscode-extensions.ms-vscode-remote.remote-ssh-edit
+                vscode-extensions.arrterian.nix-env-selector
+                nix-vscode-extensions.open-vsx.rooveterinaryinc.roo-cline
+                pkl-vscode
+              ]
+              (lib.optionals cfg.rust.enable [ vscode-extensions.rust-lang.rust-analyzer ])
+              (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
+                nix-vscode-extensions.open-vsx.probe-rs.probe-rs-debugger
+              ])
+            ];
           userSettings = {
             "git.confirmSync" = false;
             "explorer.confirmDelete" = false;
@@ -128,21 +183,24 @@ in
         };
     };
 
-    home.file = lib.mkIf cfg.ssh.enable (
-      let
-        # Get all files from the source directory
-        sshFiles = builtins.readDir ./pubkeys;
+    home.file = lib.mkMerge [
+      { "${config.home.homeDirectory}/.gitignore".source = combinedGitignore; }
+      (lib.mkIf cfg.ssh.enable (
+        let
+          # Get all files from the source directory
+          sshFiles = builtins.readDir ./pubkeys;
 
-        # Create a set of file mappings for each identity file
-        fileMapper = filename: {
-          # Target path will be in ~/.ssh/
-          ".ssh/${filename}".source = ./pubkeys + "/${filename}";
-        };
-      in
-      lib.mkMerge [
-        (lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles))
-      ]
-    );
+          # Create a set of file mappings for each identity file
+          fileMapper = filename: {
+            # Target path will be in ~/.ssh/
+            ".ssh/${filename}".source = ./pubkeys + "/${filename}";
+          };
+        in
+        lib.mkMerge [
+          (lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles))
+        ]
+      ))
+    ];
 
     xdg.configFile = lib.mkIf cfg.ssh.onePassword {
       "1Password/ssh/agent.toml".text = ''
@@ -159,60 +217,65 @@ in
       '';
     };
 
-    home.packages = with pkgs; builtins.concatLists [
-      [
-        meld # Visual diff tool
-        jdk23
-        inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
-        pyright
-      ]
-      (lib.optionals cfg.electronics.enable [
-        kicad
-        stm32cubemx
-        waveforms
-      ])
-      (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
-        probe-rs
-      ])
-      (lib.optionals cfg.rust.enable [
-        rustc
-        cargo
-        clippy
-        rustfmt
-        rust-analyzer
-      ])
-      (lib.optionals cfg.mechanical.enable [
-        orca-slicer
-        prusa-slicer
-        freecad-wayland
-      ])
-      (lib.optionals cfg.audio.enable [
-        ardour
-      ])
-      (lib.optionals cfg.jetbrains.enable ([
-        (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "pycharm-professional" [
-          "com.intellij.plugins.vscodekeymap"
-          "com.github.catppuccin.jetbrains"
-          "com.koxudaxi.ruff"
-          "nix-idea"
+    home.packages =
+      with pkgs;
+      builtins.concatLists [
+        [
+          meld # Visual diff tool
+          jdk23
+          inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
+          pyright
+        ]
+        (lib.optionals cfg.electronics.enable [
+          kicad
+          stm32cubemx
+          waveforms
         ])
-        (pkgs.jetbrains.plugins.addPlugins
-          (mkClion {
-            clionPkg = pkgs.jetbrains.clion;
-            version = clionVersion;
-          })
-          (with inputs.nix-jetbrains-plugins.plugins."${meta.system}"; [
-            clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
-            clion."${clionVersion}"."com.github.catppuccin.jetbrains"
-            clion."${clionVersion}"."nix-idea"
-          ]))
-        (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "rust-rover" [
-          "com.intellij.plugins.vscodekeymap"
-          "com.github.catppuccin.jetbrains"
-          "nix-idea"
+        (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [ probe-rs ])
+        (lib.optionals cfg.rust.enable [
+          rustc
+          cargo
+          clippy
+          rustfmt
+          rust-analyzer
         ])
-      ]))
-    ];
+        (lib.optionals cfg.mechanical.enable [
+          orca-slicer
+          prusa-slicer
+          freecad-wayland
+        ])
+        (lib.optionals cfg.audio.enable [ ardour ])
+        (lib.optionals cfg.jetbrains.enable ([
+          (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains
+            "pycharm-professional"
+            [
+              "com.intellij.plugins.vscodekeymap"
+              "com.github.catppuccin.jetbrains"
+              "com.koxudaxi.ruff"
+              "nix-idea"
+            ]
+          )
+          (pkgs.jetbrains.plugins.addPlugins
+            (mkClion {
+              clionPkg = pkgs.jetbrains.clion;
+              version = clionVersion;
+            })
+            (
+              with inputs.nix-jetbrains-plugins.plugins."${meta.system}";
+              [
+                clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
+                clion."${clionVersion}"."com.github.catppuccin.jetbrains"
+                clion."${clionVersion}"."nix-idea"
+              ]
+            )
+          )
+          (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "rust-rover" [
+            "com.intellij.plugins.vscodekeymap"
+            "com.github.catppuccin.jetbrains"
+            "nix-idea"
+          ])
+        ]))
+      ];
 
     # programs.jetbrains-remote = {
     #   enable = true;
@@ -225,8 +288,9 @@ in
       enable = true;
       extraConfig = {
         merge.tool = "meld";
-        mergetool.meld.cmd = "meld \"$LOCAL\" \"$BASE\" \"$REMOTE\" --output \"$MERGED\"";
+        mergetool.meld.cmd = ''meld "$LOCAL" "$BASE" "$REMOTE" --output "$MERGED"'';
         diff.algorithm = "patience";
+        core.excludesFile = "${config.home.homeDirectory}/.gitignore";
       };
       # TODO: move this to scm module
       ignores =

@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 let
   cfg = config.corncheese.scm;
@@ -8,24 +13,22 @@ let
     types
     mkIf
     optionals
-    mkMerge;
+    mkMerge
+    ;
 in
 {
-  imports =
-    [
-    ];
+  imports = [ ];
 
-  options =
-    {
-      corncheese.scm = {
-        git = {
-          enable = mkEnableOption "corncheese git setup";
-        };
-        jj = {
-          enable = mkEnableOption "corncheese jj setup";
-        };
+  options = {
+    corncheese.scm = {
+      git = {
+        enable = mkEnableOption "corncheese git setup";
+      };
+      jj = {
+        enable = mkEnableOption "corncheese jj setup";
       };
     };
+  };
 
   config =
     let
@@ -35,14 +38,11 @@ in
       key = "675AA7EF13964ACB";
     in
     {
-      home.packages = with pkgs;
+      home.packages =
+        with pkgs;
         builtins.concatLists [
-          (optionals cfg.git.enable [
-            git
-          ])
-          (optionals cfg.jj.enable [
-            jujutsu
-          ])
+          (optionals cfg.git.enable [ git ])
+          (optionals cfg.jj.enable [ jujutsu ])
         ];
 
       programs.git = mkIf cfg.git.enable {
@@ -61,7 +61,6 @@ in
         };
       };
 
-
       programs.jujutsu = mkIf cfg.jj.enable {
         enable = true;
         package = pkgs.jujutsu;
@@ -74,7 +73,10 @@ in
             inherit name email;
           };
           git = {
-            fetch = [ "origin" "upstream" ];
+            fetch = [
+              "origin"
+              "upstream"
+            ];
             push = "github";
           };
           signing = {

@@ -16,7 +16,10 @@
   sudo = "doas -u";
 
   # This is an optional list of arguments that will be passed to SSH.
-  sshOpts = [ "-p" "2121" ];
+  sshOpts = [
+    "-p"
+    "2121"
+  ];
 
   # Fast connection to the node. If this is true, copy the whole closure instead of letting the node substitute.
   # This defaults to `false`
@@ -35,7 +38,7 @@
   # (if `magicRollback` is in use, this _must_ be writable by `user`)
   tempPath = "/home/someuser/.deploy-rs";
 
-  # Build the derivation on the target system. 
+  # Build the derivation on the target system.
   # Will also fetch all external dependencies from the target system's substituters.
   # This default to `false`
   remoteBuild = true;

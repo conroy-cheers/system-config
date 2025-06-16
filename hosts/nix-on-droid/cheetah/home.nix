@@ -1,4 +1,10 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
   # Home Manager needs a bit of information about you and the
@@ -48,9 +54,7 @@
     duf
 
     # Passwords
-    (pass.withExtensions (extensions: with extensions; [
-      pass-otp
-    ]))
+    (pass.withExtensions (extensions: with extensions; [ pass-otp ]))
 
     # Dhall
     # dhall

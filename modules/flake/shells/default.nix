@@ -1,20 +1,21 @@
-{ lib, config, self, inputs, ... }:
+{
+  lib,
+  config,
+  self,
+  inputs,
+  ...
+}:
 
 {
-  imports = [
-    ../lib
-  ];
+  imports = [ ../lib ];
 
   options =
     let
-      inherit (lib)
-        types
-        ;
-      inherit (config.lib)
-        createThings
-        ;
+      inherit (lib) types;
+      inherit (config.lib) createThings;
 
-      createDevShells = baseDir:
+      createDevShells =
+        baseDir:
         createThings {
           inherit baseDir;
           thingType = "devShell";
@@ -38,24 +39,25 @@
               '';
               type = types.path;
               default = "${self}/shells";
-              defaultText = ''''${self}/shells'';
+              defaultText = "\${self}/shells";
             };
             result = lib.mkOption {
               description = ''
                 The resulting automatic devShells
               '';
-              type = types.attrsOf (types.submodule {
-                options = {
-                  devShell = lib.mkOption { type = types.unspecified; };
-                  systems = lib.mkOption { type = types.functionTo types.bool; };
-                };
-              });
+              type = types.attrsOf (
+                types.submodule {
+                  options = {
+                    devShell = lib.mkOption { type = types.unspecified; };
+                    systems = lib.mkOption { type = types.functionTo types.bool; };
+                  };
+                }
+              );
               readOnly = true;
               internal = true;
-              default =
-                lib.optionalAttrs
-                  config.auto.devShells.enable
-                  (createDevShells config.auto.devShells.dir);
+              default = lib.optionalAttrs config.auto.devShells.enable (
+                createDevShells config.auto.devShells.dir
+              );
             };
           };
         });
@@ -64,21 +66,24 @@
     };
 
   config = {
-    perSystem = { lib, pkgs, system, ... }:
+    perSystem =
+      {
+        lib,
+        pkgs,
+        system,
+        ...
+      }:
       let
-        devShells =
-          lib.pipe
-            config.auto.devShells.result
-            [
-              (lib.filterAttrs
-                (name: { devShell, systems }:
-                  pkgs.callPackage systems {
-                    inherit (pkgs) lib hostPlatform targetPlatform;
-                  }))
-              (lib.mapAttrs
-                (name: { devShell, systems }:
-                  pkgs.callPackage devShell { inherit inputs; }))
-            ];
+        devShells = lib.pipe config.auto.devShells.result [
+          (lib.filterAttrs (
+            name:
+            { devShell, systems }:
+            pkgs.callPackage systems {
+              inherit (pkgs) lib hostPlatform targetPlatform;
+            }
+          ))
+          (lib.mapAttrs (name: { devShell, systems }: pkgs.callPackage devShell { inherit inputs; }))
+        ];
       in
       {
         inherit devShells;

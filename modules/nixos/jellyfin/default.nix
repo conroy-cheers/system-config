@@ -1,12 +1,16 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 with lib;
 let
   cfg = config.corncheese.jellyfin;
 in
 {
-  imports = [
-  ];
+  imports = [ ];
 
   options = {
     corncheese.jellyfin = {
@@ -33,9 +37,7 @@ in
       };
       ports = mkOption {
         type = types.listOf (types.strMatching ".+:.+");
-        default = [
-          "8096:8096"
-        ];
+        default = [ "8096:8096" ];
         description = ''
           The ports the Jellyfin container should bind to
         '';

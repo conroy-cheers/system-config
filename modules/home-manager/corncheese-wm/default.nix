@@ -71,9 +71,7 @@ in
       ] ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
     };
 
-    services.hyprpaper = mkIf cfg.hyprpaper.enable {
-      enable = true;
-    };
+    services.hyprpaper = mkIf cfg.hyprpaper.enable { enable = true; };
 
     # Stylix tries to set hyprlock wallpaper. We don't want this
     stylix.targets.hyprlock.enable = false;
@@ -92,7 +90,7 @@ in
       text = ''
         #!${pkgs.bash}/bin/bash
         ${builtins.concatStringsSep "\n" (
-          builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=\"${value}\"") cfg.environment)
+          builtins.attrValues (builtins.mapAttrs (name: value: ''export ${name}="${value}"'') cfg.environment)
         )}
         exec ${pkgs.hyprland}/bin/Hyprland
       '';

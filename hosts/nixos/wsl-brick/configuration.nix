@@ -2,12 +2,16 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
-  imports = [
-    inputs.nixos-wsl.nixosModules.default
-  ];
+  imports = [ inputs.nixos-wsl.nixosModules.default ];
 
   networking.hostName = "wsl-brick"; # Define your hostname.
 
@@ -59,9 +63,7 @@
 
   nix = {
     settings = {
-      trusted-users = [
-        "conroy"
-      ];
+      trusted-users = [ "conroy" ];
     };
   };
 
@@ -74,9 +76,7 @@
     enable = false;
     extraRules = [
       {
-        users = [
-          "conroy"
-        ];
+        users = [ "conroy" ];
         commands = [
           {
             command = "ALL";
@@ -166,7 +166,11 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEUE2OxmW9PcRNvSY6wXsaxxoXNeRSYM2wj4UXR/pcW/" # brick system key
     ];
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "docker" "plugdev" ];
+    extraGroups = [
+      "wheel"
+      "docker"
+      "plugdev"
+    ];
   };
 
   programs.zsh = {

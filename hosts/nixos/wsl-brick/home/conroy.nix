@@ -1,9 +1,13 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
-  imports = [
-    inputs.wired.homeManagerModules.default
-  ];
+  imports = [ inputs.wired.homeManagerModules.default ];
 
   home = {
     username = "conroy";

@@ -11,8 +11,7 @@ let
   cfg = config.corncheese.system;
 in
 {
-  imports = [
-  ];
+  imports = [ ];
 
   options = {
     corncheese.system = {
@@ -103,24 +102,16 @@ in
           tilesize = 44;
 
           persistent-apps = [
-            {
-              app = "/Applications/Safari.app";
-            }
-            {
-              app = "/System/Applications/Messages.app";
-            }
-            {
-              app = "/System/Applications/Mail.app";
-            }
+            { app = "/Applications/Safari.app"; }
+            { app = "/System/Applications/Messages.app"; }
+            { app = "/System/Applications/Mail.app"; }
             {
               spacer = {
                 small = true;
               };
             }
           ];
-          persistent-others = [
-            "/Users/${config.system.primaryUser}/Downloads"
-          ];
+          persistent-others = [ "/Users/${config.system.primaryUser}/Downloads" ];
         };
 
         finder = {
@@ -174,7 +165,7 @@ in
 
         echo "Allow apps from anywhere"
         SPCTL="$(spctl --status)"
-        if ! [ "''$''\{SPCTL''\}" = "assessments disabled" ]; then
+        if ! [ "''${SPCTL}" = "assessments disabled" ]; then
             sudo spctl --master-disable
         fi
 

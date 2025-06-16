@@ -1,4 +1,10 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 {
   environment.systemPackages = with pkgs; [ ];
@@ -12,9 +18,7 @@
 
   # Fonts
   fonts.fontDir.enable = true;
-  fonts.fonts = with pkgs; [
-    nerd-fonts.fira-code
-  ];
+  fonts.fonts = with pkgs; [ nerd-fonts.fira-code ];
 
   # Keyboard
   system.keyboard.enableKeyMapping = true;

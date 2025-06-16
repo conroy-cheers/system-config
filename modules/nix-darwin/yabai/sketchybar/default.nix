@@ -1,5 +1,13 @@
 # TODO: AppleSelectedInputSourcesChangedNotification
-{ lib, darwin, writeShellApplication, sketchybar, babashka, clj-kondo, ... }:
+{
+  lib,
+  darwin,
+  writeShellApplication,
+  sketchybar,
+  babashka,
+  clj-kondo,
+  ...
+}:
 
 let
   plugin-dir = ./plugins;
@@ -8,9 +16,7 @@ let
     name = "get_menu_bar_height";
     version = "0.0.1";
     src = lib.cleanSource ./get_menu_bar_height;
-    buildInputs = with darwin.apple_sdk.frameworks; [
-      Cocoa
-    ];
+    buildInputs = with darwin.apple_sdk.frameworks; [ Cocoa ];
     buildPhase = ''
       clang -framework cocoa get_menu_bar_height.m -o get_menu_bar_height
     '';
@@ -34,9 +40,7 @@ writeShellApplication {
       --util-dir ${util-dir} \
       --get-menu-bar-height ${lib.getExe get-menu-bar-height}
   '';
-  runtimeInputs = [
-    sketchybar
-  ];
+  runtimeInputs = [ sketchybar ];
   checkPhase = ''
     ${lib.getExe clj-kondo} \
       --config '{:linters {:namespace-name-mismatch {:level :off}}}' \

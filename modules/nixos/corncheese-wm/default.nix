@@ -1,4 +1,10 @@
-{ lib, inputs, config, pkgs, ... }:
+{
+  lib,
+  inputs,
+  config,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.corncheese.wm;
@@ -17,16 +23,12 @@ in
   };
 
   config = mkIf cfg.enable {
-    environment.systemPackages = with pkgs; [
-      brightnessctl
-    ];
+    environment.systemPackages = with pkgs; [ brightnessctl ];
 
     # hyprland Nix cache
     nix = {
       settings = {
-        substituters = [
-          "https://hyprland.cachix.org"
-        ];
+        substituters = [ "https://hyprland.cachix.org" ];
         trusted-public-keys = [
           "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
         ];
@@ -39,12 +41,16 @@ in
         xwayland.enable = true;
         withUWSM = true;
         package = inputs.hyprland.packages.${pkgs.system}.default;
-        portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+        portalPackage =
+          inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
       };
     };
 
     # For home-manager xdg portal config
-    environment.pathsToLink = [ "/share/xdg-desktop-portal" "/share/applications" ];
+    environment.pathsToLink = [
+      "/share/xdg-desktop-portal"
+      "/share/applications"
+    ];
 
     xdg.portal = {
       enable = true;
@@ -53,9 +59,7 @@ in
         common.default = [ "gtk" ];
         hyprland.default = [ "hyprland" ];
       };
-      extraPortals = [
-        pkgs.xdg-desktop-portal-gtk
-      ];
+      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
     };
   };
 }

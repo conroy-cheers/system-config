@@ -1,7 +1,12 @@
-{ inputs, lib, pkgs, config, ... }:
 {
-  environment.systemPackages = with pkgs; [
-  ];
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
+{
+  environment.systemPackages = with pkgs; [ ];
 
   networking.extraHosts = ''
     127.0.0.1 kombu.local

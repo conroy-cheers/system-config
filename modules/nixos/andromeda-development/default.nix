@@ -1,13 +1,17 @@
-{ inputs, lib, pkgs, config, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 
 with lib;
 let
   cfg = config.andromeda.development;
 in
 {
-  imports = [
-    ./tailscale.nix
-  ];
+  imports = [ ./tailscale.nix ];
 
   options = {
     andromeda.development = {
@@ -53,9 +57,7 @@ in
       nix = mkMerge [
         {
           settings = {
-            substituters = [
-              "s3://andromedarobotics-artifacts?region=ap-southeast-2"
-            ];
+            substituters = [ "s3://andromedarobotics-artifacts?region=ap-southeast-2" ];
             trusted-public-keys = [
               "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
             ];
@@ -104,8 +106,14 @@ in
         '';
       };
 
-      networking.firewall.allowedTCPPorts = [ 111 2049 ];
-      networking.firewall.allowedUDPPorts = [ 111 2049 ];
+      networking.firewall.allowedTCPPorts = [
+        111
+        2049
+      ];
+      networking.firewall.allowedUDPPorts = [
+        111
+        2049
+      ];
     })
   ];
 

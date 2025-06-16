@@ -1,67 +1,78 @@
 {
   description = "corncheese's NixOS, nix-on-droid and nix-darwin configs";
 
-  outputs = inputs:
-    inputs.flake-parts.lib.mkFlake { inherit inputs; } ({ withSystem, flake-parts-lib, ... }: {
-      systems = [
-        "aarch64-linux"
-        "i686-linux"
-        "x86_64-linux"
-        "aarch64-darwin"
-        "x86_64-darwin"
-      ];
+  outputs =
+    inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } (
+      { withSystem, flake-parts-lib, ... }:
+      {
+        systems = [
+          "aarch64-linux"
+          "i686-linux"
+          "x86_64-linux"
+          "aarch64-darwin"
+          "x86_64-darwin"
+        ];
 
-      # BUG: infinite recursion
-      # imports = [
-      #   ./modules/flake/modules
-      # ] ++ inputs.self.flakeModules;
+        # BUG: infinite recursion
+        # imports = [
+        #   ./modules/flake/modules
+        # ] ++ inputs.self.flakeModules;
 
-      imports = [
-        ./modules/flake/lib
-        ./modules/flake/pkgs
-        ./modules/flake/modules
-        ./modules/flake/configurations
-        ./modules/flake/agenix
-        ./modules/flake/topology
-        ./modules/flake/packages
-        ./modules/flake/overlays
-        ./modules/flake/shells
-      ];
+        imports = [
+          ./modules/flake/lib
+          ./modules/flake/pkgs
+          ./modules/flake/modules
+          ./modules/flake/configurations
+          ./modules/flake/agenix
+          ./modules/flake/topology
+          ./modules/flake/packages
+          ./modules/flake/overlays
+          ./modules/flake/shells
+        ];
 
-      auto = {
-        # Automatic modules, see `./modules/flake/modules/default.nix`
-        modules.enableAll = true;
+        auto = {
+          # Automatic modules, see `./modules/flake/modules/default.nix`
+          modules.enableAll = true;
 
-        # Automatic configurations, see `./modules/flake/configurations/default.nix`
-        configurations.enableAll = true;
+          # Automatic configurations, see `./modules/flake/configurations/default.nix`
+          configurations.enableAll = true;
 
-        # Automatic packages, see `./modules/flake/packages/default/default.nix`
-        packages.enable = true;
+          # Automatic packages, see `./modules/flake/packages/default/default.nix`
+          packages.enable = true;
 
-        # Automatic overlays, see `./modules/flake/overlays/default/default.nix`
-        overlays.enable = true;
+          # Automatic overlays, see `./modules/flake/overlays/default/default.nix`
+          overlays.enable = true;
 
-        # Automatic devShells, see `./modules/flake/shells/default/default.nix`
-        devShells.enable = true;
-      };
-
-      perSystem = { lib, pkgs, system, ... }: {
-        # Apps (`nix run`)
-        apps = import ./apps { inherit pkgs; };
-
-        # Formatter (`nix fmt`)
-        formatter = pkgs.nixpkgs-fmt;
-      };
-
-      flake = {
-        inherit (inputs) self;
-
-        # Templates
-        templates = import ./templates {
-          inherit inputs;
+          # Automatic devShells, see `./modules/flake/shells/default/default.nix`
+          devShells.enable = true;
         };
-      };
-    });
+
+        perSystem =
+          {
+            lib,
+            pkgs,
+            system,
+            ...
+          }:
+          {
+            # Apps (`nix run`)
+            apps = import ./apps { inherit pkgs; };
+
+            # Formatter (`nix fmt`)
+            formatter = pkgs.nixfmt-tree;
+          };
+
+        flake = {
+          inherit (inputs) self;
+
+          # Templates
+          templates = import ./templates {
+            inherit inputs;
+          };
+        };
+      }
+    );
 
   inputs = {
     # Nixpkgs
