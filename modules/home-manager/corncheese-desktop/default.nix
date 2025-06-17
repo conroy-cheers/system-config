@@ -24,6 +24,37 @@ in
   };
 
   config = mkIf cfg.enable {
+    xdg.mimeApps = {
+      enable = true;
+      defaultApplications = {
+        "text/plain" = [ "neovide.desktop" ];
+      };
+    };
+
+    programs.neovide = {
+      enable = true;
+      settings = {
+        fork = false;
+        frame = "full";
+        idle = true;
+        maximized = false;
+        mouse-cursor-icon = "arrow";
+        neovim-bin = "${pkgs.neovim}/bin/nvim";
+        no-multigrid = false;
+        srgb = true;
+        tabs = true;
+        theme = "auto";
+        title-hidden = false;
+        vsync = true;
+        wsl = false;
+
+        font = {
+          normal = [ "MesloLGM Nerd Font Mono" ];
+          size = 12.0;
+        };
+      };
+    };
+
     programs.thunderbird = mkIf cfg.thunderbird.enable {
       enable = true;
       profiles = {

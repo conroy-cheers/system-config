@@ -144,37 +144,6 @@ in
         };
     };
 
-    xdg.mimeApps = {
-      enable = true;
-      defaultApplications = {
-        "text/plain" = [ "neovide.desktop" ];
-      };
-    };
-
-    programs.neovide = {
-      enable = true;
-      settings = {
-        fork = false;
-        frame = "full";
-        idle = true;
-        maximized = false;
-        mouse-cursor-icon = "arrow";
-        neovim-bin = "${pkgs.neovim}/bin/nvim";
-        no-multigrid = false;
-        srgb = true;
-        tabs = true;
-        theme = "auto";
-        title-hidden = false;
-        vsync = true;
-        wsl = false;
-
-        font = {
-          normal = [ "MesloLGM Nerd Font Mono" ];
-          size = 12.0;
-        };
-      };
-    };
-
     home.file = lib.mkMerge [
       (lib.mkIf cfg.ssh.enable (
         let
@@ -212,6 +181,10 @@ in
       with pkgs;
       builtins.concatLists [
         [
+          # Nix
+          nil
+          nixfmt-rfc-style
+
           meld # Visual diff tool
           jdk23
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
