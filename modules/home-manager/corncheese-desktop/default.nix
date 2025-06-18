@@ -24,7 +24,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    xdg.mimeApps = {
+    xdg.mimeApps = lib.mkIf pkgs.hostPlatform.isLinux {
       enable = true;
       defaultApplications = {
         "text/plain" = [ "neovide.desktop" ];
