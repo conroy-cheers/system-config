@@ -103,12 +103,12 @@
     slack
     pciutils # lspci
     usbutils # lsusb
-    (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
+    # (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
 
     ## Debugger
     gdb
-    lttng-tools
-    lttng-ust
+    # lttng-tools
+    # lttng-ust
 
     grimblast
 
