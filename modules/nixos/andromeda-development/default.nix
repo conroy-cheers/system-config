@@ -21,6 +21,9 @@ in
         enable = lib.mkEnableOption "andromeda remote builders";
         useHomeBuilders = lib.mkEnableOption "using home builders by default";
       };
+      nixDaemonSecrets = {
+        enable = lib.mkEnableOption "AWS secrets for nix daemon";
+      };
       tftpServer = {
         enable = lib.mkEnableOption "andromeda tftp development server";
         rootDirectory = lib.mkOption {
@@ -80,9 +83,22 @@ in
         })
       ];
 
-      systemd.services.nix-daemon.serviceConfig = {
-        EnvironmentFile = config.age.secrets."andromeda.aws-cache.env".path;
-        Environment = "AWS_DEFAULT_REGION=ap-southeast-2";
+      systemd.services.nix-daemon = {
+        serviceConfig = {
+          EnvironmentFile = [ config.age.secrets."andromeda.aws-cache.env".path ];
+        };
+        environment = {
+          AWS_DEFAULT_REGION = "ap-southeast-2";
+        };
+      };
+    })
+    (mkIf cfg.nixDaemonSecrets.enable {
+      # AWS secrets creds for nix-daemon
+      age.secrets."andromeda.aws-secrets.env" = {
+        rekeyFile = "${inputs.self}/secrets/andromeda/aws-secrets/env.age";
+      };
+      systemd.services.nix-daemon = {
+        serviceConfig.EnvironmentFile = [ config.age.secrets."andromeda.aws-secrets.env".path ];
       };
     })
     (mkIf cfg.tftpServer.enable {
