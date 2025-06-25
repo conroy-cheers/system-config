@@ -16,6 +16,7 @@ in
   options = {
     corncheese.desktop = {
       enable = mkEnableOption "corncheese desktop environment setup";
+      neovide.enable = mkEnableOption "neovide configuration";
       thunderbird.enable = mkEnableOption "thunderbird configuration";
       firefox.enable = mkEnableOption "firefox configuration";
       chromium.enable = mkEnableOption "chromium configuration";
@@ -31,7 +32,7 @@ in
       };
     };
 
-    programs.neovide = {
+    programs.neovide = mkIf cfg.neovide.enable {
       enable = true;
       settings = {
         fork = false;
@@ -50,7 +51,7 @@ in
 
         font = {
           normal = [ "MesloLGM Nerd Font Mono" ];
-          size = 12.0;
+          # size = 12.0;
         };
       };
     };
