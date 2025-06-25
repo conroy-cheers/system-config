@@ -83,6 +83,7 @@
         enable = true;
         rootDirectory = "/tmp/tftp-server";
       };
+      nixDaemonSecrets.enable = true;
     };
   };
 
