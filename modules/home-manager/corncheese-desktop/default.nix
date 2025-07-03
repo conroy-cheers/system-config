@@ -32,6 +32,10 @@ in
       };
     };
 
+    programs.obsidian = {
+      enable = true;
+    };
+
     programs.neovide = mkIf cfg.neovide.enable {
       enable = true;
       settings = {
