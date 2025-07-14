@@ -20,13 +20,19 @@ in
 
   config = mkIf cfg.enable {
     # Requires Homebrew to be installed
-    system.activationScripts.preUserActivation.text = ''
-      if ! xcode-select --version 2>/dev/null; then
-        $DRY_RUN_CMD xcode-select --install
-      fi
-      if ! ${config.homebrew.brewPrefix}/brew --version 2>/dev/null; then
-        $DRY_RUN_CMD /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      fi
+    system.activationScripts.corncheeseUserActivation.text = ''
+      sudo -u ${config.system.primaryUser} bash -c '
+        if ! xcode-select --version 2>/dev/null; then
+          $DRY_RUN_CMD xcode-select --install
+        fi
+        if ! ${config.homebrew.brewPrefix}/brew --version 2>/dev/null; then
+          $DRY_RUN_CMD /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi 
+      '
+    '';
+
+    home-manager.users.${config.system.primaryUser}.programs.zsh.initContent = ''
+      eval "$(${config.homebrew.brewPrefix}/brew shellenv)"
     '';
 
     homebrew = {
@@ -41,38 +47,15 @@ in
         lockfiles = false; # Don't save lockfile (since running from anywhere)
       };
       taps = [
-        "homebrew/core"
-        "homebrew/cask"
-        "homebrew/cask-fonts"
-        "homebrew/services"
-        "cmacrae/formulae"
-        "FelixKratz/formulae"
-        "jorgelbg/tap"
       ];
       brews = [
         "libusb"
         "openssl"
-        "switchaudio-osx"
       ];
       casks = [
-        "android-platform-tools"
-        "docker"
-        "eloston-chromium"
-        "firefox"
-        "flameshot"
-        "font-fira-code-nerd-font"
-        "karabiner-elements"
-        "notion"
-        # "osxfuse"
-        "prismlauncher"
-        "scroll-reverser"
-        "sf-symbols"
         "slack"
-        "spotify"
-        "xquartz"
       ];
       extraConfig = ''
-        # brew "xorpse/formulae/brew", args: ["HEAD"]
         cask_args appdir: "~/Applications"
       '';
     };
