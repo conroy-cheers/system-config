@@ -217,11 +217,21 @@
     enable = true;
   };
 
+  services.flood = {
+    enable = true;
+    openFirewall = true;
+    host = "sleet.lan";
+    extraArgs = [
+      "--baseuri=/"
+      "--trurl=http://localhost:${toString config.services.transmission.settings.rpc-port}"
+    ];
+  };
+
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
-  networking.firewall.enable = false;
+  networking.firewall.enable = true;
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
