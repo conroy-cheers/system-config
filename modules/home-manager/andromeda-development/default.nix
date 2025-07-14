@@ -10,14 +10,15 @@ let
   cfg = config.andromeda.development;
 
   abiUser = "abi";
-  abiHostnames = {
+  abiAliases = {
     "flabi" = "abi-andr-dev-1";
-    "abi5" = "abi-andr-dev-5";
-    "abi6" = "abi-andr-dev-6";
     "agx" = "10.11.120.231";
     "audiobox" = "10.11.3.77";
   };
-  abiHosts = builtins.attrNames abiHostnames;
+  abiHostGlobs = [
+    "abi-andr-dev-*"
+  ];
+  abiHosts = builtins.attrNames abiAliases;
   abiRootHosts = map (host: host + "-root") abiHosts;
 in
 {
@@ -84,10 +85,10 @@ in
         (lib.concatMapAttrs (name: hostname: {
           "${name}".hostname = hostname;
           "${name}-root".hostname = hostname;
-        }) abiHostnames)
+        }) abiAliases)
         // {
           abi-dev = {
-            host = (lib.concatStringsSep " " abiHosts);
+            host = (lib.concatStringsSep " " (abiHosts ++ abiHostGlobs));
             user = abiUser;
             extraOptions = {
               PubkeyAuthentication = "no";
