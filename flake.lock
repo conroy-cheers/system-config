@@ -1599,6 +1599,26 @@
         "type": "github"
       }
     },
+    "j-link": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1752120562,
+        "narHash": "sha256-ZGde7XQhw1plhIIoA+N52O1wmU51CrtX3SYTKVPyhDQ=",
+        "owner": "liff",
+        "repo": "j-link-flake",
+        "rev": "92a8cd4d6318dd277ab9abc4cdb39fbabab05338",
+        "type": "github"
+      },
+      "original": {
+        "owner": "liff",
+        "repo": "j-link-flake",
+        "type": "github"
+      }
+    },
     "jovian-nixos": {
       "inputs": {
         "nix-github-actions": "nix-github-actions",
@@ -2451,6 +2471,7 @@
         "hyprland": "hyprland",
         "hyprland-plugins": "hyprland-plugins",
         "impermanence": "impermanence",
+        "j-link": "j-link",
         "jovian-nixos": "jovian-nixos",
         "mac-app-util": "mac-app-util",
         "neovim-nightly-overlay": "neovim-nightly-overlay",
