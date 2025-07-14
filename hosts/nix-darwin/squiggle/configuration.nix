@@ -20,6 +20,7 @@
 
   corncheese = {
     system.enable = true;
+    brew.enable = true;
     theming = {
       enable = true;
       theme = "catppuccin";
