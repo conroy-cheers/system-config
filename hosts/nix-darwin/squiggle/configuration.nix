@@ -29,6 +29,7 @@
         fontSize = lib.mkForce 10;
       };
     };
+    development.enable = true;
   };
 
   nixpkgs = {
@@ -36,13 +37,6 @@
       # If you want to use overlays your own flake exports (from overlays dir):
       inputs.self.overlays.karabiner
     ];
-  };
-
-  nix = {
-    package = pkgs.nixVersions.monitored.latest;
-    extraOptions = ''
-      experimental-features = nix-command flakes
-    '';
   };
 
   programs.zsh.enable = true;
