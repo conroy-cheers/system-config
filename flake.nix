@@ -264,5 +264,10 @@
       url = "github:liff/waveforms-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    j-link = {
+      url = "github:liff/j-link-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 }

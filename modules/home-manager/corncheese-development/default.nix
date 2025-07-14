@@ -196,8 +196,11 @@ in
             stm32cubemx
           ]
           ++ (lib.optionals (builtins.hasAttr "waveforms" pkgs) [ pkgs.waveforms ])
+          ++ (lib.optionals (builtins.hasAttr "j-link" pkgs) [ pkgs.j-link ])
         ))
-        (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [ probe-rs ])
+        (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
+          probe-rs
+        ])
         (lib.optionals cfg.rust.enable [
           rustc
           cargo

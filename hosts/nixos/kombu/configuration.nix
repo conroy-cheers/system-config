@@ -18,6 +18,7 @@
     ./impermanence.nix
     ./network.nix
     inputs.waveforms.nixosModule
+    inputs.j-link.nixosModule
   ];
 
   ### Set boot options

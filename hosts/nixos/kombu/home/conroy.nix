@@ -30,7 +30,7 @@
         enable = true;
         # clion.versionOverride = "2023.2.5";
       };
-      rust.enable = true;
+      rust.enable = false;
       vscode.enable = true;
       ssh.enable = true;
       ssh.onePassword = true;
