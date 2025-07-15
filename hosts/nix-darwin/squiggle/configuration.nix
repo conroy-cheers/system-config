@@ -9,6 +9,8 @@
 {
   environment.systemPackages = with pkgs; [ ];
 
+  networking.hostName = "squiggle";
+
   users.users.conroy = {
     description = "Conroy Cheers";
     home = "/Users/conroy";
@@ -16,6 +18,10 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
     ];
     shell = pkgs.zsh;
+  };
+
+  andromeda = {
+    development.enable = true;
   };
 
   corncheese = {

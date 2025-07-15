@@ -26,7 +26,7 @@ in
     lib.mkMerge [
       {
         nix = {
-          package = pkgs.nixVersions.latest;
+          package = pkgs.nixVersions.monitored.latest;
 
           # Enable flakes, the new `nix` commands and better support for flakes in it
           extraOptions = ''
