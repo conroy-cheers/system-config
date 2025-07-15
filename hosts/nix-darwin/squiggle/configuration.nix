@@ -30,10 +30,6 @@
     theming = {
       enable = true;
       theme = "catppuccin";
-      themeOverrides = {
-        opacity = lib.mkForce 0.92;
-        fontSize = lib.mkForce 10;
-      };
     };
     development.enable = true;
   };

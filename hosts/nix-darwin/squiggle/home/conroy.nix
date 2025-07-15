@@ -39,6 +39,9 @@
       theming = {
         enable = true;
         theme = "catppuccin";
+        themeOverrides = {
+          opacity = lib.mkForce 0.87;
+        };
       };
       desktop = {
         enable = true;
@@ -88,8 +91,23 @@
       enable = true;
       settings = {
         scrollback_lines = 20000;
+        background_blur = 64;
       };
     };
+
+    programs.vscode.profiles.default.userSettings =
+      let
+        ptToPx = 1.0;
+      in
+      with config.stylix.fonts;
+      {
+        "editor.fontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx + 0.5));
+        "debug.console.fontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx + 0.5));
+        "markdown.preview.fontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx + 0.5));
+        "terminal.integrated.fontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx + 0.5));
+        "chat.editor.fontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx + 0.5));
+        "scm.inputFontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx * 13 / 14 + 0.5));
+      };
 
     # services.gpg-agent = {
     #   enable = true;
