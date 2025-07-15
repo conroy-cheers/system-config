@@ -92,6 +92,11 @@ in
   };
 
   config = {
+    programs.neovim = {
+      enable = true;
+      defaultEditor = true;
+    };
+
     services.vscode-server.enable = true;
 
     programs.vscode = lib.mkIf cfg.vscode.enable {

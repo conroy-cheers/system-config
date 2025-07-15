@@ -255,7 +255,7 @@ in
           path = "${config.xdg.dataHome}/zsh/history";
         };
 
-        initContent = builtins.concatStringsSep "\n" [
+        initContent = lib.mkMerge [
           ''
             function take() {
               mkdir -p "''${@}" && cd "''${@}"
@@ -265,12 +265,12 @@ in
             source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
             test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
           '')
-          ''
-            # Prevent macOS updates from destroying nix
-            if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''${SHLVL}" -eq 1 ]; then
-              source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
-            fi
-          ''
+          # (lib.mkBefore ''
+          #   # Prevent macOS updates from destroying nix
+          #   if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''${SHLVL}" -eq 1 ]; then
+          #     source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+          #   fi
+          # '')
           ''
             bindkey '^[[1;3D' backward-word  # Alt + Left
             bindkey '^[[1;3C' forward-word   # Alt + Right

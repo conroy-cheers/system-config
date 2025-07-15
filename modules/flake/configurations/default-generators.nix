@@ -152,6 +152,13 @@ let
         # Home Manager
         inputs.home-manager.darwinModules.home-manager
         (homeManagerModule args)
+        # (r)agenix && agenix-rekey
+        inputs.ragenix.darwinModules.default
+        inputs.agenix-rekey.nixosModules.default
+        (lib.optionalAttrs (meta.pubkey != null) {
+          age.rekey.hostPubkey = meta.pubkey;
+        })
+        ./agenix-rekey
       ] ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-darwin"});
 
       specialArgs = {
