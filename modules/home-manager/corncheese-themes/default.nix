@@ -41,16 +41,16 @@ in
       base16Scheme = lib.mkIf (
         cfg.theme != null
       ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
-      override = lib.mkIf (cfg.themeDetails.stylixOverride != null) cfg.themeDetails.stylixOverride;
+      override = lib.mkIf (themeDetails.stylixOverride != null) themeDetails.stylixOverride;
       opacity = {
-        terminal = cfg.themeDetails.opacity;
-        applications = cfg.themeDetails.opacity;
-        desktop = cfg.themeDetails.opacity;
-        popups = cfg.themeDetails.opacity;
+        terminal = themeDetails.opacity;
+        applications = themeDetails.opacity;
+        desktop = themeDetails.opacity;
+        popups = themeDetails.opacity;
       };
       fonts = {
         sizes = {
-          terminal = 11;
+          terminal = themeDetails.fontSize;
         };
       };
 

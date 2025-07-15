@@ -110,6 +110,10 @@ in
                 small = true;
               };
             }
+            { app = "${pkgs.kitty}/Applications/kitty.app"; }
+            { app = "${pkgs.slack}/Applications/Slack.app"; }
+            { app = "${pkgs.element-desktop}/Applications/Element.app"; }
+            { app = "/System/Applications/System\ Settings.app"; }
           ];
           persistent-others = [ "/Users/${config.system.primaryUser}/Downloads" ];
         };

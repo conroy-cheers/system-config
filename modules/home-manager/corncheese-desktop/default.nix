@@ -32,6 +32,10 @@ in
       };
     };
 
+    home.packages = with pkgs; [
+      slack
+    ];
+
     programs.obsidian = {
       enable = true;
     };
