@@ -90,6 +90,9 @@ in
           abi-dev = {
             host = (lib.concatStringsSep " " (abiHosts ++ abiHostGlobs));
             user = abiUser;
+          };
+          abi-dev-abi = {
+            match = "host ${lib.concatStringsSep "," (abiHosts ++ abiHostGlobs)} user ${abiUser}";
             extraOptions = {
               PubkeyAuthentication = "no";
             };
