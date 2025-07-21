@@ -13,7 +13,7 @@
 
   font = "Meslo LG";
   fontPkg = pkgs.nerd-fonts.meslo-lg;
-  fontSize = 12;
+  fontSize = 11;
 
   wallpaper = pkgs.corncheese-wallpapers.paths.green;
 
