@@ -121,8 +121,6 @@
     ## Nix
     nil
     direnv
-    nixpkgs-fmt
-    nix-output-monitor
 
     ## Torrents
     tremc
