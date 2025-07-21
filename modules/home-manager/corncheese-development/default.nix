@@ -189,6 +189,7 @@ in
           # Nix
           nil
           nixfmt-rfc-style
+          nix-output-monitor
 
           meld # Visual diff tool
           jdk23
