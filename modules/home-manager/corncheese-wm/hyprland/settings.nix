@@ -11,7 +11,10 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    home.packages = with pkgs; [ inputs.swww.packages.${pkgs.system}.swww ];
+    home.packages = with pkgs; [
+      inputs.swww.packages.${pkgs.system}.swww
+      cliphist
+    ];
 
     wayland.windowManager.hyprland.settings = {
       monitor = [ ",preferred,auto,1" ];
@@ -19,7 +22,8 @@ in
       exec-once = [
         "swww-daemon &"
         "ags &"
-        # "hyprctl setcursor Catppuccin-Mocha-Lavender-Cursors 24"
+        "wl-paste --type text --watch cliphist store" # Stores only text data
+        "wl-paste --type image --watch cliphist store" # Stores only image data
         "[workspace 1 silent] kitty"
         "[workspace 2 silent] kitty btop"
         "[workspace 2 silent] kitty cava"
