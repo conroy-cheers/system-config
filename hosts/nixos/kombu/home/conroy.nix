@@ -138,8 +138,11 @@
     ## Wine
     # winetricks (all versions)
     winetricks
-    # native wayland support (unstable)
-    wineWowPackages.waylandFull
+    wineWowPackages.stagingFull
+    (pkgs.writeShellScriptBin "wine64" ''
+      exec ${lib.getExe' wineWowPackages.stagingFull "wine"} "$@"
+    '')
+
     samba
   ];
 

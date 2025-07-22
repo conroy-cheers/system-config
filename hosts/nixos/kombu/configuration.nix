@@ -21,6 +21,17 @@
     inputs.j-link.nixosModule
   ];
 
+  nixpkgs = {
+    overlays = [
+      # https://github.com/NixOS/nixpkgs/issues/425328
+      (self: super: {
+        jetbrains = super.jetbrains // {
+          jdk = self.openjdk21;
+        };
+      })
+    ];
+  };
+
   ### Set boot options
   boot = {
     # Use the systemd-boot boot loader.
