@@ -86,6 +86,7 @@ in
             {
               hostName = "18.136.8.225";
               system = "aarch64-linux";
+              speedFactor = 4;
               maxJobs = 32;
               supportedFeatures = [ "big-parallel" ];
               publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
