@@ -21,7 +21,7 @@ let
 
   shellAliases = {
     s = "kitten ssh";
-    cp = "${pkgs.fcp}/bin/fcp";
+    # cp = "${pkgs.fcp}/bin/fcp";
     rebuild =
       let
         rebuild_script = pkgs.writeShellScript "rebuild" ''
@@ -125,6 +125,9 @@ in
       home.packages =
         with pkgs;
         builtins.concatLists [
+          [
+            psmisc
+          ]
           (builtins.map (lib.flip builtins.getAttr pkgs) cfg.shells)
           (optionals cfg.starship [ starship ])
           (optionals cfg.p10k [ zsh-powerlevel10k ])
@@ -234,97 +237,102 @@ in
           text = builtins.readFile ./p10k.zsh;
         };
       };
-      programs.zsh = mkIf (builtins.elem "zsh" cfg.shells) {
-        enable = true;
-        package = pkgs.zsh;
+      programs.zsh = mkIf (builtins.elem "zsh" cfg.shells) (
+        let
+          dotDir = "${config.xdg.configHome}/zsh";
+        in
+        {
+          enable = true;
+          package = pkgs.zsh;
 
-        enableCompletion = true;
+          enableCompletion = true;
 
-        dotDir = ".config/zsh";
+          inherit dotDir;
 
-        shellAliases =
-          shellAliases
-          // {
-            ls = "${pkgs.lsd}/bin/lsd";
-            mkdir = "mkdir -vp";
-          }
-          // lib.optionalAttrs cfg.bat { man = "batman"; };
-
-        history = {
-          size = 5000;
-          path = "${config.xdg.dataHome}/zsh/history";
-        };
-
-        initContent = lib.mkMerge [
-          ''
-            function take() {
-              mkdir -p "''${@}" && cd "''${@}"
+          shellAliases =
+            shellAliases
+            // {
+              ls = "${pkgs.lsd}/bin/lsd";
+              mkdir = "mkdir -vp";
             }
-          ''
-          (optionalString cfg.p10k ''
-            source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
-            test -f ~/.config/zsh/.p10k.zsh && source ~/.config/zsh/.p10k.zsh
-          '')
-          # (lib.mkBefore ''
-          #   # Prevent macOS updates from destroying nix
-          #   if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''${SHLVL}" -eq 1 ]; then
-          #     source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
-          #   fi
-          # '')
-          ''
-            bindkey '^[[1;3D' backward-word  # Alt + Left
-            bindkey '^[[1;3C' forward-word   # Alt + Right
-          ''
-        ];
+            // lib.optionalAttrs cfg.bat { man = "batman"; };
 
-        plugins = [
-          {
-            name = "zsh-nix-shell";
-            file = "nix-shell.plugin.zsh";
-            src = pkgs.fetchFromGitHub {
-              owner = "chisui";
-              repo = "zsh-nix-shell";
-              rev = "v0.8.0";
-              hash = "sha256-Z6EYQdasvpl1P78poj9efnnLj7QQg13Me8x1Ryyw+dM=";
-            };
-          }
-          {
-            name = "fast-syntax-highlighting";
-            file = "fast-syntax-highlighting.plugin.zsh";
-            src = pkgs.fetchFromGitHub {
-              owner = "zdharma-continuum";
-              repo = "fast-syntax-highlighting";
-              rev = "cf318e06a9b7c9f2219d78f41b46fa6e06011fd9";
-              hash = "sha256-RVX9ZSzjBW3LpFs2W86lKI6vtcvDWP6EPxzeTcRZua4=";
-            };
-          }
-          (mkIf cfg.autosuggestions {
-            name = "zsh-autosuggestions";
-            file = "zsh-autosuggestions.plugin.zsh";
-            src = pkgs.fetchFromGitHub {
-              owner = "zsh-users";
-              repo = "zsh-autosuggestions";
-              rev = "c3d4e576c9c86eac62884bd47c01f6faed043fc5";
-              hash = "sha256-B+Kz3B7d97CM/3ztpQyVkE6EfMipVF8Y4HJNfSRXHtU=";
-            };
-          })
-          (mkIf cfg.bat {
-            name = "zsh-bat";
-            file = "zsh-bat.plugin.zsh";
-            src = pkgs.fetchFromGitHub {
-              owner = "fdellwing";
-              repo = "zsh-bat";
-              rev = "c47f2de99d0c4c778e9de56ac8e527ddfd9b02e2";
-              hash = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
-            };
-          })
-          (mkIf cfg.p10k ({
-            name = "powerlevel10k";
-            file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
-            src = pkgs.zsh-powerlevel10k;
-          }))
-        ];
-      };
+          history = {
+            size = 5000;
+            path = "${config.xdg.dataHome}/zsh/history";
+          };
+
+          initContent = lib.mkMerge [
+            ''
+              function take() {
+                mkdir -p "''${@}" && cd "''${@}"
+              }
+            ''
+            (optionalString cfg.p10k ''
+              source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme  
+              test -f ${dotDir}/.p10k.zsh && source ${dotDir}/.p10k.zsh
+            '')
+            # (lib.mkBefore ''
+            #   # Prevent macOS updates from destroying nix
+            #   if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] && [ "''${SHLVL}" -eq 1 ]; then
+            #     source "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+            #   fi
+            # '')
+            ''
+              bindkey '^[[1;3D' backward-word  # Alt + Left
+              bindkey '^[[1;3C' forward-word   # Alt + Right
+            ''
+          ];
+
+          plugins = [
+            {
+              name = "zsh-nix-shell";
+              file = "nix-shell.plugin.zsh";
+              src = pkgs.fetchFromGitHub {
+                owner = "chisui";
+                repo = "zsh-nix-shell";
+                rev = "v0.8.0";
+                hash = "sha256-Z6EYQdasvpl1P78poj9efnnLj7QQg13Me8x1Ryyw+dM=";
+              };
+            }
+            {
+              name = "fast-syntax-highlighting";
+              file = "fast-syntax-highlighting.plugin.zsh";
+              src = pkgs.fetchFromGitHub {
+                owner = "zdharma-continuum";
+                repo = "fast-syntax-highlighting";
+                rev = "cf318e06a9b7c9f2219d78f41b46fa6e06011fd9";
+                hash = "sha256-RVX9ZSzjBW3LpFs2W86lKI6vtcvDWP6EPxzeTcRZua4=";
+              };
+            }
+            (mkIf cfg.autosuggestions {
+              name = "zsh-autosuggestions";
+              file = "zsh-autosuggestions.plugin.zsh";
+              src = pkgs.fetchFromGitHub {
+                owner = "zsh-users";
+                repo = "zsh-autosuggestions";
+                rev = "c3d4e576c9c86eac62884bd47c01f6faed043fc5";
+                hash = "sha256-B+Kz3B7d97CM/3ztpQyVkE6EfMipVF8Y4HJNfSRXHtU=";
+              };
+            })
+            (mkIf cfg.bat {
+              name = "zsh-bat";
+              file = "zsh-bat.plugin.zsh";
+              src = pkgs.fetchFromGitHub {
+                owner = "fdellwing";
+                repo = "zsh-bat";
+                rev = "c47f2de99d0c4c778e9de56ac8e527ddfd9b02e2";
+                hash = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
+              };
+            })
+            (mkIf cfg.p10k ({
+              name = "powerlevel10k";
+              file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+              src = pkgs.zsh-powerlevel10k;
+            }))
+          ];
+        }
+      );
     })
   ];
 
