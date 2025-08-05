@@ -16,7 +16,7 @@ let
     "audiobox" = "10.11.4.99";
   };
   abiHostGlobs = [
-    "abi-andr-dev-*"
+    "abi-andr-*"
   ];
   abiHosts = builtins.attrNames abiAliases;
   abiRootHosts = map (host: host + "-root") abiHosts;
