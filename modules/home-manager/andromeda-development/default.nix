@@ -13,7 +13,7 @@ let
   abiAliases = {
     "flabi" = "abi-andr-dev-1";
     "agx" = "10.11.120.231";
-    "audiobox" = "10.11.3.77";
+    "audiobox" = "10.11.4.99";
   };
   abiHostGlobs = [
     "abi-andr-dev-*"
