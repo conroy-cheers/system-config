@@ -45,12 +45,18 @@ in
         rounding = themeDetails.roundingRadius;
         blur = {
           enabled = true;
+          size = 8;
+          passes = 1;
+          ignore_opacity = true;
+          new_optimizations = true;
+          noise = 0.0117;
+          contrast = 0.8916;
+          brightness = 0.8172;
+          vibrancy = 0.1696;
+          vibrancy_darkness = 0.0;
           special = false;
-          brightness = 1.0;
-          contrast = 1.0;
-          noise = 2.0e-2;
-          passes = 2;
-          size = 5;
+          popups = true;
+          popups_ignorealpha = 0.85;
         };
 
         shadow = {
@@ -122,9 +128,14 @@ in
         mfact = 0.65;
       };
 
+      ecosystem = {
+        no_update_news = true;
+        no_donation_nag = true;
+      };
+
       misc = {
-        force_default_wallpaper = -1;
-        vrr = 2;
+        force_default_wallpaper = 0;
+        vrr = 1;
       };
     };
   };
