@@ -44,6 +44,16 @@ in
         portalPackage =
           inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
       };
+
+      # thunar file manager
+      thunar = {
+        enable = true;
+        plugins = with pkgs.xfce; [
+          thunar-archive-plugin
+          thunar-volman
+        ];
+      };
+      file-roller.enable = true;
     };
 
     # For home-manager xdg portal config
