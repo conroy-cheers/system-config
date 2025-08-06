@@ -272,9 +272,6 @@
   # udisks2 for mounting USB disks
   services.udisks2.enable = true;
 
-  # thunar file manager
-  programs.thunar.enable = true;
-
   ### Enable plymouth (bootscreen customizations)
   boot.plymouth = {
     enable = true;
