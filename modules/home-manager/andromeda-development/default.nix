@@ -131,6 +131,21 @@ in
           region = "ap-southeast-2";
           output = "json";
         };
+
+        "profile iot-crossaccount" = {
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile memories-crossaccount" = {
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile logs-archive-crossaccount" = {
+          region = "ap-southeast-2";
+          output = "json";
+        };
       };
     };
   };
