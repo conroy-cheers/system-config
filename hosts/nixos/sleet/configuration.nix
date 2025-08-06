@@ -53,7 +53,8 @@
       remoteBuilders.enable = true; # this machine is colocated with the corncheese builders
     };
     theming = {
-      enable = false;
+      enable = true;
+      theme = "catppuccin";
     };
     wm.enable = false;
   };
