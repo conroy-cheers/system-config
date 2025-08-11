@@ -156,6 +156,10 @@
   #   ];
   # };
 
+  hardware.bluetooth = {
+    enable = true;
+  };
+
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
