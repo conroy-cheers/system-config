@@ -14,7 +14,7 @@
   imports = [
     inputs.hardware.nixosModules.common-cpu-amd
     inputs.hardware.nixosModules.common-pc-ssd
-    inputs.hardware.nixosModules.common-gpu-nvidia-ampere
+    inputs.hardware.nixosModules.common-gpu-nvidia-nonprime
     ./hardware-configuration.nix
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence
