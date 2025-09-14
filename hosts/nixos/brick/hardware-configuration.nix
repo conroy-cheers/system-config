@@ -33,5 +33,7 @@ in
   # networking.interfaces.enp5s0.useDHCP = lib.mkDefault true;
   # networking.interfaces.wlp4s0.useDHCP = lib.mkDefault true;
 
+  hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
+
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }
