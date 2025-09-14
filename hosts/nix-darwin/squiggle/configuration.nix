@@ -31,7 +31,10 @@
       enable = true;
       theme = "catppuccin";
     };
-    development.enable = true;
+    development = {
+      enable = true;
+      remoteBuilders.enable = true;
+    };
   };
 
   nixpkgs = {
