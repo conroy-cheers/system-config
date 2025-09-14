@@ -54,6 +54,12 @@ in
         ];
       };
       file-roller.enable = true;
+
+      _1password.enable = true;
+      _1password-gui = {
+        enable = true;
+        polkitPolicyOwners = [ "conroy" ];
+      };
     };
 
     # For home-manager xdg portal config
