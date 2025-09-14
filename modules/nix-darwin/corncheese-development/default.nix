@@ -15,6 +15,7 @@ in
   options = {
     corncheese.development = {
       enable = lib.mkEnableOption "corncheese development environment";
+      remoteBuilders.enable = lib.mkEnableOption "corncheese remote builders";
     };
   };
 
@@ -48,6 +49,39 @@ in
           };
         };
       }
+      ((lib.mkIf cfg.remoteBuilders.enable) {
+        age.secrets = {
+          "corncheese.home.key" = {
+            rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
+            mode = "400";
+          };
+        };
+        programs.ssh = {
+          extraConfig = ''
+            # bigbrain-direct
+            Host home.conroycheers.me
+              User conroy
+              HostName home.conroycheers.me
+              Port 8022
+              IdentityFile ${config.age.secrets."corncheese.home.key".path}
+          '';
+        };
+        nix = {
+          extraOptions = ''
+            builders-use-substitutes = true
+          '';
+          distributedBuilds = true;
+          buildMachines = [
+            {
+              hostName = "home.conroycheers.me";
+              system = "x86_64-linux";
+              maxJobs = 28;
+              supportedFeatures = [ "big-parallel" ];
+              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
+            }
+          ];
+        };
+      })
     ]
   );
 }

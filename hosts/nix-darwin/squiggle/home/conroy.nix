@@ -71,6 +71,8 @@
       # Nix
       nil
       nixfmt-rfc-style
+
+      teams
     ];
 
     programs.btop = {
