@@ -43,6 +43,6 @@ in
   };
 
   meta = {
-    maintainers = with lib.maintainers; [ corncheese ];
+    maintainers = with lib.maintainers; [ conroy-cheers ];
   };
 }

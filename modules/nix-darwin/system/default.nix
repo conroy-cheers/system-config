@@ -63,7 +63,7 @@ in
           # Replace press-and-hold with key repeat
           ApplePressAndHoldEnabled = false;
           # Set a fast key repeat rate
-          KeyRepeat = 5;
+          KeyRepeat = 2;
           # Shorten delay before key repeat begins
           InitialKeyRepeat = 12;
           # Save to local disk by default, not iCloud
@@ -302,6 +302,6 @@ in
   };
 
   meta = {
-    maintainers = with lib.maintainers; [ corncheese ];
+    maintainers = with lib.maintainers; [ conroy-cheers ];
   };
 }
