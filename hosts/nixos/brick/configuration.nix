@@ -26,8 +26,13 @@
   boot = {
     # Use the systemd-boot boot loader.
     loader = {
-      systemd-boot.enable = true;
       efi.canTouchEfiVariables = true;
+      grub = {
+        enable = true;
+        devices = [ "nodev" ];
+        efiSupport = true;
+        useOSProber = true;
+      };
     };
 
     # Enable running aarch64 binaries using qemu
@@ -49,6 +54,8 @@
 
   ### Set your time zone.
   time.timeZone = "Australia/Melbourne";
+  # Dual boot with Windows
+  time.hardwareClockInLocalTime = true;
 
   corncheese = {
     development = {
@@ -59,7 +66,13 @@
       enable = true;
       theme = "catppuccin";
     };
-    wm.enable = true;
+    wm = {
+      enable = true;
+      audio = {
+        enable = true;
+        equalizer.enable = true;
+      };
+    };
   };
 
   # log conroy into atuin sync
@@ -204,20 +217,6 @@
   services.printing.enable = true;
 
   ### Enable sound.
-  security.rtkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa = {
-      enable = true;
-      support32Bit = true;
-    };
-    pulse = {
-      enable = true;
-    };
-    jack = {
-      enable = true;
-    };
-  };
   services.dbus = {
     enable = true;
     packages = [ pkgs.dconf ];

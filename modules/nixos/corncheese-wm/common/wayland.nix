@@ -15,6 +15,12 @@ in
       pkgs.wl-clipboard
     ];
 
+    environment.sessionVariables = {
+      ELECTRON_OZONE_PLATFORM_HINT = "auto";
+      NIXOS_OZONE_WL = 1;
+      __EGL_VENDOR_LIBRARY_FILENAMES = "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json";
+    };
+
     # # Configure xwayland
     # services.xserver = {
     #   enable = true;

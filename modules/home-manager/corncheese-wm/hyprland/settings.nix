@@ -27,6 +27,7 @@ in
         "[workspace 1 silent] kitty"
         "[workspace 2 silent] kitty btop"
         "[workspace 2 silent] kitty cava"
+        "[workspace 2 silent] plexamp"
         "[workspace special silent] slack"
         "[workspace special silent] chromium"
       ];
@@ -111,7 +112,6 @@ in
       };
 
       gestures = {
-        workspace_swipe = true;
         workspace_swipe_distance = 200;
       };
 
