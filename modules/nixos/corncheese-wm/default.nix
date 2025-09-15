@@ -12,6 +12,7 @@ let
 in
 {
   imports = [
+    (import ./audio { inherit lib config pkgs; })
     (import ./common/wayland.nix { inherit lib config pkgs; })
     (import ./common/fonts.nix { inherit lib config pkgs; })
   ];
@@ -19,6 +20,10 @@ in
   options = {
     corncheese.wm = {
       enable = mkEnableOption "corncheese system window manager setup";
+      audio = {
+        enable = mkEnableOption "audio configuration";
+        equalizer.enable = mkEnableOption "AutoEQ headphone equalizer profile";
+      };
     };
   };
 
