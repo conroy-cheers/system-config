@@ -125,9 +125,9 @@ in
       home.packages =
         with pkgs;
         builtins.concatLists [
-          [
+          (optionals pkgs.hostPlatform.isLinux [
             psmisc
-          ]
+          ])
           (builtins.map (lib.flip builtins.getAttr pkgs) cfg.shells)
           (optionals cfg.starship [ starship ])
           (optionals cfg.p10k [ zsh-powerlevel10k ])
