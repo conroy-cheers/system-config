@@ -27,11 +27,15 @@
     # Use the systemd-boot boot loader.
     loader = {
       efi.canTouchEfiVariables = true;
-      grub = {
+      grub.enable = false;
+
+      limine = {
         enable = true;
-        devices = [ "nodev" ];
-        efiSupport = true;
-        useOSProber = true;
+        extraEntries = ''
+          /Windows
+            protocol: efi
+            path: uuid(89a1eedd-3c95-47bf-80c6-bd131131ee54):/EFI/Microsoft/Boot/bootmgfw.efi
+        '';
       };
     };
 
