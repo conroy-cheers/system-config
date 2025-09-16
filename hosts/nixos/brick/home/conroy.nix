@@ -41,6 +41,7 @@
     };
     wm = {
       enable = true;
+      nvidia = true;
       ags.enable = true;
       hyprpaper.enable = true;
     };

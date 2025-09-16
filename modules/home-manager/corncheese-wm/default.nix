@@ -56,6 +56,7 @@ in
           is the variable name and its value is the variable's value.
         '';
       };
+      nvidia = mkEnableOption "special nvidia environment options";
       ags.enable = mkEnableOption "ags widget system";
       hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
     };
