@@ -143,7 +143,12 @@
   ### Fonts
   fonts.fontconfig.enable = true;
 
-  hardware.graphics.enable = true;
+  hardware = {
+    graphics.enable = true;
+    nvidia.powerManagement = {
+      enable = true;
+    };
+  };
   # environment.sessionVariables = {
   #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";
   #   "XDG_SESSION_TYPE" = "wayland";
