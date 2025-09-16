@@ -170,6 +170,10 @@
   #   ];
   # };
 
+  services.hardware = {
+    openrgb.enable = true;
+  };
+
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
