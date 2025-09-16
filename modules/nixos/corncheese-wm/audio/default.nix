@@ -25,16 +25,55 @@ in
         };
       })
       (lib.mkIf cfg.equalizer.enable {
-        extraConfig.pipewire."eq-ananda-stealth" = {
-          "context.modules" = [
-            {
-              name = "libpipewire-module-parametric-equalizer";
-              args = {
-                "equalizer.filepath" = ./HIFIMAN-Ananda-Stealth-ParametricEq.txt;
-                "equalizer.description" = "Ananda Stealth AutoEQ";
+        wireplumber.extraConfig = {
+          "motu-autoeq" = {
+            "node.software-dsp.rules" = [
+              {
+                matches = [
+                  { "node.name" = "alsa_output.usb-MOTU_M2_M20000055223-00.HiFi__Line1__sink"; }
+                ];
+                actions = {
+                  create-filter = {
+                    filter-graph = {
+                      "node.description" = "MOTU M2";
+                      "media.name" = "MOTU M2";
+                      "filter.graph" = {
+                        "nodes" = [
+                          {
+                            type = "builtin";
+                            name = "eq";
+                            label = "param_eq";
+                            config = {
+                              "filename" = ./HIFIMAN-Ananda-Stealth-ParametricEq.txt;
+                            };
+                          }
+                        ];
+                      };
+                      "audio.channels" = 2;
+                      "audio.position" = [
+                        "FL"
+                        "FR"
+                      ];
+                      "capture.props" = {
+                        "node.name" = "effect_input.eq";
+                        "media.class" = "Audio/Sink";
+                      };
+                      "playback.props" = {
+                        "node.name" = "effect_output.eq";
+                        "node.passive" = true;
+                      };
+                    };
+                    hide-parent = true;
+                  };
+                };
+              }
+            ];
+            "wireplumber.profiles" = {
+              main = {
+                "node.software-dsp" = "required";
               };
-            }
-          ];
+            };
+          };
         };
       })
     ];
