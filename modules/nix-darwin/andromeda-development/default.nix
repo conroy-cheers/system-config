@@ -62,6 +62,12 @@ in
             HostName 18.136.8.225
             Port 22
             IdentityFile ${config.age.secrets."andromeda.aws-experiments.key".path}
+
+          Host big-chungus
+            User root
+            HostName 3.106.5.183
+            Port 22
+            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
         '';
       };
 
@@ -90,6 +96,13 @@ in
               maxJobs = 32;
               supportedFeatures = [ "big-parallel" ];
               publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
+            }
+            {
+              hostName = "big-chungus";
+              system = "x86_64-linux";
+              maxJobs = 32;
+              supportedFeatures = [ "big-parallel" ];
+              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
             }
           ];
         })
