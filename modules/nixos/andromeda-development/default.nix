@@ -23,6 +23,13 @@ in
       };
       nixDaemonSecrets = {
         enable = lib.mkEnableOption "AWS secrets for nix daemon";
+        nixSandboxKeys = {
+          target = lib.mkOption {
+            type = with lib.types; path;
+            description = "The path to a file containing SOPS keys within the Nix build sandbox.";
+            readOnly = true;
+          };
+        };
       };
       tftpServer = {
         enable = lib.mkEnableOption "andromeda tftp development server";
@@ -44,6 +51,10 @@ in
           rekeyFile = "${inputs.self}/secrets/andromeda/aws-experiments/key.age";
           mode = "400";
         };
+        "andromeda.aws-sandbox.key" = mkIf cfg.remoteBuilders.enable {
+          rekeyFile = "${inputs.self}/secrets/andromeda/aws-sandbox/key.age";
+          mode = "400";
+        };
       };
 
       programs.ssh = mkIf cfg.remoteBuilders.enable {
@@ -54,6 +65,12 @@ in
             HostName 18.136.8.225
             Port 22
             IdentityFile ${config.age.secrets."andromeda.aws-experiments.key".path}
+          
+          Host big-chungus
+            User root
+            HostName 3.106.5.183
+            Port 22
+            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
         '';
       };
 
@@ -79,6 +96,14 @@ in
               supportedFeatures = [ "big-parallel" ];
               publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
             }
+            {
+              hostName = "big-chungus";
+              system = "x86_64-linux";
+              speedFactor = 4;
+              maxJobs = 32;
+              supportedFeatures = [ "big-parallel" ];
+              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
+            }
           ];
         })
       ];
@@ -93,13 +118,35 @@ in
       };
     })
     (mkIf cfg.nixDaemonSecrets.enable {
+      andromeda.development.nixDaemonSecrets.nixSandboxKeys.target = "/sops/keys.txt";
+
       # AWS secrets creds for nix-daemon
       age.secrets."andromeda.aws-secrets.env" = {
         rekeyFile = "${inputs.self}/secrets/andromeda/aws-secrets/env.age";
       };
+      # sops-nix keys for test VMs
+      age.secrets."andromeda.vm-sops-keys.txt" = {
+        rekeyFile = "${inputs.self}/secrets/andromeda/vm-sops-keys/keys.age";
+        mode = "0440";
+        owner = config.users.users.root.name;
+        group = config.users.groups.nixbld.name;
+      };
       systemd.services.nix-daemon = {
         serviceConfig.EnvironmentFile = [ config.age.secrets."andromeda.aws-secrets.env".path ];
       };
+
+      nix.settings.extra-sandbox-paths = [
+        "${cfg.nixDaemonSecrets.nixSandboxKeys.target}=${
+          config.age.secrets."andromeda.vm-sops-keys.txt".path
+        }"
+      ];
+      # Make the file available to the Nix daemon directly too, so that
+      # non-sandboxed builds can still find it in the expected path.
+      systemd.services.nix-daemon.serviceConfig.BindReadOnlyPaths = [
+        "${
+          config.age.secrets."andromeda.vm-sops-keys.txt".path
+        }:${cfg.nixDaemonSecrets.nixSandboxKeys.target}"
+      ];
     })
     (mkIf cfg.tftpServer.enable {
       environment.etc."NetworkManager/dnsmasq-shared.d/tftp.conf".text = ''
