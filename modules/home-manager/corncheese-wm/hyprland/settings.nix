@@ -107,8 +107,8 @@ in
       };
 
       device = {
-        name = "logitech-usb-receiver-mouse";
-        sensitivity = -1.0;
+        name = "logitech-pro-x-2-1";
+        sensitivity = -0.5;
       };
 
       gestures = {
