@@ -16,9 +16,13 @@
     "usb_storage"
     "sd_mod"
   ];
-  boot.initrd.kernelModules = [ "amdgpu" ];
   boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
+
+  hardware.amdgpu = {
+    initrd.enable = true;
+  };
+  services.xserver.videoDrivers = [ "amdgpu" ];
 
   swapDevices = [ ];
 
