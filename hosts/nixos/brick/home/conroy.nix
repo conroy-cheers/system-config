@@ -207,6 +207,10 @@
     };
   };
 
+  programs.vesktop = {
+    enable = true;
+  };
+
   # home.file.".stack/config.yaml".text = lib.generators.toYAML {} {
   #   templates = {
   #     scm-init = "git";
