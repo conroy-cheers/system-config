@@ -76,6 +76,7 @@
         enable = true;
         equalizer.enable = true;
       };
+      nvidia = true;
     };
   };
 
