@@ -12,12 +12,15 @@
 
 {
   imports = [
+    inputs.hardware.nixosModules.common-cpu-amd
+    inputs.hardware.nixosModules.common-pc-ssd
+    inputs.hardware.nixosModules.common-gpu-amd
     ./hardware-configuration.nix
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
-    inputs.waveforms.nixosModule
+    # inputs.waveforms.nixosModule
     inputs.j-link.nixosModule
   ];
 
