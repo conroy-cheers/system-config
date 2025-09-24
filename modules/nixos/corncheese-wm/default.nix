@@ -9,6 +9,8 @@
 let
   cfg = config.corncheese.wm;
   inherit (lib) mkEnableOption mkIf;
+
+  hypr-pkgs = inputs.hyprland.inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
 in
 {
   imports = [
@@ -24,6 +26,7 @@ in
         enable = mkEnableOption "audio configuration";
         equalizer.enable = mkEnableOption "AutoEQ headphone equalizer profile";
       };
+      nvidia = mkEnableOption "special nvidia configuration";
     };
   };
 
@@ -38,6 +41,11 @@ in
           "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
         ];
       };
+    };
+
+    hardware.graphics = {
+      package = hypr-pkgs.mesa;
+      package32 = hypr-pkgs.pkgsi686Linux.mesa;
     };
 
     programs = {
