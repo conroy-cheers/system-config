@@ -16,10 +16,14 @@
     "usb_storage"
     "sd_mod"
   ];
-  boot.kernelModules = [ "kvm-amd" ];
-  boot.extraModulePackages = [ ];
 
-  services.xserver.videoDrivers = [ "amdgpu" ];
+  hardware.amdgpu = {
+    amdvlk = {
+      enable = true;
+      support32Bit.enable = true;
+    };
+    opencl.enable = true;
+  };
 
   swapDevices = [ ];
 
