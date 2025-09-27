@@ -33,6 +33,20 @@ in
   # networking.interfaces.enp5s0.useDHCP = lib.mkDefault true;
   # networking.interfaces.wlp4s0.useDHCP = lib.mkDefault true;
 
+  hardware.bluetooth = {
+    enable = true;
+    settings = {
+      General = {
+        Privacy = "device";
+        JustWorksRepairing = "always";
+        Class = "0x000100";
+        FastConnectable = "true";
+      };
+    };
+  };
+  hardware.xpadneo.enable = true;
+  services.blueman.enable = true;
+
   hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
