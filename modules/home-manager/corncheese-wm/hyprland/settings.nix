@@ -45,11 +45,12 @@ in
         dim_special = 0.5;
         rounding = themeDetails.roundingRadius;
         blur = {
-          enabled = true;
+          enabled = false;
           size = 8;
           passes = 1;
           ignore_opacity = true;
           new_optimizations = true;
+          xray = false;
           noise = 0.0117;
           contrast = 0.8916;
           brightness = 0.8172;
@@ -135,7 +136,7 @@ in
 
       misc = {
         force_default_wallpaper = 0;
-        vrr = 1;
+        vrr = 0;
       };
 
       xwayland = {

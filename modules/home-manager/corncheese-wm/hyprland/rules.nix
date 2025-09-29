@@ -20,9 +20,7 @@ in
       "float,title:^(swayimg)(.*)$"
       "float,title:^(Qalculate!)$"
       "float,class:^(thunar)$"
-    ];
 
-    windowrulev2 = [
       "keepaspectratio,class:^(firefox)$,title:^(Picture-in-Picture)$"
       "noborder,class:^(firefox)$,title:^(Picture-in-Picture)$"
       "pin,class:^(firefox)$,title:^(Firefox)$"
@@ -41,6 +39,13 @@ in
       "float,class:^(lutris)$"
       "size 1880 990,class:^(lutris)$"
       "center,class:^(lutris)$"
+
+      # Chromium notification windows
+      "float,title:^()$,class:^()$"
+      "pin,title:^()$,class:^()$"
+      "noborder,title:^()$,class:^()$"
+      "opacity 0.95,title:^()$,class:^()$"
+      "move 100%-w-15 40,title:^()$,class:^()$"
     ];
 
     workspace = [ "special,gapsin:24,gapsout:64" ];
