@@ -67,6 +67,9 @@
     wezterm = {
       enable = true;
     };
+    music = {
+      enable = true;
+    };
   };
   andromeda = {
     development.enable = true;
