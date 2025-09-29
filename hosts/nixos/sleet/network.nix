@@ -9,7 +9,7 @@
   environment.systemPackages = with pkgs; [ ];
 
   networking.extraHosts = ''
-    127.0.0.1 kombu.local
+    127.0.0.1 sleet.local
   '';
 
   age.secrets."home.wifi.conf" = {
