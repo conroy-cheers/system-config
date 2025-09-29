@@ -267,5 +267,10 @@
       url = "github:liff/j-link-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    corncheese-server = {
+      url = "git+https://github.com/conroy-cheers/corncheese-server-config";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 }

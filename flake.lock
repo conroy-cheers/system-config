@@ -224,6 +224,26 @@
         "type": "github"
       }
     },
+    "corncheese-server": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1750601806,
+        "narHash": "sha256-rLPVCSsRsF+HHxHausCKpU8w9wp0zPYYmg9a5cJ+EyU=",
+        "ref": "refs/heads/main",
+        "rev": "0a05cbb54d93dbd9fdceaabe1f7d476f4d080ae1",
+        "revCount": 2,
+        "type": "git",
+        "url": "https://github.com/conroy-cheers/corncheese-server-config"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://github.com/conroy-cheers/corncheese-server-config"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1741481578,
@@ -2411,6 +2431,7 @@
         "agenix": "agenix",
         "agenix-rekey": "agenix-rekey",
         "ags": "ags",
+        "corncheese-server": "corncheese-server",
         "deploy-rs": "deploy-rs",
         "disko": "disko",
         "dream2nix": "dream2nix",
