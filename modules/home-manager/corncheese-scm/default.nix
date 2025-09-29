@@ -33,9 +33,9 @@ in
   config =
     let
       # TODO: agenix???
-      name = "corncheese";
-      email = "pavel.atanasov2001@gmail.com";
-      key = "675AA7EF13964ACB";
+      name = "Conroy Cheers";
+      email = "conroy@corncheese.org";
+      key = "29AFB8ECA82AD2FB";
     in
     {
       home.packages =
@@ -50,7 +50,7 @@ in
         userName = name;
         userEmail = email;
         signing = {
-          signByDefault = true;
+          signByDefault = false;
           inherit key;
         };
         lfs = {
@@ -58,6 +58,13 @@ in
         };
         extraConfig = {
           init.defaultBranch = "master";
+          url = {
+            "ssh://git@github.com/" = {
+              insteadOf = [
+                "https://github.com/"
+              ];
+            };
+          };
         };
       };
 

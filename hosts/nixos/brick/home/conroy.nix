@@ -35,6 +35,9 @@
       ssh.enable = true;
       ssh.onePassword = true;
     };
+    scm = {
+      git.enable = true;
+    };
     theming = {
       enable = true;
       theme = "catppuccin";
