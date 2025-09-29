@@ -135,6 +135,12 @@ in
           (optionals cfg.zoxide [ zoxide ])
         ];
 
+      nix = {
+        extraOptions = ''
+          experimental-features = nix-command flakes
+        '';
+      };
+
       # Direnv
       programs.direnv = mkIf cfg.direnv {
         enable = true;
