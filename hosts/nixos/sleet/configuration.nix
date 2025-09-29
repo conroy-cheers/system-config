@@ -17,6 +17,7 @@
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
+    inputs.corncheese-server.nixosModules.corncheese-server
   ];
 
   ### Set boot options
@@ -57,6 +58,10 @@
       theme = "catppuccin";
     };
     wm.enable = false;
+  };
+
+  corncheese-server = {
+    media.enable = true;
   };
 
   # log conroy into atuin sync
@@ -191,7 +196,7 @@
     isNormalUser = true;
     hashedPasswordFile = config.age.secrets."conroy.user.password".path;
     openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINKbNTRUenigTtrUSGKImYezWzT/KFOR7dZSpSuvsKNY" # conroy-home
     ];
     shell = pkgs.zsh;
     extraGroups = [
@@ -212,21 +217,6 @@
     neovim
     wget
   ];
-
-  ### Transmission
-  services.transmission = {
-    enable = true;
-  };
-
-  services.flood = {
-    enable = true;
-    openFirewall = true;
-    host = "sleet.lan";
-    extraArgs = [
-      "--baseuri=/"
-      "--trurl=http://localhost:${toString config.services.transmission.settings.rpc-port}"
-    ];
-  };
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
