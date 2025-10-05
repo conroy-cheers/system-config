@@ -34,6 +34,7 @@ in
 
     home.packages = with pkgs; [
       slack
+      github-desktop
     ];
 
     programs.obsidian = {
