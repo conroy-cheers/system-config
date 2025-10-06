@@ -69,7 +69,8 @@ in
       systemd.enable = true;
       plugins = [
         # pkgs.hyprlandPlugins.hyprexpo
-      ] ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
+      ]
+      ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
     };
 
     services.hyprpaper = mkIf cfg.hyprpaper.enable { enable = true; };
@@ -128,7 +129,12 @@ in
       xdgOpenUsePortal = true;
       config = {
         common.default = [ "gtk" ];
-        hyprland.default = [ "hyprland" ];
+        hyprland = {
+          default = [ "hyprland" ];
+          "org.freedesktop.impl.portal.Secret" = [
+            "gnome-keyring"
+          ];
+        };
       };
       extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
     };
