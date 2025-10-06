@@ -91,6 +91,8 @@ in
       extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
     };
 
+    services.gnome.gnome-keyring.enable = true;
+
     # https://github.com/systemd/systemd/issues/37590
     systemd.services = builtins.listToAttrs (map (service: {
       name = service;
