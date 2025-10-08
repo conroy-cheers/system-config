@@ -53,6 +53,9 @@
       thunderbird.enable = true;
       firefox.enable = true;
       chromium.enable = true;
+      media = {
+        enable = true;
+      };
     };
     shell = {
       enable = true;

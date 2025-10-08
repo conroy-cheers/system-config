@@ -95,6 +95,7 @@ let
         # (r)agenix && agenix-rekey
         inputs.ragenix.nixosModules.default
         inputs.agenix-rekey.nixosModules.default
+        inputs.agenix-template.nixosModules.default
         (lib.optionalAttrs (meta.pubkey != null) {
           age.rekey.hostPubkey = meta.pubkey;
         })
