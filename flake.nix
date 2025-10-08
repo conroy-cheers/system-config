@@ -178,6 +178,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    agenix-template.url = "github:jhillyerd/agenix-template/1.0.0";
+
     nix-jetbrains-plugins = {
       url = "github:theCapypara/nix-jetbrains-plugins";
       inputs.nixpkgs.follows = "nixpkgs";
