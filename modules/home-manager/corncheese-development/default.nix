@@ -187,7 +187,7 @@ in
       builtins.concatLists [
         [
           # Nix
-          nil
+          nixd
           nixfmt-rfc-style
           nix-output-monitor
 
@@ -203,6 +203,7 @@ in
           ]
           ++ (lib.optionals (builtins.hasAttr "waveforms" pkgs) [ pkgs.waveforms ])
           ++ (lib.optionals (builtins.hasAttr "j-link" pkgs) [ pkgs.j-link ])
+          ++ (lib.optionals (builtins.hasAttr "xtc-tools" pkgs) [ pkgs.xtc-tools ])
         ))
         (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
           probe-rs
