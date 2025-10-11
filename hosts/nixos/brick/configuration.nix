@@ -77,6 +77,7 @@
         equalizer.enable = true;
       };
       nvidia = true;
+      gaming.enable = true;
     };
   };
 
@@ -298,10 +299,6 @@
     enable = true;
     package = pkgs.gitFull;
     config.credential.helper = "libsecret";
-  };
-
-  programs.steam = {
-    enable = true;
   };
 
   ### Transmission
