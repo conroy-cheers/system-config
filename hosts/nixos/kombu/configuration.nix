@@ -66,7 +66,10 @@
       enable = true;
       theme = "catppuccin";
     };
-    wm.enable = true;
+    wm = {
+      enable = true;
+      gaming.enable = true;
+    };
   };
 
   # log conroy into atuin sync
@@ -299,10 +302,6 @@
     enable = true;
     package = pkgs.gitFull;
     config.credential.helper = "libsecret";
-  };
-
-  programs.steam = {
-    enable = true;
   };
 
   ### Transmission

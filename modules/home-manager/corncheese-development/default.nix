@@ -145,6 +145,15 @@ in
             ];
             "remote.SSH.useLocalServer" = false;
             "pkl.cli.path" = "${inputs.pkl-flake.packages.${meta.system}.default}/bin/pkl";
+            "nix.enableLanguageServer" = true;
+            "nix.serverPath" = lib.getExe pkgs.nixd;
+            "nix.serverSettings" = {
+              "nixd" = {
+                "formatting" = {
+                  "command" = [ (lib.getExe pkgs.nixfmt) ];
+                };
+              };
+            };
           };
         };
     };
