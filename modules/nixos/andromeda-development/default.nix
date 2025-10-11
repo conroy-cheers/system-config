@@ -89,21 +89,21 @@ in
           '';
           distributedBuilds = true;
           buildMachines = [
-            {
-              hostName = "18.136.8.225";
-              system = "aarch64-linux";
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
-            }
-            {
-              hostName = "big-chungus";
-              system = "x86_64-linux";
-              speedFactor = 4;
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
-            }
+            # {
+            #   hostName = "18.136.8.225";
+            #   system = "aarch64-linux";
+            #   maxJobs = 32;
+            #   supportedFeatures = [ "big-parallel" ];
+            #   publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
+            # }
+            # {
+            #   hostName = "big-chungus";
+            #   system = "x86_64-linux";
+            #   speedFactor = 4;
+            #   maxJobs = 32;
+            #   supportedFeatures = [ "big-parallel" ];
+            #   publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
+            # }
           ];
         })
       ];

@@ -16,7 +16,7 @@
   };
 
   age.rekey = {
-    # hostPubkey = "";
+    hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICuABSLmzF3xy8AUA1tqzy11jnkubwbcVALayATZ43fL conroy@brick";
   };
 
   corncheese = {
