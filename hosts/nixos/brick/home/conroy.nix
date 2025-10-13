@@ -47,6 +47,7 @@
       nvidia = true;
       ags.enable = true;
       hyprpaper.enable = true;
+      enableFancyEffects = true;
     };
     desktop = {
       enable = true;
