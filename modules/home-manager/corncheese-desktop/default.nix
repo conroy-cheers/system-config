@@ -16,7 +16,6 @@ in
   options = {
     corncheese.desktop = {
       enable = mkEnableOption "corncheese desktop environment setup";
-      neovide.enable = mkEnableOption "neovide configuration";
       thunderbird.enable = mkEnableOption "thunderbird configuration";
       firefox.enable = mkEnableOption "firefox configuration";
       chromium.enable = mkEnableOption "chromium configuration";
@@ -43,7 +42,7 @@ in
         enable = true;
       };
 
-      programs.neovide = mkIf cfg.neovide.enable {
+      programs.neovide = {
         enable = true;
         settings = {
           fork = false;

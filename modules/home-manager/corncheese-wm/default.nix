@@ -59,6 +59,7 @@ in
       nvidia = mkEnableOption "special nvidia environment options";
       ags.enable = mkEnableOption "ags widget system";
       hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
+      enableFancyEffects = mkEnableOption "GPU-intensive effects";
     };
   };
 
@@ -156,6 +157,7 @@ in
         "x-scheme-handler/https" = [ "chromium.desktop" ];
         "x-scheme-handler/about" = [ "chromium.desktop" ];
         "x-scheme-handler/unknown" = [ "chromium.desktop" ];
+        "inode/directory" = [ "thunar.desktop" ];
       };
     };
 
