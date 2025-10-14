@@ -301,11 +301,6 @@
     config.credential.helper = "libsecret";
   };
 
-  ### Transmission
-  services.transmission = {
-    enable = true;
-  };
-
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];

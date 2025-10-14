@@ -21,7 +21,7 @@ in
         NIXOS_OZONE_WL = 1;
       })
       (lib.optionalAttrs (cfg.nvidia) {
-        __EGL_VENDOR_LIBRARY_FILENAMES = "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json";
+        # __EGL_VENDOR_LIBRARY_FILENAMES = "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json";
       })
     ];
 
