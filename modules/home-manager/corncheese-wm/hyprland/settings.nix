@@ -29,7 +29,7 @@ in
           "[workspace 2 silent] kitty btop"
           "[workspace 2 silent] kitty cava"
           "[workspace 2 silent] plexamp"
-          "[workspace special silent] slack"
+          "[workspace special silent] slack --ozone-platform=wayland"
           "[workspace special silent] chromium"
         ];
 

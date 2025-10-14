@@ -81,6 +81,7 @@ in
             {
               hostName = "home.conroycheers.me";
               system = "x86_64-linux";
+              speedFactor = 0;  # this thing is so slow on small jobs
               maxJobs = 28;
               supportedFeatures = [ "big-parallel" ];
               publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
