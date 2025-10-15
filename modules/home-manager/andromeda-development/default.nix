@@ -115,12 +115,6 @@ in
             port = 22;
             identityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
           };
-          "build-thing" = {
-            hostname = "18.136.8.225";
-            user = "root";
-            port = 22;
-            identityFile = "${config.home.homeDirectory}/.ssh/aws_experiments.id_ed25519.pub";
-          };
         };
     };
 

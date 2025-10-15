@@ -56,16 +56,15 @@ in
 
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''
-          # build-thing
-          Host 18.136.8.225
-            User root
-            HostName 18.136.8.225
-            Port 22
-            IdentityFile ${config.age.secrets."andromeda.aws-experiments.key".path}
-
-          Host big-chungus
+          Host big-chungus-x64
             User root
             HostName 3.106.5.183
+            Port 22
+            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
+
+          Host big-chungus-aarch64
+            User root
+            HostName 3.104.252.233
             Port 22
             IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
         '';
