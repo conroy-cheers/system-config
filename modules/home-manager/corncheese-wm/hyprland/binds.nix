@@ -46,7 +46,7 @@ in
       "$mod, Return, exec, kitty"
       "$mod SHIFT, Return, exec, kitty --class floating"
       "$mod, D, exec, neovide --no-vsync"
-      "$mod, F, exec, chromium"
+      "$mod, F, exec, chromium --disable-features=WaylandWpColorManagerV1"
       "$mod, T, exec, thunar"
 
       # Special workspace
