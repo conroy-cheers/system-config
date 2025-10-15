@@ -30,7 +30,7 @@ in
           "[workspace 2 silent] kitty cava"
           "[workspace 2 silent] plexamp"
           "[workspace special silent] slack --ozone-platform=wayland"
-          "[workspace special silent] chromium"
+          "[workspace special silent] chromium --disable-features=WaylandWpColorManagerV1"
         ];
 
         general = {
