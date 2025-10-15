@@ -22,6 +22,7 @@ in
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
+  boot.kernelParams = [ "preempt=full" ];
 
   swapDevices = [ ];
 
@@ -48,6 +49,9 @@ in
   services.blueman.enable = true;
 
   hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
+
+  # Low-latency kernel.
+  boot.kernelPackages = pkgs.linuxPackages_zen;
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }

@@ -18,7 +18,8 @@ in
 
     windowrule = [
       "float,title:^(swayimg)(.*)$"
-      "float,title:^(Qalculate!)$"
+      "float,class:^(qalculate-gtk)$"
+      "opacity 0.8,class:^(qalculate-gtk)$"
       "float,class:^(thunar)$"
 
       "keepaspectratio,class:^(firefox)$,title:^(Picture-in-Picture)$"
