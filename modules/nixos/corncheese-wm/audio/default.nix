@@ -1,7 +1,6 @@
 {
   lib,
   config,
-  pkgs,
   ...
 }:
 let
@@ -11,7 +10,7 @@ in
   config = lib.mkIf cfg.enable {
     security.rtkit.enable = true;
     services.pipewire = lib.mkMerge [
-      ({
+      {
         enable = true;
         alsa = {
           enable = true;
@@ -23,7 +22,17 @@ in
         jack = {
           enable = true;
         };
-      })
+        extraConfig = {
+          pipewire."92-low-latency" = {
+            "context.properties" = {
+              "default.clock.rate" = 48000;
+              "default.clock.quantum" = 256;
+              "default.clock.min-quantum" = 32;
+              "default.clock.max-quantum" = 4096;
+            };
+          };
+        };
+      }
       (lib.mkIf cfg.equalizer.enable {
         wireplumber.extraConfig = {
           "motu-autoeq" = {

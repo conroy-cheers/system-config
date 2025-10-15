@@ -172,7 +172,7 @@ in
         WantedBy = [ "graphical-session.target" ];
       };
       Service = {
-        ExecStart = "${pkgs._1password-gui}/bin/1password --silent";
+        ExecStart = "${pkgs._1password-gui}/bin/1password --silent --ozone-platform wayland";
         Type = "exec";
         TimeoutSec = 60;
       };

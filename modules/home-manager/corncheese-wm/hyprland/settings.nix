@@ -136,8 +136,8 @@ in
           };
           blur = {
             enabled = true;
-            size = 8;
-            passes = 1;
+            size = 12;
+            passes = 2;
             ignore_opacity = true;
             new_optimizations = true;
             xray = false;
