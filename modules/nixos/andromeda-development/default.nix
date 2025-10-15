@@ -64,12 +64,14 @@ in
             HostName 3.106.5.183
             Port 22
             IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
+            ConnectTimeout 3
 
           Host big-chungus-aarch64
             User root
             HostName 3.104.252.233
             Port 22
             IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
+            ConnectTimeout 3
         '';
       };
 
@@ -88,13 +90,6 @@ in
           '';
           distributedBuilds = true;
           buildMachines = [
-            {
-              hostName = "18.136.8.225";
-              system = "aarch64-linux";
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
-            }
             {
               hostName = "big-chungus-x64";
               system = "x86_64-linux";
