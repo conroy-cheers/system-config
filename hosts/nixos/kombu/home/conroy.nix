@@ -46,7 +46,6 @@
     };
     desktop = {
       enable = true;
-      neovide.enable = true;
       thunderbird.enable = true;
       firefox.enable = true;
       chromium.enable = true;
