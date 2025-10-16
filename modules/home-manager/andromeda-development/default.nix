@@ -78,9 +78,6 @@ in
 
     programs.ssh = {
       enable = true;
-      forwardAgent = false;
-      hashKnownHosts = true;
-
       matchBlocks =
         (lib.concatMapAttrs (name: hostname: {
           "${name}".hostname = hostname;
@@ -114,6 +111,10 @@ in
             user = "root";
             port = 22;
             identityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
+          };
+          "*" = {
+            forwardAgent = false;
+            hashKnownHosts = true;
           };
         };
     };

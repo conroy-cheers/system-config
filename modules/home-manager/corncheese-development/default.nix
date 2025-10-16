@@ -120,13 +120,12 @@ in
                 vscode-extensions.eamodio.gitlens
                 vscode-extensions.jnoortheen.nix-ide
                 vscode-extensions.ms-python.python
-                vscode-extensions.ms-python.vscode-pylance
+                nix-vscode-extensions.open-vsx.detachhead.basedpyright
                 vscode-extensions.ms-python.debugpy
                 vscode-extensions.charliermarsh.ruff
+                nix-vscode-extensions.open-vsx.tamasfe.even-better-toml
                 vscode-extensions.ms-vscode-remote.remote-ssh
                 vscode-extensions.ms-vscode-remote.remote-ssh-edit
-                vscode-extensions.arrterian.nix-env-selector
-                nix-vscode-extensions.open-vsx.rooveterinaryinc.roo-cline
                 pkl-vscode
               ]
               (lib.optionals cfg.rust.enable [ vscode-extensions.rust-lang.rust-analyzer ])
@@ -152,7 +151,31 @@ in
                 "formatting" = {
                   "command" = [ (lib.getExe pkgs.nixfmt) ];
                 };
+                "nixpkgs" = {
+                  "expr" = "import (builtins.getFlake \"/home/conroy/.config/system-config\").inputs.nixpkgs { }";
+                };
+                "options" = {
+                  "nixos" = {
+                    "expr" =
+                      "(builtins.getFlake \"/home/conroy/.config/system-config\").nixosConfigurations.${meta.hostname}.options";
+                  };
+                  "home-manager" = {
+                    "expr" =
+                      "(builtins.getFlake \"/home/conroy/.config/system-config\").nixosConfigurations.${meta.hostname}.options.home-manager.users.type.getSubOptions []";
+                  };
+                };
               };
+            };
+            "[nix]" = {
+              "editor.formatOnSave" = true;
+            };
+            "[python]" = {
+              "editor.formatOnSave" = true;
+              "editor.defaultFormatter" = "charliermarsh.ruff";
+            };
+            "[toml]" = {
+              "editor.formatOnSave" = true;
+              "editor.defaultFormatter" = "tamasfe.even-better-toml";
             };
           };
         };
@@ -303,14 +326,7 @@ in
 
     programs.ssh = lib.mkIf cfg.ssh.enable {
       enable = true;
-      forwardAgent = false;
-      hashKnownHosts = true;
-
-      # 1Password SSH agent config
-      extraConfig = ''
-        Host *
-            IdentityAgent ${onePassPath}
-      '';
+      enableDefaultConfig = false;
 
       matchBlocks = {
         "beluga" = {
@@ -331,6 +347,13 @@ in
         home = {
           host = (lib.concatStringsSep " " homeJumpHosts);
           proxyJump = "beluga";
+        };
+        "*" = {
+          forwardAgent = false;
+          addKeysToAgent = "no";
+          compression = false;
+          identityAgent = onePassPath;
+          hashKnownHosts = true;
         };
       };
     };
