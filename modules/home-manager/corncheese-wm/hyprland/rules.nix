@@ -22,6 +22,9 @@ in
       "opacity 0.8,class:^(qalculate-gtk)$"
       "float,class:^(thunar)$"
 
+      # "pin,class:^(1Password)$,title:^(1Password)$,floating:1"
+      "fullscreen,class:^(1Password)$,title:^(1Password)$,floating:1"
+
       "keepaspectratio,class:^(firefox)$,title:^(Picture-in-Picture)$"
       "noborder,class:^(firefox)$,title:^(Picture-in-Picture)$"
       "pin,class:^(firefox)$,title:^(Firefox)$"
