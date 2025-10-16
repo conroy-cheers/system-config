@@ -113,19 +113,37 @@ in
             with pkgs;
             builtins.concatLists [
               [
-                # vscode-extensions.continue.continue
+                # Visual
+                vscode-extensions.catppuccin.catppuccin-vsc
+                vscode-extensions.catppuccin.catppuccin-vsc-icons
+
+                # Git
+                vscode-extensions.eamodio.gitlens
+
+                # Remote
+                vscode-extensions.ms-vscode-remote.remote-ssh
+                vscode-extensions.ms-vscode-remote.remote-ssh-edit
+
+                # C++
                 vscode-extensions.ms-vscode.cpptools-extension-pack
                 vscode-extensions.xaver.clang-format
                 vscode-extensions.ms-vscode.cmake-tools
-                vscode-extensions.eamodio.gitlens
+
+                # Nix
                 vscode-extensions.jnoortheen.nix-ide
+                vscode-extensions.signageos.signageos-vscode-sops
+
+                # Python
                 vscode-extensions.ms-python.python
                 nix-vscode-extensions.open-vsx.detachhead.basedpyright
                 vscode-extensions.ms-python.debugpy
                 vscode-extensions.charliermarsh.ruff
+
+                # Misc
                 nix-vscode-extensions.open-vsx.tamasfe.even-better-toml
-                vscode-extensions.ms-vscode-remote.remote-ssh
-                vscode-extensions.ms-vscode-remote.remote-ssh-edit
+                vscode-extensions.fill-labs.dependi
+
+                # Pkl
                 pkl-vscode
               ]
               (lib.optionals cfg.rust.enable [ vscode-extensions.rust-lang.rust-analyzer ])
@@ -134,16 +152,34 @@ in
               ])
             ];
           userSettings = {
-            "git.confirmSync" = false;
+            # General
+            "extensions.autoUpdate" = false;
+            "workbench.settings.editor" = "json";
             "explorer.confirmDelete" = false;
             "explorer.confirmDragAndDrop" = false;
+
+            # Git
+            "git.confirmSync" = false;
+            "git.enableSmartCommit" = true;
+
+            # Theming
             "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
+            "workbench.colorTheme" = lib.mkForce "Catppuccin Mocha";
+            "workbench.iconTheme" = "catppuccin-mocha";
+
+            # C++
             "cmake.pinnedCommands" = [
               "workbench.action.tasks.configureTaskRunner"
               "workbench.action.tasks.runTask"
             ];
+
+            # Remote
             "remote.SSH.useLocalServer" = false;
+
+            # Pkl
             "pkl.cli.path" = "${inputs.pkl-flake.packages.${meta.system}.default}/bin/pkl";
+
+            # Nix
             "nix.enableLanguageServer" = true;
             "nix.serverPath" = lib.getExe pkgs.nixd;
             "nix.serverSettings" = {
@@ -169,10 +205,18 @@ in
             "[nix]" = {
               "editor.formatOnSave" = true;
             };
+
+            # Python
             "[python]" = {
               "editor.formatOnSave" = true;
               "editor.defaultFormatter" = "charliermarsh.ruff";
             };
+            "ruff.enable" = true;
+            "ruff.format.backend" = "internal";
+            "ruff.importStrategy" = "fromEnvironment";
+            "ruff.logLevel" = "debug";
+
+            # Misc languages
             "[toml]" = {
               "editor.formatOnSave" = true;
               "editor.defaultFormatter" = "tamasfe.even-better-toml";
