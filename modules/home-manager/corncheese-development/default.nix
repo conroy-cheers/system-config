@@ -138,6 +138,7 @@ in
                 nix-vscode-extensions.open-vsx.detachhead.basedpyright
                 vscode-extensions.ms-python.debugpy
                 vscode-extensions.charliermarsh.ruff
+                vscode-extensions.njpwerner.autodocstring
 
                 # Misc
                 nix-vscode-extensions.open-vsx.tamasfe.even-better-toml
@@ -215,6 +216,7 @@ in
             "ruff.format.backend" = "internal";
             "ruff.importStrategy" = "fromEnvironment";
             "ruff.logLevel" = "debug";
+            "autoDocstring.docstringFormat" = "one-line-sphinx";
 
             # Misc languages
             "[toml]" = {
