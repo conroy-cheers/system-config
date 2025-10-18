@@ -116,7 +116,7 @@ in
 
         misc = {
           force_default_wallpaper = 0;
-          vrr = 2;
+          vrr = 3;
         };
 
         xwayland = {
