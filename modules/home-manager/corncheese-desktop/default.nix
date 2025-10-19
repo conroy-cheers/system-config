@@ -8,7 +8,7 @@
 
 let
   cfg = config.corncheese.desktop;
-  inherit (lib) mkEnableOption mkOption mkIf;
+  inherit (lib) mkEnableOption mkIf;
 in
 {
   imports = [ ];
@@ -16,7 +16,7 @@ in
   options = {
     corncheese.desktop = {
       enable = mkEnableOption "corncheese desktop environment setup";
-      thunderbird.enable = mkEnableOption "thunderbird configuration";
+      mail.enable = mkEnableOption "conroy's mail configuration";
       firefox.enable = mkEnableOption "firefox configuration";
       chromium.enable = mkEnableOption "chromium configuration";
       element.enable = mkEnableOption "element configuration";
@@ -62,15 +62,6 @@ in
           font = {
             normal = [ "MesloLGM Nerd Font Mono" ];
             # size = 12.0;
-          };
-        };
-      };
-
-      programs.thunderbird = mkIf cfg.thunderbird.enable {
-        enable = true;
-        profiles = {
-          default = {
-            isDefault = true;
           };
         };
       };
@@ -124,6 +115,102 @@ in
       home.packages = with pkgs; [
         plex-desktop
       ];
+    })
+    (lib.mkIf cfg.mail.enable {
+      age.secrets."corncheese.mail.icloud" = {
+        rekeyFile = "${inputs.self}/secrets/corncheese/mail/icloud.age";
+      };
+      age.secrets."corncheese.mail.gmail" = {
+        rekeyFile = "${inputs.self}/secrets/corncheese/mail/gmail.age";
+      };
+      age.secrets."corncheese.mail.andromeda" = {
+        rekeyFile = "${inputs.self}/secrets/andromeda/mail/gmail.age";
+      };
+
+      accounts.email = {
+        accounts.andromeda = {
+          address = "conroy@dromeda.com.au";
+          userName = "conroy@dromeda.com.au";
+          flavor = "gmail.com";
+          passwordCommand = "cat ${config.age.secrets."corncheese.mail.andromeda".path}";
+          realName = "Conroy Cheers";
+          mbsync = {
+            enable = true;
+            create = "maildir";
+          };
+          aerc = {
+            enable = true;
+          };
+          notmuch.enable = true;
+          thunderbird = {
+            enable = true;
+          };
+        };
+        accounts.gmail = {
+          address = "cheers.conroy@gmail.com";
+          userName = "cheers.conroy@gmail.com";
+          flavor = "gmail.com";
+          passwordCommand = "cat ${config.age.secrets."corncheese.mail.gmail".path}";
+          realName = "Conroy Cheers";
+          mbsync = {
+            enable = true;
+            create = "maildir";
+          };
+          aerc = {
+            enable = true;
+          };
+          notmuch.enable = true;
+          thunderbird = {
+            enable = true;
+          };
+        };
+        accounts.icloud = {
+          address = "conroy.cheers@icloud.com";
+          primary = true;
+          aliases = [
+            "conroy@corncheese.org"
+            "conroy@conroycheers.me"
+          ];
+          userName = "conroy.cheers";
+          passwordCommand = "cat ${config.age.secrets."corncheese.mail.icloud".path}";
+          imap = {
+            host = "imap.mail.me.com";
+            port = 993;
+          };
+          smtp = {
+            host = "smtp.mail.me.com";
+            port = 587;
+            tls.useStartTls = true;
+          };
+          realName = "Conroy Cheers";
+          mbsync = {
+            enable = true;
+            create = "maildir";
+          };
+          notmuch.enable = true;
+          thunderbird = {
+            enable = true;
+          };
+        };
+      };
+
+      programs.mbsync = {
+        enable = true;
+      };
+      programs.notmuch = {
+        enable = true;
+        hooks = {
+          preNew = "mbsync --all";
+        };
+      };
+      programs.thunderbird = {
+        enable = true;
+        profiles = {
+          default = {
+            isDefault = true;
+          };
+        };
+      };
     })
   ];
 

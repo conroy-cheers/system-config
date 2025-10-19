@@ -25,7 +25,7 @@
         }
       ];
       storageMode = lib.mkDefault "local";
-      localStorageDir = lib.mkDefault "${inputs.self}/secrets/rekeyed/${meta.hostname}/${config.home.username}";
+      localStorageDir = lib.mkDefault "${inputs.self}/secrets/rekeyed/${meta.hostname}-${config.home.username}";
       agePlugins = [ pkgs.age-plugin-fido2-hmac ];
     };
   };

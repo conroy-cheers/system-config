@@ -46,7 +46,7 @@
     };
     desktop = {
       enable = true;
-      thunderbird.enable = true;
+      mail.enable = true;
       firefox.enable = true;
       chromium.enable = true;
     };
