@@ -119,6 +119,10 @@ in
           vrr = 3;
         };
 
+        render = {
+          direct_scanout = true;
+        };
+
         xwayland = {
           force_zero_scaling = true;
         };
