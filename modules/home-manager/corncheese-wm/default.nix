@@ -112,15 +112,6 @@ in
       };
     };
 
-    programs.thunderbird = {
-      enable = true;
-      profiles = {
-        default = {
-          isDefault = true;
-        };
-      };
-    };
-
     programs.kitty.extraConfig = ''
       touch_scroll_multiplier 8.0
     '';
