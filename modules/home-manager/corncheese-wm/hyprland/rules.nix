@@ -22,6 +22,12 @@ in
       "opacity 0.8,class:^(qalculate-gtk)$"
       "float,class:^(thunar)$"
 
+      # Set content type "game" for games
+      "content game,class:^(steam_app_[0-9]+)$"
+      "tag +game,class:^(steam_app_[0-9]+)$"
+      "workspace special,content:game"
+      "fullscreen,content:game"
+
       # "pin,class:^(1Password)$,title:^(1Password)$,floating:1"
       "fullscreen,class:^(1Password)$,title:^(1Password)$,floating:1"
 
