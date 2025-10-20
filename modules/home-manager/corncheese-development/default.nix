@@ -219,6 +219,7 @@ in
             "autoDocstring.docstringFormat" = "one-line-sphinx";
 
             # Misc languages
+            "redhat.telemetry.enabled" = false;
             "[toml]" = {
               "editor.formatOnSave" = true;
               "editor.defaultFormatter" = "tamasfe.even-better-toml";
