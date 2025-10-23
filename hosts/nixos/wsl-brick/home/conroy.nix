@@ -72,7 +72,6 @@
 
     ## Nix
     nil
-    direnv
 
     ## Python
     ruff
