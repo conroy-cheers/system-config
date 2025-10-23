@@ -134,7 +134,6 @@
 
     ## Nix
     nil
-    direnv
 
     ## Torrents
     tremc
