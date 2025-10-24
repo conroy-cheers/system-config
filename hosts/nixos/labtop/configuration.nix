@@ -24,10 +24,7 @@
   ];
 
   nixpkgs = {
-    overlays = [
-      # If you want to use overlays your own flake exports (from overlays dir):
-      inputs.self.overlays.cuda
-    ];
+    overlays = [ ];
   };
 
   ### Set boot options

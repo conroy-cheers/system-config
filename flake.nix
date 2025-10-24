@@ -278,6 +278,7 @@
     corncheese-server = {
       url = "git+https://github.com/conroy-cheers/corncheese-server-config";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.ragenix.follows = "ragenix";
     };
   };
 }
