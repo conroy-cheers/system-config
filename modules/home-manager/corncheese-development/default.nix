@@ -306,6 +306,7 @@ in
               "com.intellij.plugins.vscodekeymap"
               "com.github.catppuccin.jetbrains"
               "com.koxudaxi.ruff"
+              "systems.fehn.intellijdirenv"
               "nix-idea"
             ]
           )
@@ -320,12 +321,14 @@ in
                 clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
                 clion."${clionVersion}"."com.github.catppuccin.jetbrains"
                 clion."${clionVersion}"."nix-idea"
+                clion."${clionVersion}"."systems.fehn.intellijdirenv"
               ]
             )
           )
           (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "rust-rover" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
+            "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
         ]))
