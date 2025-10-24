@@ -145,6 +145,7 @@ in
       programs.direnv = mkIf cfg.direnv {
         enable = true;
         package = inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        silent = true;
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;

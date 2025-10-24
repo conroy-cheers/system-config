@@ -28,6 +28,7 @@ in
       "workspace special,content:game"
       "fullscreen,content:game"
 
+      # https://github.com/hyprwm/Hyprland/discussions/11978
       # "pin,class:^(1Password)$,title:^(1Password)$,floating:1"
       "fullscreen,class:^(1Password)$,title:^(1Password)$,floating:1"
 
