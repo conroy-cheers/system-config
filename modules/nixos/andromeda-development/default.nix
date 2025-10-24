@@ -57,6 +57,10 @@ in
         };
       };
 
+      programs.nix-ld = {
+        enable = true;
+      };
+
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''
           Host big-chungus-x64
