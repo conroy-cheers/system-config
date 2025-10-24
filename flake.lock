@@ -89,6 +89,22 @@
         "type": "github"
       }
     },
+    "agenix-template_2": {
+      "locked": {
+        "lastModified": 1728762971,
+        "narHash": "sha256-9aTWaQ9VYECCb+oySlBnxMJaSTQ+hfuB2SuAH1Duc+I=",
+        "owner": "jhillyerd",
+        "repo": "agenix-template",
+        "rev": "77cd55731e15d98edec7b9d47650bdd7f977ba5f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jhillyerd",
+        "ref": "1.0.0",
+        "repo": "agenix-template",
+        "type": "github"
+      }
+    },
     "ags": {
       "inputs": {
         "nixpkgs": "nixpkgs_2",
@@ -243,15 +259,19 @@
     },
     "corncheese-server": {
       "inputs": {
+        "agenix-template": "agenix-template_2",
         "nixpkgs": [
           "nixpkgs"
+        ],
+        "ragenix": [
+          "ragenix"
         ]
       },
       "locked": {
-        "lastModified": 1759667516,
-        "narHash": "sha256-4WNh8iOm9/qRVlgBT6bqBNKqKsWbBazlPZsBSVFKEwM=",
+        "lastModified": 1761279827,
+        "narHash": "sha256-Ziy4S+YUwBJTSjUZ5lk5pokSDcNxGGPXxzITdPZ3/fY=",
         "ref": "refs/heads/main",
-        "rev": "2ca35e04762c622258a3cdbfa07c66e409100113",
+        "rev": "67f6eb263d04e3dcd386623618edd5b20c8ba863",
         "revCount": 6,
         "type": "git",
         "url": "https://github.com/conroy-cheers/corncheese-server-config"
