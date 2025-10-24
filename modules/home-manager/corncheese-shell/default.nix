@@ -183,7 +183,7 @@ in
         enable = true;
         extraPackages = with pkgs.bat-extras; [
           batman
-          batgrep
+          # batgrep  # FIXME https://github.com/NixOS/nixpkgs/issues/454391
         ];
       };
 
