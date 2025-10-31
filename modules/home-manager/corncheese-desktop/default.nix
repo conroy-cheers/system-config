@@ -113,8 +113,12 @@ in
     })
     (lib.mkIf cfg.media.enable {
       home.packages = with pkgs; [
-        plex-desktop
+        # plex-desktop
       ];
+
+      services.plex-mpv-shim = {
+        enable = true;
+      };
     })
     (lib.mkIf cfg.mail.enable {
       age.secrets."corncheese.mail.icloud" = {
