@@ -110,6 +110,10 @@ in
           integrations_rest_url = "https://scalar.vector.im/api";
         };
       };
+
+      programs.mpv = {
+        enable = true;
+      };
     })
     (lib.mkIf cfg.media.enable {
       home.packages = with pkgs; [
