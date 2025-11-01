@@ -1,207 +1,195 @@
-{ username }:
+{ lib }:
 {
   # Get editor completions based on the config schema
   "$schema" = "https://starship.rs/config-schema.json";
 
-  # Use custom format
-  format = ''
-    [╭───────┨](bold green)[${username}](bright-white)[@](bold yellow)$hostname[┠───────>](bold green)$status$cmd_duration$git_branch$git_status$git_state$git_commit
-    [│](bold green)$time$jobs: $directory$package
-    [╰─](bold green)''${custom.character_zsh}''${custom.character_nu}
-  '';
+  format = lib.concatStrings [
+    "[](orange)"
+    "$os"
+    "$username"
+    "[](bg:yellow fg:orange)"
+    "$directory"
+    "[](fg:yellow bg:cyan)"
+    "$git_branch"
+    "$git_status"
+    "[](fg:cyan bg:blue)"
+    "$c"
+    "$cpp"
+    "$rust"
+    "$golang"
+    "$nodejs"
+    "$php"
+    "$java"
+    "$kotlin"
+    "$haskell"
+    "$python"
+    "[](fg:blue bg:base02)"
+    "$docker_context"
+    "$conda"
+    "$pixi"
+    "[](fg:base02 bg:base01)"
+    "$time"
+    "[ ](fg:base01)"
+    "$line_break$character"
+  ];
 
-  # ${custom.local}\
-  # ${custom.local_root}\
-  # ${custom.ssh}\
-  # ${custom.ssh_root}\
-
-  add_newline = true;
-
-  custom.character_zsh = {
-    shell = "/bin/sh";
-    when = "[ $STARSHIP_SHELL = zsh ]";
-    format = "[](bold green) ";
+  os = {
+    disabled = false;
+    style = "bg:orange fg:base00";
   };
 
-  custom.character_nu = {
-    shell = "/bin/sh";
-    when = "[ $STARSHIP_SHELL = nu ]";
-    format = "";
+  os.symbols = {
+    Windows = "󰍲";
+    Ubuntu = "󰕈";
+    SUSE = "";
+    Raspbian = "󰐿";
+    Mint = "󰣭";
+    Macos = "󰀵";
+    Manjaro = "";
+    Linux = "󰌽";
+    Gentoo = "󰣨";
+    Fedora = "󰣛";
+    Alpine = "";
+    Amazon = "";
+    Android = "";
+    AOSC = "";
+    Arch = "󰣇";
+    Artix = "󰣇";
+    EndeavourOS = "";
+    CentOS = "";
+    Debian = "󰣚";
+    Redhat = "󱄛";
+    RedHatEnterprise = "󱄛";
+    Pop = "";
+  };
+
+  username = {
+    show_always = true;
+    style_user = "bg:orange fg:base01";
+    style_root = "bg:orange fg:base01";
+    format = "[ $user ]($style)";
+  };
+
+  directory = {
+    style = "fg:base01 bg:yellow";
+    format = "[ $path ]($style)";
+    truncation_length = 3;
+    truncation_symbol = "…/";
+  };
+
+  directory.substitutions = {
+    "Documents" = "󰈙 ";
+    "Downloads" = " ";
+    "Music" = "󰝚 ";
+    "Pictures" = " ";
+    "Developer" = "󰲋 ";
   };
 
   git_branch = {
-    symbol = "🌱 ";
-    truncation_length = 15;
-    truncation_symbol = "…"; # …
-  };
-
-  git_commit = {
-    commit_hash_length = 6;
-    tag_symbol = "🔖 ";
-  };
-
-  git_state = {
-    format = "[($state( $progress_current of $progress_total))]($style) ";
-    cherry_pick = "[🍒 PICKING](bold red)";
+    symbol = "";
+    style = "bg:cyan";
+    format = "[[ $symbol $branch ](fg:base01 bg:cyan)]($style)";
   };
 
   git_status = {
-    # conflicted = "🏳";
-    # ahead = "🏎💨";
-    # behind = "😰";
-    # diverged = "😵";
-    # untracked = "🤷‍";
-    # stashed = "📦";
-    # modified = "📝";
-    # staged = '[++\($count\)](green)';
-    # renamed = "👅";
-    # deleted = "🗑";
-    format = "[\\[$all_status$ahead_behind\\]]($style) ";
-    conflicted = "=[($count)](green) ";
-    ahead = "⇡[($count)](green) ";
-    behind = "⇣[($count)](green) ";
-    diverged = "⇕[($count)](green) ";
-    untracked = "?[($count)](green) ";
-    stashed = "$[($count)](green) ";
-    modified = "![($count)](green) ";
-    staged = "+[($count)](green) ";
-    renamed = "»[($count)](green) ";
-    deleted = "✘[($count)](green) ";
+    style = "bg:cyan";
+    format = "[[($all_status$ahead_behind )](fg:base01 bg:cyan)]($style)";
   };
 
-  status = {
-    style = "bg:blue fg:red";
-    symbol = "🔴";
-    format = "[[$symbol $common_meaning$signal_name$maybe_int]]($style) ";
-    map_symbol = true;
-    disabled = false;
+  nodejs = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  c = {
+    symbol = " ";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  cpp = {
+    symbol = " ";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  rust = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  golang = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  php = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  java = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  kotlin = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  haskell = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  python = {
+    symbol = "";
+    style = "bg:blue";
+    format = "[[ $symbol( $version) ](fg:base01 bg:blue)]($style)";
+  };
+
+  docker_context = {
+    symbol = "";
+    style = "bg:base02";
+    format = "[[ $symbol( $context) ](fg:#83a598 bg:base02)]($style)";
+  };
+
+  conda = {
+    style = "bg:base02";
+    format = "[[ $symbol( $environment) ](fg:#83a598 bg:base02)]($style)";
+  };
+
+  pixi = {
+    style = "bg:base02";
+    format = "[[ $symbol( $version)( $environment) ](fg:base01 bg:base02)]($style)";
   };
 
   time = {
     disabled = false;
-    format = "🕙[$time]($style) ";
-    # format = '🕙[\[ $time \]]($style) ';
-    time_format = "%T";
-    utc_time_offset = "+3";
-    # time_range = "10:00:00-14:00:00";
+    time_format = "%R";
+    style = "bg:base01";
+    format = "[[  $time ](fg:base05 bg:base01)]($style)";
   };
 
-  cmd_duration = {
-    min_time = 2000; # miliseconds
-    # show_notifications = true;
-    min_time_to_notify = 45000; # miliseconds
-    format = "took [$duration](bold yellow) ";
-  };
-
-  hostname = {
-    ssh_only = false;
-    format = "[$hostname](bold fg:#CC59B0)";
+  line_break = {
     disabled = false;
   };
 
-  username = {
+  character = {
     disabled = false;
-    style_user = "white bold";
-    style_root = "red bold";
-    format = "[$user]($style)[@](bold yellow)";
-    show_always = true;
-  };
-
-  directory = {
-    read_only = "🔒";
-    read_only_style = "bold white";
-    style = "fg:#A7F3E4";
-    truncate_to_repo = false;
-    truncation_length = 5;
-    truncation_symbol = "…/";
-    home_symbol = "🏡";
-    format = "[$read_only]($read_only_style)[$path]($style) ";
-  };
-
-  directory.substitutions = {
-    ".config" = " ";
-    "nvim" = "";
-    "emacs" = "𝓔";
-    "doom" = "𝓔";
-    "Projects" = "💻";
-    "FMI" = "🏫";
-    "Home" = "🏠";
-    "CPP" = "";
-    "Java" = "";
-    "Python" = "";
-  };
-
-  # Language Environments
-  package = {
-    style = "bold fg:#5E5E5E";
-  };
-
-  python = {
-    style = "bold fg:#5E5E5E";
-    symbol = "[](bold yellow) ";
-  };
-
-  nodejs = {
-    style = "bold fg:#5E5E5E";
-    symbol = "[⬢](bold green) ";
-  };
-
-  # Custom
-  jobs = {
-    format = "[ $symbol$number ]($style)";
-    style = "bg:#587744 fg:bright-white";
-    symbol = "⚙";
-  };
-
-  custom.local = {
-    shell = [
-      "zsh"
-      "-d"
-      "-f"
-    ];
-    when = ''[ [ -z "$SSH_CLIENT" ] ] && [ [ `whoami` != "root" ] ] '';
-    format = "[$symbol$output]($style)[@](bold yellow)";
-    command = "whoami";
-    style = "fg:bright-white";
-    symbol = "";
-  };
-
-  custom.local_root = {
-    shell = [
-      "zsh"
-      "-d"
-      "-f"
-    ];
-    when = ''[ [ -z "$SSH_CLIENT" ] ] && [ [ `whoami` == "root" ] ] '';
-    format = "[ $output ]($style)[@](bold yellow)";
-    command = "whoami";
-    style = "bg:red fg:bright-white";
-  };
-
-  custom.ssh = {
-    shell = [
-      "zsh"
-      "-d"
-      "-f"
-    ];
-    when = ''[ [ -n "$SSH_CLIENT" ] ] && [ [ `whoami` != "root" ] ] '';
-    format = "[ $symbol$output ]($style)[@](bold yellow)";
-    command = "whoami";
-    style = "bg:blue fg:bright-white";
-    # style = "bg:#FD7208 fg:bright-white";
-    symbol = "⌁";
-  };
-
-  custom.ssh_root = {
-    shell = [
-      "zsh"
-      "-d"
-      "-f"
-    ];
-    when = ''[ [ -n "$SSH_CLIENT" ] ] && [ [ `whoami` == "root" ] ] '';
-    format = "[ $symbol$output ]($style)[@](bold yellow)";
-    command = "whoami";
-    style = "bg:red fg:bright-white";
-    symbol = "⌁";
+    success_symbol = "[](bold fg:green)";
+    error_symbol = "[](bold fg:red)";
+    vimcmd_symbol = "[](bold fg:green)";
+    vimcmd_replace_one_symbol = "[](bold fg:purple)";
+    vimcmd_replace_symbol = "[](bold fg:purple)";
+    vimcmd_visual_symbol = "[](bold fg:yellow)";
   };
 }

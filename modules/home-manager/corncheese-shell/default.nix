@@ -68,9 +68,8 @@ in
       };
       shells = mkOption {
         description = "Shells to be configured (first one is used for $SHELL)";
-        type = lib.pipe [ "nushell" "zsh" ] [ types.enum types.listOf ];
+        type = lib.pipe [ "nushell" "zsh" "fish" ] [ types.enum types.listOf ];
         default = [
-          "nushell"
           "zsh"
         ];
       };
@@ -148,6 +147,7 @@ in
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
+        # enableFishIntegration = builtins.elem "fish" cfg.shells;
 
         nix-direnv = {
           enable = true;
@@ -160,6 +160,7 @@ in
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
 
         daemon.enable = true;
 
@@ -190,10 +191,10 @@ in
       # Starship
       programs.starship = mkIf cfg.starship {
         enable = true;
-
         package = pkgs.starship;
+        settings = import ./starship.nix { inherit lib; };
 
-        settings = import ./starship.nix { inherit (cfg) username; };
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
       };
 
       # Zoxide
@@ -204,12 +205,14 @@ in
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
       };
 
       # GnuPG
       services.gpg-agent = {
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
       };
 
       # Shell
@@ -243,6 +246,42 @@ in
         ".config/zsh/.p10k.zsh" = mkIf (builtins.elem "zsh" cfg.shells && cfg.p10k) {
           text = builtins.readFile ./p10k.zsh;
         };
+      };
+      programs.fish = mkIf (builtins.elem "fish" cfg.shells) {
+        enable = true;
+        package = pkgs.fish;
+
+        interactiveShellInit = ''
+          bind alt-left backward-word
+          bind alt-right forward-word
+        '';
+
+        shellAliases = shellAliases // {
+          ls = "${pkgs.lsd}/bin/lsd";
+          mkdir = "mkdir -vp";
+        };
+
+        plugins =
+          with pkgs.fishPlugins;
+          let
+            mkFishPlugin = pkg: {
+              name = lib.getName pkg;
+              inherit (pkg) src;
+            };
+          in
+          [
+            (mkFishPlugin pisces)
+            (mkFishPlugin fish-you-should-use)
+            {
+              name = "fish-bat";
+              src = pkgs.fetchFromGitHub {
+                owner = "givensuman";
+                repo = "fish-bat";
+                rev = "db44ed58ea0c593b6809ab335f42e59bdafa31d9";
+                hash = "sha256-yjeDzlv0J+ss9jbaM9hfQuFJhusKTlI5kXd6D9Gc9Ww=";
+              };
+            }
+          ];
       };
       programs.zsh = mkIf (builtins.elem "zsh" cfg.shells) (
         let
@@ -286,8 +325,8 @@ in
             #   fi
             # '')
             ''
-              bindkey '^[[1;3D' backward-word  # Alt + Left
-              bindkey '^[[1;3C' forward-word   # Alt + Right
+              bind '^[[1;3D' backward-word  # Alt + Left
+              bind '^[[1;3C' forward-word   # Alt + Right
             ''
           ];
 
@@ -332,11 +371,11 @@ in
                 hash = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
               };
             })
-            (mkIf cfg.p10k ({
+            (mkIf cfg.p10k {
               name = "powerlevel10k";
               file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
               src = pkgs.zsh-powerlevel10k;
-            }))
+            })
           ];
         }
       );

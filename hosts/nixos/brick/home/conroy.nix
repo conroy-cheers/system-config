@@ -61,13 +61,15 @@
     };
     shell = {
       enable = true;
+      starship = true;
+      p10k = false;
       direnv = true;
       zoxide = true;
       atuin = {
         enable = true;
         sync = true;
       };
-      shells = [ "zsh" ];
+      shells = [ "fish" ];
     };
     wezterm = {
       enable = true;

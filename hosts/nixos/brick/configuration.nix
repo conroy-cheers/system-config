@@ -260,7 +260,7 @@
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINKbNTRUenigTtrUSGKImYezWzT/KFOR7dZSpSuvsKNY" # conroy-home
     ];
-    shell = pkgs.zsh;
+    shell = pkgs.fish;
     extraGroups = [
       "wheel"
       "docker"
@@ -269,9 +269,7 @@
     ];
   };
 
-  programs.zsh = {
-    enable = true;
-  };
+  programs.fish.enable = true;
 
   # udisks2 for mounting USB disks
   services.udisks2.enable = true;
