@@ -91,7 +91,6 @@
 
   stylix = {
     targets.hyprland.enable = true;
-    targets.kitty.enable = true;
   };
 
   # Let Home Manager install and manage itself.
@@ -157,13 +156,6 @@
     enable = true;
     defaultCacheTtl = 1800;
     enableSshSupport = true;
-  };
-
-  programs.kitty = {
-    enable = true;
-    settings = {
-      scrollback_lines = 20000;
-    };
   };
 
   programs.firefox = {

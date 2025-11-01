@@ -42,7 +42,6 @@
 
   stylix = {
     targets.hyprland.enable = true;
-    targets.kitty.enable = true;
   };
 
   wayland.windowManager.hyprland.settings = {
@@ -97,13 +96,6 @@
     enable = true;
     defaultCacheTtl = 1800;
     enableSshSupport = true;
-  };
-
-  programs.kitty = {
-    enable = true;
-    settings = {
-      scrollback_lines = 20000;
-    };
   };
 
   programs.firefox = {
