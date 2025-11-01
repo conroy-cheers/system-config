@@ -47,7 +47,8 @@ in
 
       programs.ghostty = {
         enable = true;
-        enableZshIntegration = true;
+        # enableZshIntegration = true;  # TODO flag or remove
+        enableFishIntegration = true;
         settings = {
           keybind = [
           ];
