@@ -140,11 +140,6 @@ in
         '';
       };
 
-      programs.ghostty = {
-        enable = true;
-        enableZshIntegration = true;
-      };
-
       # Direnv
       programs.direnv = mkIf cfg.direnv {
         enable = true;

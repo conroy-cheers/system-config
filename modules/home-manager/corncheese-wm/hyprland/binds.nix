@@ -44,7 +44,7 @@ in
 
       # Application shortcuts.
       "$mod, Return, exec, ghostty"
-      "$mod SHIFT, Return, exec, ghostty --class floating"
+      "$mod SHIFT, Return, exec, ghostty '--title=ghostty-floating'"
       "$mod, D, exec, neovide --no-vsync"
       "$mod, F, exec, chromium --disable-features=WaylandWpColorManagerV1"
       "$mod, T, exec, thunar"

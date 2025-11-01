@@ -26,8 +26,8 @@ in
           "wl-paste --type text --watch cliphist store" # Stores only text data
           "wl-paste --type image --watch cliphist store" # Stores only image data
           "[workspace 1 silent] ghostty"
-          "[workspace 2 silent] ghostty btop"
-          "[workspace 2 silent] ghostty cava"
+          "[workspace 2 silent] ghostty --title=btop -e btop"
+          "[workspace 2 silent] ghostty --title=cava -e cava"
           "[workspace 2 silent] plexamp"
           "[workspace special silent] slack --ozone-platform=wayland"
           "[workspace special silent] chromium --disable-features=WaylandWpColorManagerV1"
