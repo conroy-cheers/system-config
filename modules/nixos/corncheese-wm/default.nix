@@ -81,6 +81,9 @@ in
           };
         };
 
+        services.gvfs.enable = true;
+        services.tumbler.enable = true;
+
         # For home-manager xdg portal config
         environment.pathsToLink = [
           "/share/xdg-desktop-portal"
