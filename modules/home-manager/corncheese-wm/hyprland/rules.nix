@@ -39,7 +39,7 @@ in
       "float,class:^(firefox)$,title:^(Firefox)$"
       "float,class:^(firefox)$,title:^(Picture-in-Picture)$"
 
-      "float,class:^(floating)$,title:^(ghostty)$"
+      "float,class:^(com.mitchellh.ghostty)$,title:^(ghostty-floating)$"
       "size 50% 50%,class:^(floating)$,title:^(ghostty)$"
       "center,class:^(floating)$,title:^(ghostty)$"
 

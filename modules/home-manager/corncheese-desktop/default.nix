@@ -32,6 +32,27 @@ in
           "text/plain" = [ "neovide.desktop" ];
         };
       };
+      xdg.terminal-exec = {
+        enable = true;
+        package = pkgs.xdg-terminal-exec-mkhl;
+        settings = {
+          Hyprland = [
+            "com.mitchellh.ghostty.desktop"
+          ];
+          default = [
+            "com.mitchellh.ghostty.desktop"
+          ];
+        };
+      };
+
+      programs.ghostty = {
+        enable = true;
+        enableZshIntegration = true;
+        settings = {
+          keybind = [
+          ];
+        };
+      };
 
       home.packages = with pkgs; [
         slack
