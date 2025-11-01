@@ -110,7 +110,7 @@ in
                 small = true;
               };
             }
-            { app = "${pkgs.kitty}/Applications/kitty.app"; }
+            { app = "${pkgs.ghostty}/Applications/ghostty.app"; }
             { app = "${pkgs.slack}/Applications/Slack.app"; }
             { app = "${pkgs.element-desktop}/Applications/Element.app"; }
             { app = "/System/Applications/System\ Settings.app"; }
@@ -296,7 +296,6 @@ in
       #     "$(__dock_item /Applications/zoom.us.app)" \
       #     "$(__dock_item ${pkgs.discord}/Applications/Discord.app)" \
       #     "$(__dock_item /Applications/Obsidian.app)" \
-      #     "$(__dock_item ${pkgs.kitty}/Applications/kitty.app)" \
       #     "$(__dock_item /System/Applications/System\ Settings.app)"
     };
   };

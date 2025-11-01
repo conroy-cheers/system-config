@@ -20,7 +20,6 @@ let
     ;
 
   shellAliases = {
-    s = "kitten ssh";
     # cp = "${pkgs.fcp}/bin/fcp";
     rebuild =
       let
@@ -139,6 +138,11 @@ in
         extraOptions = ''
           experimental-features = nix-command flakes
         '';
+      };
+
+      programs.ghostty = {
+        enable = true;
+        enableZshIntegration = true;
       };
 
       # Direnv

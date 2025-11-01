@@ -43,8 +43,8 @@ in
       "$mod, Escape, exec, hyprlock"
 
       # Application shortcuts.
-      "$mod, Return, exec, kitty"
-      "$mod SHIFT, Return, exec, kitty --class floating"
+      "$mod, Return, exec, ghostty"
+      "$mod SHIFT, Return, exec, ghostty --class floating"
       "$mod, D, exec, neovide --no-vsync"
       "$mod, F, exec, chromium --disable-features=WaylandWpColorManagerV1"
       "$mod, T, exec, thunar"

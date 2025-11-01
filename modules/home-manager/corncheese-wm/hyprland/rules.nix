@@ -39,9 +39,9 @@ in
       "float,class:^(firefox)$,title:^(Firefox)$"
       "float,class:^(firefox)$,title:^(Picture-in-Picture)$"
 
-      "float,class:^(floating)$,title:^(kitty)$"
-      "size 50% 50%,class:^(floating)$,title:^(kitty)$"
-      "center,class:^(floating)$,title:^(kitty)$"
+      "float,class:^(floating)$,title:^(ghostty)$"
+      "size 50% 50%,class:^(floating)$,title:^(ghostty)$"
+      "center,class:^(floating)$,title:^(ghostty)$"
 
       "stayfocused, title:^()$,class:^(steam)$"
       "minsize 1 1, title:^()$,class:^(steam)$"
