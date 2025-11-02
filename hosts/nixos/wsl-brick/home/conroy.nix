@@ -69,20 +69,6 @@
     gdb
     lttng-tools
     lttng-ust
-
-    ## Nix
-    nil
-
-    ## Python
-    ruff
-
-    ## Rust
-    rustc
-    cargo
-    rust-analyzer
-    clang
-    openssl
-    pkg-config
   ];
 
   home.sessionVariables = {

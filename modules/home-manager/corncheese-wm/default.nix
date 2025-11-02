@@ -88,7 +88,10 @@ in
     };
 
     home.packages = with pkgs; [
+      grimblast
+      qalculate-gtk
       xdg-utils
+      plexamp
     ];
 
     # NOTE: this executable is used by greetd to start a wayland session when system boot up
