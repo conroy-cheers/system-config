@@ -254,6 +254,8 @@ in
         package = pkgs.fish;
 
         interactiveShellInit = ''
+          set fish_greeting  # Disable greeting
+
           bind alt-left backward-word
           bind alt-right forward-word
 
