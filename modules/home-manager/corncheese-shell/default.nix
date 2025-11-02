@@ -190,6 +190,50 @@ in
         ];
       };
 
+      programs.fastfetch = {
+        enable = true;
+        settings = {
+          logo = {
+            source = "nixos_small";
+            padding = {
+              right = 1;
+            };
+          };
+          display = {
+            separator = " ›  ";
+          };
+          modules = [
+            "break"
+            {
+              type = "os";
+              key = "OS  ";
+              keyColor = "31";
+            }
+            {
+              type = "kernel";
+              key = "KER ";
+              keyColor = "32";
+            }
+            {
+              type = "shell";
+              key = "SH  ";
+              keyColor = "34";
+            }
+            {
+              type = "terminal";
+              key = "TER ";
+              keyColor = "35";
+            }
+            {
+              type = "wm";
+              key = "WM  ";
+              keyColor = "36";
+            }
+            "break"
+          ];
+        };
+      };
+
       # Starship
       programs.starship = mkIf cfg.starship {
         enable = true;
@@ -253,9 +297,13 @@ in
         enable = true;
         package = pkgs.fish;
 
-        interactiveShellInit = ''
-          set fish_greeting  # Disable greeting
+        functions = {
+          fish_greeting = ''
+            ${lib.getExe config.programs.fastfetch.package}
+          '';
+        };
 
+        interactiveShellInit = ''
           bind alt-left backward-word
           bind alt-right forward-word
 
