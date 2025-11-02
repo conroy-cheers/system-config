@@ -61,6 +61,13 @@ in
         enable = true;
       };
 
+      networking.interfaces.lo.ipv4.routes = [
+        {
+          address = "224.0.0.0";
+          prefixLength = 4;
+        }
+      ];
+
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''
           Host big-chungus-x64
