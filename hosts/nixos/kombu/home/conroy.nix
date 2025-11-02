@@ -83,52 +83,17 @@
   programs.home-manager.enable = true;
 
   home.packages = with pkgs; [
-    ## WM
-    # river
-    # swww # wallpaper deamon
-    # # wired-notify # dunst on wayland
-    # waybar # status bar
-    # xwayland
-    # wl-clipboard
-    # slurp # select regions from wayland
-    # grim # grap images from regions
-    # playerctl # music control
     gparted
     audacity
-    qalculate-gtk
     libreoffice-qt6-fresh
     jujutsu
 
-    slack
     pciutils # lspci
     usbutils # lsusb
     # (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
 
     ## Debugger
     gdb
-    # lttng-tools
-    # lttng-ust
-
-    grimblast
-
-    plexamp
-
-    ## Dhall
-    dhall
-    # dhall-lsp-server
-
-    ## Nix
-    nil
-
-    ## Torrents
-    tremc
-
-    ## Python
-    ruff
-
-    clang
-    openssl
-    pkg-config
 
     ## Windows
     lutris
@@ -140,8 +105,6 @@
     (pkgs.writeShellScriptBin "wine64" ''
       exec ${lib.getExe' wineWowPackages.stagingFull "wine"} "$@"
     '')
-
-    samba
   ];
 
   home.sessionVariables = {

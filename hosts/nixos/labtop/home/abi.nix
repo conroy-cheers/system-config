@@ -56,7 +56,6 @@
 
   home.packages = with pkgs; [
     audacity
-    qalculate-gtk
     libreoffice-qt6-fresh
 
     pciutils # lspci
@@ -65,24 +64,6 @@
 
     ## Debugger
     gdb
-    lttng-tools
-    lttng-ust
-
-    grimblast
-
-    ## Nix
-    nil
-
-    ## Python
-    ruff
-
-    ## Rust
-    rustc
-    cargo
-    rust-analyzer
-    clang
-    openssl
-    pkg-config
   ];
 
   home.sessionVariables = {
