@@ -266,7 +266,7 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwrQhUM6udasli+ypO2n7upXXB1irr2s5jJQjJdOp1w" # kombu system key
     ];
-    shell = pkgs.zsh;
+    shell = pkgs.fish;
     extraGroups = [
       "wheel"
       "docker"
@@ -275,9 +275,7 @@
     ];
   };
 
-  programs.zsh = {
-    enable = true;
-  };
+  programs.fish.enable = true;
 
   # udisks2 for mounting USB disks
   services.udisks2.enable = true;
