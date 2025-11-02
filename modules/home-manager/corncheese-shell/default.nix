@@ -142,7 +142,8 @@ in
       # Direnv
       programs.direnv = mkIf cfg.direnv {
         enable = true;
-        package = inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        # No Fish support currently
+        # package = inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default;
         silent = true;
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
@@ -160,7 +161,8 @@ in
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
-        enableFishIntegration = builtins.elem "fish" cfg.shells;
+        # enableFishIntegration = builtins.elem "fish" cfg.shells;
+        enableFishIntegration = false; # https://github.com/atuinsh/atuin/issues/2940
 
         daemon.enable = true;
 
@@ -254,6 +256,8 @@ in
         interactiveShellInit = ''
           bind alt-left backward-word
           bind alt-right forward-word
+
+          atuin init fish | sed "s/-k up/up/g" | source
         '';
 
         shellAliases = shellAliases // {
