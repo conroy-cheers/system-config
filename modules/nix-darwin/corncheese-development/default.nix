@@ -70,16 +70,6 @@ in
           extraOptions = ''
             builders-use-substitutes = true
           '';
-          distributedBuilds = true;
-          buildMachines = [
-            {
-              hostName = "home.conroycheers.me";
-              system = "x86_64-linux";
-              maxJobs = 28;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
-            }
-          ];
         };
       })
     ]

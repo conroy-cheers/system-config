@@ -26,7 +26,7 @@ in
     lib.mkMerge [
       {
         nix = {
-          package = pkgs.nixVersions.monitored.latest;
+          package = pkgs.nixVersions.latest;
 
           # Enable flakes, the new `nix` commands and better support for flakes in it
           extraOptions = ''
@@ -76,17 +76,6 @@ in
           extraOptions = ''
             builders-use-substitutes = true
           '';
-          distributedBuilds = true;
-          buildMachines = [
-            {
-              hostName = "home.conroycheers.me";
-              system = "x86_64-linux";
-              speedFactor = 0;  # this thing is so slow on small jobs
-              maxJobs = 28;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVAxVXltZktkZHYrWXZ3RlJRRE9YLzZHNFVYWFQ2bEFnNGtHU0tOczc0WE8gcm9vdEBiaWdicmFpbgo=";
-            }
-          ];
         };
       })
     ]

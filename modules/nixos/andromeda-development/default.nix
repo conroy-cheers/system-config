@@ -70,14 +70,16 @@ in
 
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''
-          Host big-chungus-x64
+          # big-chungus-x64
+          Host 3.106.5.183
             User root
             HostName 3.106.5.183
             Port 22
             IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
             ConnectTimeout 3
 
-          Host big-chungus-aarch64
+          # big-chungus-aarch64
+          Host 3.104.252.233
             User root
             HostName 3.104.252.233
             Port 22
@@ -102,7 +104,8 @@ in
           distributedBuilds = true;
           buildMachines = [
             {
-              hostName = "big-chungus-x64";
+              # big-chungus-x64
+              hostName = "3.106.5.183";
               system = "x86_64-linux";
               speedFactor = 1;
               maxJobs = 32;
@@ -110,9 +113,10 @@ in
               publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
             }
             {
-              hostName = "big-chungus-aarch64";
+              # big-chungus-aarch64
+              hostName = "3.104.252.233";
               system = "aarch64-linux";
-              speedFactor = 1;
+              speedFactor = 8;
               maxJobs = 32;
               supportedFeatures = [ "big-parallel" ];
               publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUVDaGFtWWV2d0wwejc1em1ycXhzMFZuRDlxNCtEcUxiOEZZWFcyV0hlL04K";
