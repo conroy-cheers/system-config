@@ -275,6 +275,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    colorshell = {
+      url = "github:conroy-cheers/colorshell/feature/clsh";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     corncheese-server = {
       url = "git+https://github.com/conroy-cheers/corncheese-server-config";
       inputs.nixpkgs.follows = "nixpkgs";

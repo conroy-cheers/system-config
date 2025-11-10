@@ -21,8 +21,6 @@ in
         monitor = [ ",preferred,auto,1" ];
 
         exec-once = [
-          "swww-daemon &"
-          "ags &"
           "wl-paste --type text --watch cliphist store" # Stores only text data
           "wl-paste --type image --watch cliphist store" # Stores only image data
           "[workspace 1 silent] ghostty"

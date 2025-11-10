@@ -55,7 +55,9 @@ in
 
       # Launcher
       # "$mod, A, exec, rofi -show drun -kb-cancel Super_L"
-      "$mod, Space, exec, ags -t launcher"
+      "$mod, Space, exec, clsh runner"
+      "$mod, V, exec, clsh runner '>'"
+      "$mod, M, exec, clsh toggle center-window"
 
       # Screenshot
       "$mod SHIFT, PRINT, exec, grimblast copy area"

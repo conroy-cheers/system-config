@@ -139,6 +139,10 @@ in
         '';
       };
 
+      xdg = {
+        enable = true;
+      };
+
       # Direnv
       programs.direnv = mkIf cfg.direnv {
         enable = true;
