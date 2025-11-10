@@ -102,5 +102,7 @@ in
           shadow_boost = 0.8
       }
     '';
+
+    services.hyprsunset.enable = true;
   };
 }
