@@ -202,6 +202,10 @@
     };
   };
 
+  programs.coolercontrol = {
+    enable = true;
+  };
+
   ## X11 specific
   # services.xserver = {
   #   xkb.layout = "us";
