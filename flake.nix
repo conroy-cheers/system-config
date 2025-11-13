@@ -80,6 +80,10 @@
       url = "github:nixos/nixpkgs/nixos-unstable";
     };
 
+    determinate = {
+      url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
+    };
+
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
