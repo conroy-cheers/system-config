@@ -70,12 +70,13 @@ in
         in
         {
           path = [ cfg.package ] ++ cfg.extraPackages ++ [ config.environment.systemPath ];
-          serviceConfig.ProgramArguments =
-            [ "${lib.getExe cfg.package}" ]
-            ++ optionals (cfg.configFile != null) [
-              "--config"
-              "${cfg.configFile}"
-            ];
+          serviceConfig.ProgramArguments = [
+            "${lib.getExe cfg.package}"
+          ]
+          ++ optionals (cfg.configFile != null) [
+            "--config"
+            "${cfg.configFile}"
+          ];
           serviceConfig.KeepAlive = true;
           serviceConfig.RunAtLoad = true;
         };
