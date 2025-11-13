@@ -35,6 +35,8 @@ in
       "$mod, E, togglefloating,"
       "$mod CTRL, delete, exit,"
 
+      "$mod, F5, exec, colorshell reload"
+
       # Dwindle
       "$mod, O, togglesplit,"
       "$mod, P, pseudo,"
@@ -55,9 +57,9 @@ in
 
       # Launcher
       # "$mod, A, exec, rofi -show drun -kb-cancel Super_L"
-      "$mod, Space, exec, clsh runner"
-      "$mod, V, exec, clsh runner '>'"
-      "$mod, M, exec, clsh toggle center-window"
+      "$mod, Space, exec, colorshell runner"
+      "$mod, V, exec, colorshell runner '>'"
+      "$mod, M, exec, colorshell toggle center-window"
 
       # Screenshot
       "$mod SHIFT, PRINT, exec, grimblast copy area"
