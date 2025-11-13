@@ -308,9 +308,7 @@ in
         };
 
         interactiveShellInit = ''
-          bind alt-left backward-word
-          bind alt-right forward-word
-
+          ${pkgs.any-nix-shell}/bin/any-nix-shell fish --info-right | source
           atuin init fish | sed "s/-k up/up/g" | source
         '';
 
@@ -330,6 +328,7 @@ in
           [
             (mkFishPlugin pisces)
             (mkFishPlugin fish-you-should-use)
+            (mkFishPlugin bang-bang)
             {
               name = "fish-bat";
               src = pkgs.fetchFromGitHub {
