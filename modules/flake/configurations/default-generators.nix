@@ -36,44 +36,43 @@ let
       users ? null,
     }:
     {
-      home-manager =
-        {
-          # Use same `pkgs` instance as system (i.e. carry over overlays)
-          useGlobalPkgs = true;
-          # Do not keep packages in ${HOME}
-          useUserPackages = true;
-          # make deploying work
-          backupFileExtension = "hm-backup";
-          # Default import all of our exported `home-manager` modules
-          sharedModules =
-            builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"}
-            ++ [
-              # (r)agenix && agenix-rekey
-              inputs.ragenix.homeManagerModules.default
-              inputs.agenix-rekey.homeManagerModules.default
-              # (lib.optionalAttrs (meta.pubkey != null) {
-              #   age.rekey.hostPubkey = meta.pubkey;
-              # })
-              ./agenix-rekey/home.nix
-            ];
-          # Pass in `inputs`, `hostname` and `meta`
-          extraSpecialArgs = {
-            inherit inputs;
-            inherit meta;
-          };
-        }
-        // (
-          if users == null then
-            {
-              # nixOnDroid
-              config = "${root}/home.nix";
-            }
-          else
-            {
-              # Not nixOnDroid
-              users = lib.attrsets.genAttrs users (user: import "${root}/home/${user}.nix");
-            }
-        );
+      home-manager = {
+        # Use same `pkgs` instance as system (i.e. carry over overlays)
+        useGlobalPkgs = true;
+        # Do not keep packages in ${HOME}
+        useUserPackages = true;
+        # make deploying work
+        backupFileExtension = "hm-backup";
+        # Default import all of our exported `home-manager` modules
+        sharedModules =
+          builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"}
+          ++ [
+            # (r)agenix && agenix-rekey
+            inputs.ragenix.homeManagerModules.default
+            inputs.agenix-rekey.homeManagerModules.default
+            # (lib.optionalAttrs (meta.pubkey != null) {
+            #   age.rekey.hostPubkey = meta.pubkey;
+            # })
+            ./agenix-rekey/home.nix
+          ];
+        # Pass in `inputs`, `hostname` and `meta`
+        extraSpecialArgs = {
+          inherit inputs;
+          inherit meta;
+        };
+      }
+      // (
+        if users == null then
+          {
+            # nixOnDroid
+            config = "${root}/home.nix";
+          }
+        else
+          {
+            # Not nixOnDroid
+            users = lib.attrsets.genAttrs users (user: import "${root}/home/${user}.nix");
+          }
+      );
     };
 
   mkNixosHost =
@@ -107,7 +106,8 @@ let
           networking.hostName = lib.mkDefault meta.hostname;
         }
         # TODO: lib.optionals
-      ] ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nixos"});
+      ]
+      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nixos"});
 
       specialArgs = {
         inherit inputs;
@@ -127,7 +127,8 @@ let
         "${root}/configuration.nix"
         # Home Manager
         (homeManagerModule args)
-      ] ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-on-droid"});
+      ]
+      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-on-droid"});
 
       extraSpecialArgs = {
         inherit inputs;
@@ -160,7 +161,8 @@ let
           age.rekey.hostPubkey = meta.pubkey;
         })
         ./agenix-rekey
-      ] ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-darwin"});
+      ]
+      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-darwin"});
 
       specialArgs = {
         inherit inputs;
@@ -176,7 +178,8 @@ let
 
       modules = [
         "${root}/home.nix"
-      ] ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"});
+      ]
+      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"});
 
       extraSpecialArgs = {
         inherit inputs;

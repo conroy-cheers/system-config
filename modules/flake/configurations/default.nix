@@ -190,13 +190,12 @@
                                 deploy = mkDeployNode deploy-args;
                               in
                               lib.optionalAttrs valid {
-                                ${host} =
-                                  {
-                                    inherit configuration;
-                                  }
-                                  // lib.optionalAttrs (has-mkDeployNode && has-deploy-config) {
-                                    inherit deploy;
-                                  };
+                                ${host} = {
+                                  inherit configuration;
+                                }
+                                // lib.optionalAttrs (has-mkDeployNode && has-deploy-config) {
+                                  inherit deploy;
+                                };
                               }
                             ))
                           ];
