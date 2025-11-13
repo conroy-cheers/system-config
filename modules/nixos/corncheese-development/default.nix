@@ -13,6 +13,8 @@ in
   imports = [
     ./virtualisation.nix
     inputs.vscode-server.nixosModules.default
+    # Determinate
+    inputs.determinate.nixosModules.default
   ];
 
   options = {
@@ -26,8 +28,6 @@ in
     lib.mkMerge [
       {
         nix = {
-          package = pkgs.nixVersions.latest;
-
           # Enable flakes, the new `nix` commands and better support for flakes in it
           extraOptions = ''
             experimental-features = nix-command flakes

@@ -11,7 +11,6 @@ pkgs.mkShellNoCC {
     extra-experimental-features = nix-command flakes
   '';
   nativeBuildInputs = with pkgs; [
-    pkgs.nixVersions.monitored.latest
     home-manager
     git
     wireguard-tools
