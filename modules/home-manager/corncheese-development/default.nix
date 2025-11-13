@@ -164,6 +164,7 @@ in
             "git.enableSmartCommit" = true;
 
             # Theming
+            "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "workbench.colorTheme" = lib.mkForce "Catppuccin Mocha";
             "workbench.iconTheme" = "catppuccin-mocha";
@@ -274,6 +275,8 @@ in
           jdk23
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
           pyright
+
+          pkgs.nerd-fonts.meslo-lg
         ]
         (lib.optionals cfg.electronics.enable (
           [

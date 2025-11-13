@@ -138,9 +138,6 @@
     ];
   };
 
-  ### Fonts
-  fonts.fontconfig.enable = true;
-
   hardware.graphics.enable = true;
   # environment.sessionVariables = {
   #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";

@@ -54,6 +54,8 @@ in
           package32 = hypr-pkgs.pkgsi686Linux.mesa;
         };
 
+        fonts.fontconfig.enable = true;
+
         programs = {
           hyprland = {
             enable = true;
