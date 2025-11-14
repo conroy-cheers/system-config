@@ -288,7 +288,7 @@ in
           ++ (lib.optionals (builtins.hasAttr "xtc-tools" pkgs) [ pkgs.xtc-tools ])
         ))
         (lib.optionals (cfg.electronics.enable && cfg.rust.enable) [
-          probe-rs
+          probe-rs-tools
         ])
         (lib.optionals cfg.rust.enable [
           rustc
