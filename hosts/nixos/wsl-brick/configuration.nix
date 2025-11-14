@@ -91,40 +91,12 @@
   fonts.fontconfig.enable = true;
 
   hardware.graphics.enable = true;
-  # environment.sessionVariables = {
-  #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";
-  #   "XDG_SESSION_TYPE" = "wayland";
-  #   # "WLR_NO_HARDWARE_CURSORS" = "1";
-  #   "MOZ_DISABLE_RDD_SANDBOX" = "1";
-  #   "MOZ_ENABLE_WAYLAND" = "1";
-  #   "EGL_PLATFORM" = "wayland";
-  #   # "XDG_CURRENT_DESKTOP" = "sway"; # river
-  #   "XKB_DEFAULT_LAYOUT" = "us";
-  #   "XKB_DEFAULT_VARIANT" = ",phonetic";
-  #   "XKB_DEFAULT_OPTIONS" = "caps:escape,grp:lalt_lshift_toggle";
-  #   # "WLR_RENDERER" = "vulkan"; # BUG: river crashes
-  # };
-
-  # services.displayManager = {
-  #   # defaultSession = "river";
-  #   sessionPackages = with pkgs; [
-  #     hyprland
-  #   ];
-  # };
 
   # hardware.nvidia.open = true;
   # https://github.com/nix-community/NixOS-WSL/issues/454
   environment.sessionVariables = {
-    CUDA_PATH = "${pkgs.cudatoolkit}";
-    EXTRA_LDFLAGS = "-L/lib -L${pkgs.linuxPackages.nvidia_x11}/lib";
-    EXTRA_CCFLAGS = "-I/usr/include";
-    LD_LIBRARY_PATH = [
-      "/usr/lib/wsl/lib"
-      "${pkgs.linuxPackages.nvidia_x11}/lib"
-      "${pkgs.ncurses5}/lib"
-      "/run/opengl-driver/lib"
-    ];
-    MESA_D3D12_DEFAULT_ADAPTER_NAME = "Nvidia";
+    LD_LIBRARY_PATH = [ "/run/opengl-driver/lib/" ];
+    GALLIUM_DRIVER = "d3d12";
   };
 
   ### Audio (via WSLg)
