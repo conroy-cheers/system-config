@@ -82,7 +82,7 @@
       }@perSystemArgs:
       let
         # NOTE: flake's packages, done here to avoid infinite recursion
-        pkgs' = pkgs.extend (final: prev: inputs.self.packages.${system});
+        pkgs' = pkgs.default.extend (final: prev: inputs.self.packages.${system});
         devShells = lib.pipe config.auto.devShells.result [
           (lib.filterAttrs (name: { devShell, systems }: pkgs'.callPackage systems { inherit inputs; }))
           (lib.mapAttrs (
