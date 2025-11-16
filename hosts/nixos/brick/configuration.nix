@@ -20,11 +20,8 @@
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
+    ./fan2go.nix
   ];
-
-  # nixpkgsConfig = {
-  #   cudaSupport = true;
-  # };
 
   ### Set boot options
   boot = {
@@ -82,29 +79,6 @@
       };
       nvidia = true;
       gaming.enable = true;
-    };
-  };
-
-  services.fan2go = {
-    enable = true;
-    package = pkgs.fan2go.override { enableNVML = pkgs.config.cudaSupport; };
-    settings = {
-      sensors = [
-        {
-          id = "gpu_temp";
-          nvidia = {
-            device = "nvidia-*-*";
-            index = 1;
-          };
-        }
-        {
-          id = "cpu_package";
-          hwmon = {
-            platform = "k10temp-pci-*";
-            index = 1;
-          };
-        }
-      ];
     };
   };
 
