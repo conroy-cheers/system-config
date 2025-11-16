@@ -19,7 +19,12 @@ let
 
   # Global `pkgs` with flake's overlays and packages
   # See <../pkgs/default.nix>
-  pkgsFor = system: (config.perSystem system).pkgs;
+  pkgsFor =
+    {
+      system,
+      nixpkgs,
+    }:
+    (config.perSystem system).pkgs.${nixpkgs.variant};
 
   genUsers =
     configurationFiles:
@@ -107,7 +112,7 @@ let
     }:
     inputs.nixpkgs.lib.nixosSystem {
       inherit (meta) system;
-      pkgs = pkgsFor meta.system;
+      pkgs = pkgsFor { inherit (meta) system nixpkgs; };
 
       modules = [
         # Main configuration
@@ -148,7 +153,7 @@ let
     inputs.nix-on-droid.lib.nixOnDroidConfiguration {
       # NOTE: inferred by `pkgs.system`
       # inherit system;
-      pkgs = pkgsFor meta.system;
+      pkgs = pkgsFor { inherit (meta) system nixpkgs; };
 
       modules = [
         # Main configuration
@@ -190,7 +195,7 @@ let
     }:
     inputs.nix-darwin.lib.darwinSystem {
       inherit (meta) system;
-      pkgs = pkgsFor meta.system;
+      pkgs = pkgsFor { inherit (meta) system nixpkgs; };
 
       modules = [
         # Main configuration
@@ -228,7 +233,7 @@ let
     }:
     inputs.home-manager.lib.homeManagerConfiguration {
       inherit (meta) system;
-      pkgs = pkgsFor meta.system;
+      pkgs = pkgsFor { inherit (meta) system nixpkgs; };
 
       modules = [
         configuration
@@ -248,7 +253,7 @@ let
       configuration,
     }:
     let
-      pkgs = pkgsFor meta.system;
+      pkgs = pkgsFor { inherit (meta) system nixpkgs; };
       profiles = inputs.openwrt-imagebuilder.lib.profiles {
         inherit pkgs;
         inherit (meta) release;
@@ -274,6 +279,7 @@ in
             metaModules.enable
             metaModules.system
             metaModules.hostname
+            metaModules.nixpkgs
             metaModules.pubkey
             metaModules.deploy
             metaModules.gui

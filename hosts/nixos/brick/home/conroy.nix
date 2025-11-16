@@ -52,7 +52,7 @@
     desktop = {
       enable = true;
       mail.enable = true;
-      firefox.enable = true;
+      firefox.enable = false;
       chromium.enable = true;
       element.enable = true;
       media = {

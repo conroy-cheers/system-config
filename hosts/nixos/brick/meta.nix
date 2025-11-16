@@ -1,5 +1,6 @@
 {
   system = "x86_64-linux";
+  nixpkgs.variant = "withCuda";
 
   pubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOO9gRBbDAj6j2nthMx8C0QRSP3wCe2a6uXXFqM1kGOB";
 

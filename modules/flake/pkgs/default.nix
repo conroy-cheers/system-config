@@ -55,32 +55,39 @@
               # inputs.nix-lib-net.overlays.default
             ]
           ];
-        in
-        import inputs.nixpkgs {
-          inherit system;
-          overlays = overlays ++ [
-            (_: _: {
-              # NOTE: `nixpkgs-stable` -> `pkgs.nixpkgs.stable.*`
-              nixpkgs = lib.pipe inputs [
-                (lib.concatMapAttrs (
-                  name: input:
-                  if lib.hasPrefix "nixpkgs-" name then
-                    {
-                      ${lib.removePrefix "nixpkgs-" name} = import input {
-                        inherit system;
-                        inherit overlays;
-                      };
-                    }
-                  else
-                    {
-                    }
-                ))
+
+          mkPkgs =
+            config:
+            import inputs.nixpkgs {
+              inherit system;
+              overlays = overlays ++ [
+                (_: _: {
+                  # NOTE: `nixpkgs-stable` -> `pkgs.nixpkgs.stable.*`
+                  nixpkgs = lib.pipe inputs [
+                    (lib.concatMapAttrs (
+                      name: input:
+                      if lib.hasPrefix "nixpkgs-" name then
+                        {
+                          ${lib.removePrefix "nixpkgs-" name} = import input {
+                            inherit system;
+                            inherit overlays;
+                          };
+                        }
+                      else
+                        {
+                        }
+                    ))
+                  ];
+                })
               ];
-            })
-          ];
-          config = {
-            # TODO: per machine?
+              inherit config;
+            };
+        in
+        {
+          default = mkPkgs { allowUnfree = true; };
+          withCuda = mkPkgs {
             allowUnfree = true;
+            cudaSupport = true;
           };
         };
 
