@@ -21,6 +21,7 @@
 
         imports = [
           ./modules/flake/lib
+          ./modules/flake/lib-custom
           ./modules/flake/pkgs
           ./modules/flake/modules
           ./modules/flake/configurations
@@ -141,6 +142,20 @@
     nix-topology = {
       url = "github:oddlama/nix-topology";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-lib-net = {
+      url = "github:reo101/nix-lib-net";
+    };
+
+    yants = {
+      url = "git+https://code.tvl.fyi/depot.git:/nix/yants.git";
+      flake = false;
+    };
+
+    infuse = {
+      url = "git+https://codeberg.org/amjoseph/infuse.nix";
+      flake = false;
     };
 
     nix-monitored = {

@@ -7,12 +7,19 @@
 }:
 
 {
-  imports = [ ../lib ];
+  imports = [
+    ../lib
+    ../things
+  ];
 
   options =
     let
-      inherit (lib) types;
-      inherit (config.lib) createThings;
+      inherit (lib)
+        types
+        ;
+      inherit (config.lib)
+        createThings
+        ;
 
       createDevShells =
         baseDir:
@@ -39,7 +46,7 @@
               '';
               type = types.path;
               default = "${self}/shells";
-              defaultText = "\${self}/shells";
+              defaultText = ''''${self}/shells'';
             };
             result = lib.mkOption {
               description = ''
@@ -72,17 +79,20 @@
         pkgs,
         system,
         ...
-      }:
+      }@perSystemArgs:
       let
+        # NOTE: flake's packages, done here to avoid infinite recursion
+        pkgs' = pkgs.extend (final: prev: inputs.self.packages.${system});
         devShells = lib.pipe config.auto.devShells.result [
-          (lib.filterAttrs (
+          (lib.filterAttrs (name: { devShell, systems }: pkgs'.callPackage systems { inherit inputs; }))
+          (lib.mapAttrs (
             name:
             { devShell, systems }:
-            pkgs.callPackage systems {
-              inherit (pkgs) lib hostPlatform targetPlatform;
+            pkgs'.callPackage devShell {
+              inherit inputs;
+              inherit (perSystemArgs) config;
             }
           ))
-          (lib.mapAttrs (name: { devShell, systems }: pkgs.callPackage devShell { inherit inputs; }))
         ];
       in
       {

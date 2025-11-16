@@ -69,7 +69,7 @@
 
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {
-    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
+    rekeyFile = lib.repoSecret "corncheese/atuin/key.age";
     owner = "conroy";
     mode = "0400";
   };
@@ -243,7 +243,7 @@
   hardware.nvidia-container-toolkit.enable = true;
 
   age.secrets."conroy.user.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/conroy/user/password.age";
+    rekeyFile = lib.repoSecret "home/conroy/user/password.age";
     mode = "440";
   };
 
@@ -264,7 +264,7 @@
   };
 
   age.secrets."abi.user.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/abi/user/password.age";
+    rekeyFile = lib.repoSecret "home/abi/user/password.age";
     mode = "440";
   };
   users.users.abi = {

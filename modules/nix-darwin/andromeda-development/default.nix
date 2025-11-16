@@ -30,10 +30,10 @@ in
     (mkIf cfg.enable {
       age.secrets = {
         "andromeda.aws-cache.env" = {
-          rekeyFile = "${inputs.self}/secrets/andromeda/aws-cache/env.age";
+          rekeyFile = lib.repoSecret "andromeda/aws-cache/env.age";
         };
         "andromeda.aws-experiments.key" = mkIf cfg.remoteBuilders.enable {
-          rekeyFile = "${inputs.self}/secrets/andromeda/aws-experiments/key.age";
+          rekeyFile = lib.repoSecret "andromeda/aws-experiments/key.age";
           mode = "400";
         };
       };
@@ -110,7 +110,7 @@ in
     (mkIf cfg.nixDaemonSecrets.enable {
       # AWS secrets creds for nix-daemon
       age.secrets."andromeda.aws-secrets.env" = {
-        rekeyFile = "${inputs.self}/secrets/andromeda/aws-secrets/env.age";
+        rekeyFile = lib.repoSecret "andromeda/aws-secrets/env.age";
       };
     })
   ];

@@ -22,6 +22,10 @@
     ./network.nix
   ];
 
+  # nixpkgsConfig = {
+  #   cudaSupport = true;
+  # };
+
   ### Set boot options
   boot = {
     # Use the systemd-boot boot loader.
@@ -81,9 +85,31 @@
     };
   };
 
+  services.fan2go = {
+    enable = true;
+    settings = {
+      sensors = [
+        {
+          id = "gpu_temp";
+          nvidia = {
+            device = "nvidia-*-*";
+            index = 1;
+          };
+        }
+        {
+          id = "cpu_package";
+          hwmon = {
+            platform = "k10temp-pci-*";
+            index = 1;
+          };
+        }
+      ];
+    };
+  };
+
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {
-    rekeyFile = "${inputs.self}/secrets/corncheese/atuin/key.age";
+    rekeyFile = lib.repoSecret "corncheese/atuin/key.age";
     owner = "conroy";
     mode = "0400";
   };
@@ -202,10 +228,6 @@
     };
   };
 
-  programs.coolercontrol = {
-    enable = true;
-  };
-
   ## X11 specific
   # services.xserver = {
   #   xkb.layout = "us";
@@ -253,7 +275,7 @@
   virtualisation.docker.enable = true;
 
   age.secrets."conroy.user.password" = {
-    rekeyFile = "${inputs.self}/secrets/home/conroy/user/password.age";
+    rekeyFile = lib.repoSecret "home/conroy/user/password.age";
     mode = "440";
   };
 

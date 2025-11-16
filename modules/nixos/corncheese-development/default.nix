@@ -60,7 +60,7 @@ in
       ((lib.mkIf cfg.remoteBuilders.enable) {
         age.secrets = {
           "corncheese.home.key" = {
-            rekeyFile = "${inputs.self}/secrets/corncheese/home/key.age";
+            rekeyFile = lib.repoSecret "corncheese/home/key.age";
             mode = "400";
           };
         };

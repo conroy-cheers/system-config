@@ -7,12 +7,19 @@
 }:
 
 {
-  imports = [ ../lib ];
+  imports = [
+    ../lib
+    ../things
+  ];
 
   options =
     let
-      inherit (lib) types;
-      inherit (config.lib) createThings;
+      inherit (lib)
+        types
+        ;
+      inherit (config.lib)
+        createThings
+        ;
 
       createPackages =
         baseDir:
@@ -39,7 +46,7 @@
               '';
               type = types.path;
               default = "${self}/pkgs";
-              defaultText = "\${self}/pkgs";
+              defaultText = ''''${self}/pkgs'';
             };
             result = lib.mkOption {
               description = ''
@@ -72,12 +79,21 @@
         ...
       }:
       let
+        # NOTE: evaluate packages in isolation, which allows
+        #       merging them back into the global `pkgs` later
+        # NOTE: also faster than `import nixpkgs { inherit system; }`
+        pkgsPure = inputs.nixpkgs.legacyPackages.${system};
         packages = lib.pipe config.auto.packages.result [
           (lib.filterAttrs (
             name:
             { package, systems }:
-            pkgs.callPackage systems {
-              inherit (pkgs) lib hostPlatform targetPlatform;
+            systems {
+              inherit (pkgsPure)
+                lib
+                hostPlatform
+                buildPlatform
+                targetPlatform
+                ;
             }
           ))
           (lib.mapAttrs (
@@ -85,6 +101,7 @@
             { package, systems }:
             let
               # TODO: put in `autoThings` `handle`?
+              # TODO: keep source `dream2nix` module for overriding?
               isDream2Nix = lib.pipe package [
                 builtins.functionArgs
                 builtins.attrNames
@@ -93,7 +110,7 @@
             in
             if isDream2Nix then
               inputs.dream2nix.lib.evalModules {
-                packageSets.nixpkgs = pkgs;
+                packageSets.nixpkgs = pkgsPure;
                 modules = [
                   package
                   {
@@ -103,12 +120,17 @@
                   }
                 ];
                 specialArgs = {
-                  # NOTE: for overlayed `maintainers`
+                  # NOTE: for overlayed `maintainers` and `net`
                   inherit (pkgs) lib;
+                  inherit inputs;
                 };
               }
             else
-              pkgs.callPackage package { }
+              # TODO: only inherit `input` if requested
+              pkgsPure.callPackage package
+                {
+                  # inherit inputs;
+                }
           ))
         ];
       in

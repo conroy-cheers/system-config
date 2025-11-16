@@ -148,13 +148,13 @@ in
     })
     (lib.mkIf cfg.mail.enable {
       age.secrets."corncheese.mail.icloud" = {
-        rekeyFile = "${inputs.self}/secrets/corncheese/mail/icloud.age";
+        rekeyFile = lib.repoSecret "corncheese/mail/icloud.age";
       };
       age.secrets."corncheese.mail.gmail" = {
-        rekeyFile = "${inputs.self}/secrets/corncheese/mail/gmail.age";
+        rekeyFile = lib.repoSecret "corncheese/mail/gmail.age";
       };
       age.secrets."corncheese.mail.andromeda" = {
-        rekeyFile = "${inputs.self}/secrets/andromeda/mail/gmail.age";
+        rekeyFile = lib.repoSecret "andromeda/mail/gmail.age";
       };
 
       accounts.email = {
