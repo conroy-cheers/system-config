@@ -8,32 +8,57 @@
 }:
 
 let
+  # HACK: doesn't get automatically overriden for some reason
+  lib = config._module.args.lib;
   inherit (config.lib)
     and
-    hasFiles
+    hasNixFiles
     hasDirectories
-    configuration-type-to-outputs-modules
+    extractDirectory
     ;
 
-  # `pkgs` with flake's overlays
-  # NOTE: done here to avoid infinite recursion
-  pkgs' =
-    system:
-    (withSystem system ({ pkgs, ... }: pkgs)).extend (final: prev: inputs.self.packages.${system});
+  # Global `pkgs` with flake's overlays and packages
+  # See <../pkgs/default.nix>
+  pkgsFor = system: (config.perSystem system).pkgs;
 
   genUsers =
     configurationFiles:
     lib.pipe configurationFiles [
-      (cf: cf."home" or { })
-      builtins.attrNames
-      (builtins.map (lib.strings.removeSuffix ".nix"))
+      # Enter `home` subdirectory, if it exists
+      (cf: extractDirectory cf "home")
+      # Filter out only the nix files, extracting their contents
+      (lib.concatMapAttrs (
+        file: value:
+        lib.optionalAttrs (value._type == "nix") {
+          ${lib.strings.removeSuffix ".nix" file} = value.content;
+        }
+      ))
     ];
+
+  # HACK: `agenix-rekey`'s `nixosModules.default` module
+  #       actually works everywhere where `(r)agenix` works
+  agenix-module-for =
+    host-type:
+    { meta, ... }:
+    {
+      imports = [
+        inputs.ragenix."${config.lib.kebabToCamel host-type}Modules".default
+        inputs.agenix-rekey.nixosModules.default
+        (lib.optionalAttrs (meta.pubkey != null) {
+          age.rekey.hostPubkey = meta.pubkey;
+        })
+        (if host-type == "homeManager" then ./agenix-rekey/home.nix else ./agenix-rekey)
+      ];
+    };
 
   homeManagerModule =
     {
-      root,
       meta,
-      users ? null,
+      # NOTE: `{}` is default for normal systems
+      #       set to module directly for `nixOnDroid`
+      # FIXME: `nixOnDroid` module has to not be an attrset
+      users ? { },
+      extraModules ? [ ],
     }:
     {
       home-manager = {
@@ -41,119 +66,136 @@ let
         useGlobalPkgs = true;
         # Do not keep packages in ${HOME}
         useUserPackages = true;
-        # make deploying work
-        backupFileExtension = "hm-backup";
-        # Default import all of our exported `home-manager` modules
-        sharedModules =
-          builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"}
-          ++ [
-            # (r)agenix && agenix-rekey
-            inputs.ragenix.homeManagerModules.default
-            inputs.agenix-rekey.homeManagerModules.default
-            # (lib.optionalAttrs (meta.pubkey != null) {
-            #   age.rekey.hostPubkey = meta.pubkey;
-            # })
-            ./agenix-rekey/home.nix
-          ];
-        # Pass in `inputs`, `hostname` and `meta`
+        # Default import provided modules
+        # Usually `builtins.attrValues config.flake.${config.auto.modules.moduleTypes."home-manager".modulesName}`
+        sharedModules = extraModules ++ [
+          (
+            { lib, ... }:
+            {
+              _module.args.lib = lib.extend inputs.nix-lib-net.overlays.raw;
+            }
+          )
+        ];
+        # Pass in `inputs` and `meta`
         extraSpecialArgs = {
           inherit inputs;
           inherit meta;
+          # inherit lib;
         };
       }
       // (
-        if users == null then
+        if builtins.isAttrs users then
           {
-            # nixOnDroid
-            config = "${root}/home.nix";
+            # Not nixOnDroid
+            inherit users;
           }
         else
           {
-            # Not nixOnDroid
-            users = lib.attrsets.genAttrs users (user: import "${root}/home/${user}.nix");
+            # nixOnDroid
+            config = users;
           }
       );
     };
 
   mkNixosHost =
-    args@{
-      root,
+    {
       meta,
+      configuration,
       users,
+      extraModules ? [ ],
+      extraHomeModules ? [ ],
     }:
     inputs.nixpkgs.lib.nixosSystem {
       inherit (meta) system;
-      pkgs = pkgs' meta.system;
+      pkgs = pkgsFor meta.system;
 
       modules = [
         # Main configuration
-        "${root}/configuration.nix"
+        configuration
+
         # Home Manager
         inputs.home-manager.nixosModules.home-manager
-        (homeManagerModule args)
-        # (r)agenix && agenix-rekey
-        inputs.ragenix.nixosModules.default
-        inputs.agenix-rekey.nixosModules.default
-        inputs.agenix-template.nixosModules.default
-        (lib.optionalAttrs (meta.pubkey != null) {
-          age.rekey.hostPubkey = meta.pubkey;
+        (homeManagerModule {
+          inherit meta users;
+          extraModules = extraHomeModules;
         })
-        ./agenix-rekey
+
         # nix-topology
         inputs.nix-topology.nixosModules.default
+
         # Sane default `networking.hostName`
         {
           networking.hostName = lib.mkDefault meta.hostname;
         }
-        # TODO: lib.optionals
       ]
-      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nixos"});
+      ++ extraModules;
 
       specialArgs = {
         inherit inputs;
         inherit meta;
+        inherit lib;
       };
     };
 
   mkNixOnDroidHost =
-    args@{ root, meta }:
+    {
+      meta,
+      configuration,
+      homeConfiguration,
+      extraModules ? [ ],
+      extraHomeModules ? [ ],
+    }:
     inputs.nix-on-droid.lib.nixOnDroidConfiguration {
       # NOTE: inferred by `pkgs.system`
       # inherit system;
-      pkgs = pkgs' meta.system;
+      pkgs = pkgsFor meta.system;
 
       modules = [
         # Main configuration
-        "${root}/configuration.nix"
+        configuration
         # Home Manager
-        (homeManagerModule args)
+        (homeManagerModule {
+          inherit meta;
+          users = homeConfiguration;
+          extraModules = extraHomeModules;
+        })
+        # UID and GUI
+        {
+          user = {
+            inherit (meta)
+              uid
+              gid
+              ;
+          };
+        }
       ]
-      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-on-droid"});
+      ++ extraModules;
 
       extraSpecialArgs = {
         inherit inputs;
         inherit meta;
+        inherit lib;
       };
 
       home-manager-path = inputs.home-manager.outPath;
     };
 
   mkNixDarwinHost =
-    args@{
-      root,
+    {
       meta,
+      configuration,
       users,
+      extraModules ? [ ],
+      extraHomeModules ? [ ],
     }:
     inputs.nix-darwin.lib.darwinSystem {
       inherit (meta) system;
-      pkgs = pkgs' meta.system;
+      pkgs = pkgsFor meta.system;
 
       modules = [
         # Main configuration
-        "${root}/configuration.nix"
-        # Home Manager
-        inputs.home-manager.darwinModules.home-manager
-        (homeManagerModule args)
+        configuration
+
         # (r)agenix && agenix-rekey
         inputs.ragenix.darwinModules.default
         inputs.agenix-rekey.nixosModules.default
@@ -161,66 +203,98 @@ let
           age.rekey.hostPubkey = meta.pubkey;
         })
         ./agenix-rekey
+
+        # Home Manager
+        inputs.home-manager.darwinModules.home-manager
+        (homeManagerModule {
+          inherit meta users;
+          extraModules = extraHomeModules;
+        })
       ]
-      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "nix-darwin"});
+      ++ extraModules;
 
       specialArgs = {
         inherit inputs;
         inherit meta;
+        inherit lib;
       };
     };
 
   mkHomeManagerHost =
-    args@{ root, meta }:
+    {
+      meta,
+      configuration,
+      extraModules ? [ ],
+    }:
     inputs.home-manager.lib.homeManagerConfiguration {
       inherit (meta) system;
-      pkgs = pkgs' meta.system;
+      pkgs = pkgsFor meta.system;
 
       modules = [
-        "${root}/home.nix"
+        configuration
       ]
-      ++ (builtins.attrValues config.flake.${configuration-type-to-outputs-modules "home-manager"});
+      ++ extraModules;
 
       extraSpecialArgs = {
         inherit inputs;
         inherit meta;
+        inherit lib;
       };
     };
+
+  mkOpenwrt =
+    {
+      meta,
+      configuration,
+    }:
+    let
+      pkgs = pkgsFor meta.system;
+      profiles = inputs.openwrt-imagebuilder.lib.profiles {
+        inherit pkgs;
+        inherit (meta) release;
+      };
+      openwrtConfig = profiles.identifyProfile meta.profile // configuration { inherit pkgs lib; };
+    in
+    inputs.openwrt-imagebuilder.lib.build openwrtConfig;
 in
 {
   auto.configurations.configurationTypes = lib.mkDefault {
     nixos = {
       predicate = (
-        {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
+        { meta, configurationFiles, ... }:
         and [
           meta.enable
-          (hasFiles [ "configuration.nix" ] configurationFiles)
+          (hasNixFiles [ "configuration.nix" ] configurationFiles)
         ]
       );
-      mkHost = (
+      metaModule =
+        { lib, metaModules, ... }:
         {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
+          imports = [
+            metaModules.enable
+            metaModules.system
+            metaModules.hostname
+            metaModules.pubkey
+            metaModules.deploy
+            metaModules.gui
+          ];
+        };
+      mkHost = (
+        { meta, configurationFiles, ... }:
         mkNixosHost {
-          inherit root;
           inherit meta;
+          configuration = configurationFiles."configuration.nix".content;
           users = genUsers configurationFiles;
+          extraModules = builtins.attrValues config.flake.nixosModules ++ [
+            (agenix-module-for "nixos")
+          ];
+          extraHomeModules = builtins.attrValues config.flake.homeManagerModules ++ [
+            (agenix-module-for "homeManager")
+          ];
         }
       );
       mkDeployNode = (
-        {
-          root,
-          meta,
-          configuration,
-        }:
+        { meta, configuration }:
         {
           inherit (meta.deploy) hostname;
           profiles.system = meta.deploy // {
@@ -229,67 +303,100 @@ in
         }
       );
     };
-    # nix-on-droid = {
-    #   predicate = (
-    #     {
-    #       root,
-    #       meta,
-    #       configurationFiles,
-    #       ...
-    #     }:
-    #     and [
-    #       meta.enable
-    #       (hasFiles [ "configuration.nix" "home.nix" ] configurationFiles)
-    #     ]
-    #   );
-    #   mkHost = (
-    #     {
-    #       root,
-    #       meta,
-    #       configurationFiles,
-    #       ...
-    #     }:
-    #     mkNixOnDroidHost {
-    #       inherit root;
-    #       inherit meta;
-    #     }
-    #   );
-    # };
-    nix-darwin = {
-      hostsName = "darwinHosts";
-      configurationsName = "darwinConfigurations";
+    nix-on-droid = {
       predicate = (
-        {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
+        { meta, configurationFiles, ... }:
         and [
           meta.enable
-          (hasFiles [ "configuration.nix" ] configurationFiles)
-          (hasDirectories [ "home" ] configurationFiles)
+          (hasNixFiles [ "configuration.nix" "home.nix" ] configurationFiles)
         ]
       );
-      mkHost = (
+      metaModule =
+        { lib, metaModules, ... }:
         {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
-        mkNixDarwinHost {
-          inherit root;
+          imports = [
+            metaModules.enable
+            metaModules.system
+            metaModules.hostname
+            metaModules.pubkey
+            metaModules.deploy
+          ];
+
+          options =
+            let
+              inherit (lib)
+                mkOption
+                types
+                ;
+            in
+            {
+              uid = mkOption {
+                type = types.ints.positive;
+              };
+              gid = mkOption {
+                type = types.ints.positive;
+              };
+            };
+        };
+      mkHost = (
+        { meta, configurationFiles, ... }:
+        mkNixOnDroidHost {
           inherit meta;
-          users = genUsers configurationFiles;
+          configuration = configurationFiles."configuration.nix".content;
+          homeConfiguration = configurationFiles."home.nix".content;
+          extraModules = builtins.attrValues config.flake.nixOnDroidModules;
+          extraHomeModules = builtins.attrValues config.flake.homeManagerModules;
         }
       );
       mkDeployNode = (
+        { meta, configuration }:
         {
-          root,
-          meta,
-          configuration,
-        }:
+          inherit (meta.deploy) hostname;
+          profiles.system = meta.deploy // {
+            path =
+              inputs.deploy-rs.lib.${meta.system}.activate.custom configuration.activationPackage
+                "${configuration.activationPackage}/activate";
+          };
+        }
+      );
+    };
+    nix-darwin = {
+      hostsName = "darwinHosts";
+      configurationsNameOld = "darwinConfigurations";
+      configurationsNameNew = "darwin";
+      predicate = (
+        { meta, configurationFiles, ... }:
+        and [
+          meta.enable
+          (hasNixFiles [ "configuration.nix" ] configurationFiles)
+          (hasDirectories [ "home" ] configurationFiles)
+        ]
+      );
+      metaModule =
+        { lib, metaModules, ... }:
+        {
+          imports = [
+            metaModules.enable
+            metaModules.system
+            metaModules.hostname
+            metaModules.pubkey
+            metaModules.deploy
+          ];
+        };
+      mkHost = (
+        { meta, configurationFiles, ... }:
+        mkNixDarwinHost {
+          inherit meta;
+          configuration = configurationFiles."configuration.nix".content;
+          users = genUsers configurationFiles;
+          extraModules = builtins.attrValues config.flake.darwinModules;
+          extraHomeModules = builtins.attrValues config.flake.homeManagerModules ++ [
+            # (agenix-module-for "darwin")
+          ];
+        }
+      );
+      mkDeployNode = (
+        { meta, configuration }:
         {
           inherit (meta.deploy) hostname;
           profiles.system = meta.deploy // {
@@ -300,29 +407,71 @@ in
     };
     home-manager = {
       hostsName = "homeHosts";
-      configurationsName = "homeConfigurations";
+      configurationsNameOld = "homeConfigurations";
+      configurationsNameNew = "home";
       predicate = (
-        {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
+        { meta, configurationFiles, ... }:
         and [
           meta.enable
-          (hasFiles [ "home.nix" ] configurationFiles)
+          (hasNixFiles [ "home.nix" ] configurationFiles)
         ]
       );
-      mkHost = (
+      metaModule =
+        { lib, metaModules, ... }:
         {
-          root,
-          meta,
-          configurationFiles,
-          ...
-        }:
+          imports = [
+            metaModules.enable
+            metaModules.system
+            metaModules.hostname
+            # metaModules.pubkey
+          ];
+        };
+      mkHost = (
+        { meta, configurationFiles, ... }:
         mkHomeManagerHost {
-          inherit root;
           inherit meta;
+          configuration = configurationFiles."home.nix".content;
+          extraModules = builtins.attrValues config.flake.homeManagerModules;
+        }
+      );
+    };
+    openwrt = {
+      predicate = (
+        { meta, configurationFiles, ... }:
+        and [
+          meta.enable
+          (hasNixFiles [ "configuration.nix" ] configurationFiles)
+        ]
+      );
+      metaModule =
+        { lib, metaModules, ... }:
+        {
+          imports = [
+            metaModules.enable
+            metaModules.system
+          ];
+
+          options =
+            let
+              inherit (lib)
+                mkOption
+                types
+                ;
+            in
+            {
+              release = mkOption {
+                type = types.str;
+              };
+              profile = mkOption {
+                type = types.str;
+              };
+            };
+        };
+      mkHost = (
+        { meta, configurationFiles, ... }:
+        mkOpenwrt {
+          inherit meta;
+          configuration = configurationFiles."configuration.nix".content;
         }
       );
     };

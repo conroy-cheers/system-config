@@ -1656,6 +1656,22 @@
         "type": "github"
       }
     },
+    "infuse": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1738726976,
+        "narHash": "sha256-N+u3vnK3zyXLUuDj/vr62r9tM7uarhKVCaLHWxjo/YY=",
+        "ref": "refs/heads/trunk",
+        "rev": "c8fb7397039215e1444c835e36a0da7dc3c743f8",
+        "revCount": 48,
+        "type": "git",
+        "url": "https://codeberg.org/amjoseph/infuse.nix"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://codeberg.org/amjoseph/infuse.nix"
+      }
+    },
     "ixx": {
       "inputs": {
         "flake-utils": [
@@ -1723,6 +1739,19 @@
         "owner": "Jovian-Experiments",
         "repo": "Jovian-NixOS",
         "type": "github"
+      }
+    },
+    "lib-net": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1596309860,
+        "narHash": "sha256-izAzepR/6cDvnRfaa2ceSolMLMwqzQB5x9q62aR5J2g=",
+        "type": "tarball",
+        "url": "https://gist.github.com/duairc/5c9bb3c922e5d501a1edb9e7b3b845ba/archive/3885f7cd9ed0a746a9d675da6f265d41e9fd6704.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://gist.github.com/duairc/5c9bb3c922e5d501a1edb9e7b3b845ba/archive/3885f7cd9ed0a746a9d675da6f265d41e9fd6704.tar.gz"
       }
     },
     "mac-app-util": {
@@ -1914,6 +1943,24 @@
       "original": {
         "owner": "theCapypara",
         "repo": "nix-jetbrains-plugins",
+        "type": "github"
+      }
+    },
+    "nix-lib-net": {
+      "inputs": {
+        "lib-net": "lib-net"
+      },
+      "locked": {
+        "lastModified": 1732312010,
+        "narHash": "sha256-kQuiPSq3Iz/t5RC+QqwHfvj4hKQesm/WGffcQlhhCVE=",
+        "owner": "reo101",
+        "repo": "nix-lib-net",
+        "rev": "0f3412ccb56d783b974341f5f83abfaed7aa8b5b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "reo101",
+        "repo": "nix-lib-net",
         "type": "github"
       }
     },
@@ -2704,6 +2751,7 @@
         "hyprland": "hyprland",
         "hyprland-plugins": "hyprland-plugins",
         "impermanence": "impermanence",
+        "infuse": "infuse",
         "j-link": "j-link",
         "jovian-nixos": "jovian-nixos",
         "mac-app-util": "mac-app-util",
@@ -2711,6 +2759,7 @@
         "nix-colors": "nix-colors",
         "nix-darwin": "nix-darwin",
         "nix-jetbrains-plugins": "nix-jetbrains-plugins",
+        "nix-lib-net": "nix-lib-net",
         "nix-monitored": "nix-monitored",
         "nix-on-droid": "nix-on-droid",
         "nix-topology": "nix-topology",
@@ -2729,6 +2778,7 @@
         "vscode-server": "vscode-server",
         "waveforms": "waveforms",
         "wired": "wired",
+        "yants": "yants",
         "zig-overlay": "zig-overlay",
         "zls-overlay": "zls-overlay"
       }
@@ -3427,6 +3477,22 @@
         "owner": "hyprwm",
         "repo": "xdg-desktop-portal-hyprland",
         "type": "github"
+      }
+    },
+    "yants": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1645270620,
+        "narHash": "sha256-wwkl3K200UbW9Z7BRlVH8HOEXCaVYP2MqZpsF9EhgZg=",
+        "ref": "refs/heads/canon",
+        "rev": "efeb6dc11eb1a1e88d41dc2093fc5aa31f7abd35",
+        "revCount": 15,
+        "type": "git",
+        "url": "https://code.tvl.fyi/depot.git:/nix/yants.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://code.tvl.fyi/depot.git:/nix/yants.git"
       }
     },
     "zig-overlay": {

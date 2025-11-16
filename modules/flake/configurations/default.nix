@@ -10,13 +10,20 @@
 {
   imports = [
     ../lib
+    ../lib-custom
     ./default-generators.nix
   ];
 
   options =
     let
-      inherit (lib) types;
-      inherit (config.lib) recurseDir kebabToCamel;
+      inherit (lib)
+        types
+        ;
+      inherit (config.lib)
+        extractNixFile
+        recurseDir
+        kebabToCamel
+        ;
     in
     {
       auto.configurations = lib.mkOption {
@@ -44,9 +51,10 @@
                 '';
                 type = types.path;
                 default = "${self}/hosts";
-                defaultText = "\${self}/hosts";
+                defaultText = ''''${self}/hosts'';
               };
               configurationTypes = lib.mkOption {
+                # TODO: better merging (test on separate flake)
                 type = types.attrsOf (
                   types.submodule (
                     configurationTypeSubmodule@{ name, ... }:
@@ -55,6 +63,7 @@
                         # enable
                         dir
                         predicate
+                        metaModule
                         mkHost
                         mkDeployNode
                         ;
@@ -76,12 +85,19 @@
                           type = types.str;
                           default = "${kebabToCamel name}Hosts";
                         };
-                        configurationsName = lib.mkOption {
+                        configurationsNameOld = lib.mkOption {
                           description = ''
-                            Name of the `configurations` output
+                            Name of the `''${configurationType}Configurations` output
                           '';
                           type = types.str;
                           default = "${kebabToCamel name}Configurations";
+                        };
+                        configurationsNameNew = lib.mkOption {
+                          description = ''
+                            Name of the `configurations.''${configurationType}` output
+                          '';
+                          type = types.str;
+                          default = name;
                         };
                         predicate = lib.mkOption {
                           description = ''
@@ -90,46 +106,52 @@
                           # FIXME: `merge` of `functionTo` type causes a stray `passthru` to attempt getting evaluated
                           # type = types.functionTo types.anything;
                           type = types.unspecified;
-                          example = # nix
-                            ''
-                              { root, host, configurationFiles, ... }:
-                                # Utils from `./modules/flake/lib/default.nix`
-                                and [
-                                  (! (host == "__template__"))
-                                  (hasFiles
-                                    [ "configuration.nix" ]
-                                    configurationFiles)
-                                  (hasDirectories
-                                    [ "home" ]
-                                    configurationFiles)
-                                ]
-                            '';
+                          example = /* nix */ ''
+                            { host, configurationFiles, ... }:
+                              # Utils from `./modules/flake/lib/default.nix`
+                              and [
+                                (! (host == "__template__"))
+                                (hasNixFiles
+                                  [ "configuration.nix" ]
+                                  configurationFiles)
+                                (hasDirectories
+                                  [ "home" ]
+                                  configurationFiles)
+                              ]
+                          '';
                         };
+                        metaModule = lib.mkOption {
+                          description = ''
+                            Module to be included in the `meta` computation
+                            Has access to the `metaModules` module argument for access to common meta modules
+                          '';
+                          type = types.deferredModule;
+                          default = { };
+                        };
+                        # TODO: export common (simple) `mkHost`s?
                         mkHost = lib.mkOption {
                           description = ''
                             Function for generating a configuration
                           '';
                           # type = types.functionTo types.anything;
                           type = types.unspecified;
-                          example = # nix
-                            ''
-                              args @ { root, meta, users }: inputs.nixpkgs.lib.nixosSystem {
-                                inherit (meta) system;
+                          example = /* nix */ ''
+                            args @ { meta, configuration, users }: inputs.nixpkgs.lib.nixosSystem {
+                              inherit (meta) system;
 
-                                modules = [
-                                  # Main configuration
-                                  "''${root}/configuration.nix"
-                                  # Home Manager
-                                  inputs.home-manager.nixosModules.home-manager
-                                  (homeManagerModule args)
-                                ] ++ (builtins.attrValues config.flake.''${configuration-type-to-outputs-modules "nixos"});
+                              modules = [
+                                # Main configuration
+                                configuration
+                                # Home Manager
+                                inputs.home-manager.nixosModules.home-manager
+                              ] ++ (builtins.attrValues config.flake.nixosModules);
 
-                                specialArgs = {
-                                  inherit inputs;
-                                  inherit meta;
-                                };
+                              specialArgs = {
+                                inherit inputs;
+                                inherit meta;
                               };
-                            '';
+                            };
+                          '';
                         };
                         mkDeployNode = lib.mkOption {
                           description = ''
@@ -137,16 +159,14 @@
                           '';
                           type = types.nullOr (types.functionTo types.anything);
                           default = null;
-                          # TODO: update
-                          example = # nix
-                            ''
-                              { root, host, meta, configuration }: {
-                                inherit (meta.deploy) hostname;
-                                profiles.system = meta.deploy // {
-                                  path = inputs.deploy-rs.lib.''${meta.system}.activate."nixos" configuration;
-                                };
-                              }
-                            '';
+                          example = /* nix */ ''
+                            { meta, configuration }: {
+                              inherit (meta.deploy) hostname;
+                              profiles.system = meta.deploy // {
+                                path = inputs.deploy-rs.lib.''${meta.system}.activate."nixos" configuration;
+                              };
+                            }
+                          '';
                         };
                         result = lib.mkOption {
                           description = ''
@@ -157,41 +177,48 @@
                           readOnly = true;
                           default = lib.pipe dir [
                             recurseDir
+                            # Leave out only the directories
+                            (lib.concatMapAttrs (
+                              file: value:
+                              lib.optionalAttrs (value._type == "directory") {
+                                ${file} = value.content;
+                              }
+                            ))
                             (lib.concatMapAttrs (
                               host: configurationFiles:
                               let
-                                root = "${dir}/${host}";
-                                meta-path = "${root}/meta.nix";
+                                meta-file = extractNixFile configurationFiles "meta.nix";
+                                has-meta = meta-file != null;
+                                meta-content = meta-file.content;
                                 meta =
                                   (lib.evalModules {
                                     class = "meta";
+                                    specialArgs = {
+                                      # Give access to common meta modules
+                                      metaModules = (import ./meta-modules);
+                                      # Pass through host (default for `hostname`, etc.)
+                                      inherit host;
+                                    };
                                     modules = [
-                                      (if builtins.pathExists meta-path then import meta-path else { })
-                                      ./meta-module.nix
-                                      {
-                                        config = {
-                                          enable = lib.mkDefault (host != "__template__");
-                                          hostname = lib.mkDefault host;
-                                        };
-                                      }
+                                      # {} if no `metaModule` is provided
+                                      metaModule
+                                      # {} if no `meta.nix` is provided
+                                      (lib.optionalAttrs has-meta meta-content)
                                     ];
                                   }).config;
-                                deploy-config = meta.deploy;
-                                has-mkDeployNode = mkDeployNode != null;
+                                deploy-config = meta.deploy or null;
                                 has-deploy-config = deploy-config != null;
-                                configuration-args = {
-                                  inherit root meta configurationFiles;
-                                };
+                                has-mkDeployNode = mkDeployNode != null;
+                                configuration-args = { inherit meta configurationFiles; };
                                 valid = predicate configuration-args;
                                 configuration = mkHost configuration-args;
-                                deploy-args = {
-                                  inherit root meta configuration;
-                                };
+                                deploy-args = { inherit meta configuration; };
                                 deploy = mkDeployNode deploy-args;
                               in
                               lib.optionalAttrs valid {
                                 ${host} = {
                                   inherit configuration;
+                                  inherit meta;
                                 }
                                 // lib.optionalAttrs (has-mkDeployNode && has-deploy-config) {
                                   inherit deploy;
@@ -209,14 +236,38 @@
               result = lib.mkOption {
                 readOnly = true;
                 default = {
-                  configurations = lib.pipe configurationTypes [
-                    (lib.mapAttrs' (
-                      configurationType: configurationTypeConfig:
-                      lib.nameValuePair configurationTypeConfig.configurationsName (
-                        lib.mapAttrs (host: { configuration, ... }: configuration) configurationTypeConfig.result
-                      )
-                    ))
-                  ];
+                  configurations =
+                    let
+                      mkResultConfigurations =
+                        new:
+                        lib.pipe configurationTypes (
+                          [
+                            (lib.mapAttrs' (
+                              configurationType: configurationTypeConfig:
+                              lib.nameValuePair configurationTypeConfig."configurationsName${if new then "New" else "Old"}" (
+                                lib.mapAttrs (
+                                  host:
+                                  { configuration, meta, ... }:
+                                  configuration
+                                  // {
+                                    # NOTE: for introspection
+                                    inherit meta;
+                                  }
+                                ) configurationTypeConfig.result
+                              )
+                            ))
+                          ]
+                          ++ lib.optional new (configurations: {
+                            inherit configurations;
+                          })
+                        );
+                    in
+                    {
+                      # NOTE: old:  ${name}Configurations.${configuration}
+                      #       new: configurations.${name}.${configuration}
+                      old = mkResultConfigurations false;
+                      new = mkResultConfigurations true;
+                    };
                   deployNodes = lib.pipe configurationTypes [
                     (lib.concatMapAttrs (
                       configurationType: configurationTypeConfig:
@@ -244,7 +295,8 @@
   config = {
     flake =
       let
-        configurations = config.auto.configurations.result.configurations;
+        configurationsOld = config.auto.configurations.result.configurations.old;
+        configurationsNew = config.auto.configurations.result.configurations.new;
         deployNodes = {
           deploy.nodes = config.auto.configurations.result.deployNodes;
         };
@@ -253,6 +305,6 @@
         };
         # TODO: lib.something for merging (asserting for no overwrites)
       in
-      configurations // deployNodes // deployChecks;
+      configurationsOld // configurationsNew // deployNodes // deployChecks;
   };
 }

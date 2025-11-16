@@ -7,12 +7,20 @@
 }:
 
 {
-  imports = [ ../lib ];
+  imports = [
+    ../lib
+    ../things
+  ];
 
   options =
     let
-      inherit (lib) types;
-      inherit (config.lib) createThings kebabToCamel;
+      inherit (lib)
+        types
+        ;
+      inherit (config.lib)
+        createThings
+        kebabToCamel
+        ;
 
       createModules =
         baseDir:
@@ -29,7 +37,11 @@
         type = types.submodule (
           autoModulesSubmodule:
           let
-            inherit (autoModulesSubmodule.config) moduleTypes enableAll baseDir;
+            inherit (autoModulesSubmodule.config)
+              moduleTypes
+              enableAll
+              baseDir
+              ;
           in
           {
             options = {
@@ -40,14 +52,18 @@
                 '';
                 type = types.path;
                 default = "${self}/modules";
-                defaultText = "\${self}/modules";
+                defaultText = ''''${self}/modules'';
               };
               moduleTypes = lib.mkOption {
+                # NOTE: default value set in the global `config` below, for visibility
                 type = types.attrsOf (
                   types.submodule (
                     moduleTypeSubmodule@{ name, ... }:
                     let
-                      inherit (moduleTypeSubmodule.config) enable dir;
+                      inherit (moduleTypeSubmodule.config)
+                        enable
+                        dir
+                        ;
                     in
                     {
                       options = {
@@ -60,12 +76,19 @@
                           type = types.path;
                           default = "${baseDir}/${name}";
                         };
-                        modulesName = lib.mkOption {
+                        modulesNameOld = lib.mkOption {
                           description = ''
-                            Name of the `modules` output
+                            Name of the `''${moduleType}Modules` output
                           '';
                           type = types.str;
                           default = "${kebabToCamel name}Modules";
+                        };
+                        modulesNameNew = lib.mkOption {
+                          description = ''
+                            Name of the `modules.''${moduleType}` output
+                          '';
+                          type = types.str;
+                          default = name;
                         };
                         resultModules = lib.mkOption {
                           description = ''
@@ -81,27 +104,35 @@
                     }
                   )
                 );
-                # TODO: put in a more visible place
-                default = {
-                  nixos = { };
-                  nix-on-droid = { };
-                  nix-darwin = {
-                    modulesName = "darwinModules";
-                  };
-                  home-manager = { };
-                  flake = { };
-                };
               };
-              resultModules = lib.mkOption {
+              result = lib.mkOption {
                 readOnly = true;
-                default = lib.pipe moduleTypes [
-                  (lib.mapAttrs' (
-                    moduleType: moduleTypeConfig:
-                    lib.nameValuePair moduleTypeConfig.modulesName (
-                      lib.mapAttrs (host: module: module) moduleTypeConfig.resultModules
-                    )
-                  ))
-                ];
+                default = {
+                  modules =
+                    let
+                      mkResultModules =
+                        new:
+                        lib.pipe moduleTypes (
+                          [
+                            (lib.mapAttrs' (
+                              moduleType: moduleTypeConfig:
+                              lib.nameValuePair moduleTypeConfig."modulesName${if new then "New" else "Old"}" (
+                                lib.mapAttrs (host: module: module) moduleTypeConfig.resultModules
+                              )
+                            ))
+                          ]
+                          ++ lib.optional new (modules: {
+                            inherit modules;
+                          })
+                        );
+                    in
+                    {
+                      # NOTE: old:  ${name}Modules.${module}
+                      #       new: modules.${name}.${module}
+                      old = mkResultModules false;
+                      new = mkResultModules true;
+                    };
+                };
               };
             };
           }
@@ -111,10 +142,22 @@
     };
 
   config = {
+    auto.modules.moduleTypes = lib.mkOptionDefault {
+      nixos = { };
+      nix-on-droid = { };
+      nix-darwin = {
+        modulesNameOld = "darwinModules";
+        modulesNameNew = "darwin";
+      };
+      home-manager = { };
+      flake = { };
+    };
+
     flake =
       let
-        autoModules = config.auto.modules.resultModules;
+        modulesOld = config.auto.modules.result.modules.old;
+        modulesNew = config.auto.modules.result.modules.new;
       in
-      autoModules;
+      modulesOld // modulesNew;
   };
 }

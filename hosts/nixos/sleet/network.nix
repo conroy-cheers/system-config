@@ -13,7 +13,7 @@
   '';
 
   age.secrets."home.wifi.conf" = {
-    rekeyFile = "${inputs.self}/secrets/home/wifi/conf.age";
+    rekeyFile = lib.repoSecret "home/wifi/conf.age";
   };
   networking.wireless = {
     # enable = true;

@@ -12,7 +12,7 @@ in
 {
   config = lib.mkIf cfg.tailscale.enable {
     age.secrets."andromeda.tailscale.env" = {
-      rekeyFile = "${inputs.self}/secrets/andromeda/tailscale/key.age";
+      rekeyFile = lib.repoSecret "andromeda/tailscale/key.age";
     };
 
     # make the tailscale command usable to users

@@ -31,7 +31,7 @@ in
 
   config = lib.mkIf cfg.enable {
     age.secrets."andromeda.aws-home-config.credentials" = {
-      rekeyFile = "${inputs.self}/secrets/andromeda/aws-home-config/credentials.age";
+      rekeyFile = lib.repoSecret "andromeda/aws-home-config/credentials.age";
     };
 
     home.sessionVariables = {

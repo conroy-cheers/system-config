@@ -7,12 +7,19 @@
 }:
 
 {
-  imports = [ ../lib ];
+  imports = [
+    ../lib
+    ../things
+  ];
 
   options =
     let
-      inherit (lib) types;
-      inherit (config.lib) createThings;
+      inherit (lib)
+        types
+        ;
+      inherit (config.lib)
+        createThings
+        ;
 
       createOverlays =
         baseDir:
@@ -35,7 +42,7 @@
               '';
               type = types.path;
               default = "${self}/overlays";
-              defaultText = "\${self}/overlays";
+              defaultText = ''''${self}/overlays'';
             };
             result = lib.mkOption {
               description = ''
@@ -55,7 +62,9 @@
   config = {
     flake =
       let
-        overlays = lib.pipe config.auto.overlays.result [ (lib.mapAttrs (name: overlay: overlay)) ];
+        overlays = lib.pipe config.auto.overlays.result [
+          (lib.mapAttrs (name: overlay: overlay))
+        ];
       in
       {
         inherit overlays;

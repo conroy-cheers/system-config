@@ -7,9 +7,18 @@
 }:
 
 {
+  imports = [
+    ../lib
+  ];
+
   config.lib =
     let
-      inherit (config.lib) and eq hasFiles;
+      inherit (config.lib)
+        and
+        eq
+        recurseDir
+        hasNixFiles
+        ;
     in
     rec {
       # Try to passthru `inputs` by default
@@ -18,7 +27,9 @@
         name: result:
         let
           thing = if raw then result else result.${thingType};
-          passthru = { inherit inputs; };
+          passthru = {
+            inherit inputs;
+          };
           handledThing =
             if
               and [
@@ -48,9 +59,10 @@
           handle ? (defaultThingHandle { inherit raw thingType; }),
           raw ? true,
           extras ? { },
-          ...
         }:
         assert raw -> extras == { };
+        # NOTE: not using `recurseDir` since we are
+        #       only interested in one level of depth
         lib.pipe baseDir [
           # Read given directory
           builtins.readDir
@@ -82,7 +94,8 @@
             if
               and [
                 (type == "directory")
-                (hasFiles [ "default.nix" ] (builtins.readDir thingDir))
+                # PERF: `recurseDir` here may not be optimal
+                (hasNixFiles [ "default.nix" ] (recurseDir thingDir))
               ]
             then
               # Classic thing in a directory

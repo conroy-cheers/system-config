@@ -45,14 +45,14 @@ in
     (mkIf cfg.enable {
       age.secrets = {
         "andromeda.aws-cache.env" = {
-          rekeyFile = "${inputs.self}/secrets/andromeda/aws-cache/env.age";
+          rekeyFile = lib.repoSecret "andromeda/aws-cache/env.age";
         };
         "andromeda.aws-experiments.key" = mkIf cfg.remoteBuilders.enable {
-          rekeyFile = "${inputs.self}/secrets/andromeda/aws-experiments/key.age";
+          rekeyFile = lib.repoSecret "andromeda/aws-experiments/key.age";
           mode = "400";
         };
         "andromeda.aws-sandbox.key" = mkIf cfg.remoteBuilders.enable {
-          rekeyFile = "${inputs.self}/secrets/andromeda/aws-sandbox/key.age";
+          rekeyFile = lib.repoSecret "andromeda/aws-sandbox/key.age";
           mode = "400";
         };
       };
@@ -139,11 +139,11 @@ in
 
       # AWS secrets creds for nix-daemon
       age.secrets."andromeda.aws-secrets.env" = {
-        rekeyFile = "${inputs.self}/secrets/andromeda/aws-secrets/env.age";
+        rekeyFile = lib.repoSecret "andromeda/aws-secrets/env.age";
       };
       # sops-nix keys for test VMs
       age.secrets."andromeda.vm-sops-keys.txt" = {
-        rekeyFile = "${inputs.self}/secrets/andromeda/vm-sops-keys/keys.age";
+        rekeyFile = lib.repoSecret "andromeda/vm-sops-keys/keys.age";
         mode = "0440";
         owner = config.users.users.root.name;
         group = config.users.groups.nixbld.name;

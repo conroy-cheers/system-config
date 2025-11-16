@@ -16,7 +16,7 @@
   };
 
   age.rekey = {
-    hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH+vrY30vY/RtO3baHUmS0Pc3bm05fqihUJu2oqV4mvA conroy@labtop";
+    hostPubkey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH+vrY30vY/RtO3baHUmS0Pc3bm05fqihUJu2oqV4mvA conroy@labtop";
   };
 
   corncheese = {
