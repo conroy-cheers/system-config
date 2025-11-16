@@ -87,6 +87,7 @@
 
   services.fan2go = {
     enable = true;
+    package = pkgs.fan2go.override { enableNVML = pkgs.config.cudaSupport; };
     settings = {
       sensors = [
         {
