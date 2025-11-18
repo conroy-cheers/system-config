@@ -45,7 +45,7 @@
         "wasm32-wasi"
         "x86_64-windows"
       ];
-      addEmulatedSystemsToNixSandbox = false;
+      addEmulatedSystemsToNixSandbox = true;
     };
 
     supportedFilesystems = [ "btrfs" ];
