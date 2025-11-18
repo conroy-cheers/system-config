@@ -9,13 +9,34 @@
 {
   imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
 
-  boot.initrd.availableKernelModules = [
-    "xhci_pci"
-    "ahci"
-    "nvme"
-    "usb_storage"
-    "sd_mod"
-  ];
+  boot = {
+    kernelPackages = pkgs.linuxPackages_zen;
+    initrd.availableKernelModules = [
+      "xhci_pci"
+      "ahci"
+      "nvme"
+      "usb_storage"
+      "sd_mod"
+    ];
+    initrd.kernelModules = [ ];
+    kernelModules = [
+      "kvm-amd"
+      "it87"
+    ];
+    extraModulePackages = [
+      # https://github.com/NixOS/nixpkgs/pull/459648
+      (pkgs.linuxPackages_zen.it87.overrideAttrs {
+        version = "unstable-2025-10-06";
+        src = pkgs.fetchFromGitHub {
+          owner = "frankcrawford";
+          repo = "it87";
+          rev = "60d9def80d65e7e34a73e6f32d8677ad5bfa58a9";
+          hash = "sha256-xlUyq1DQFBCvAs9DP6i1ose+6e+nmmXFRyuzRXCg+Ko=";
+        };
+      })
+    ];
+    kernelParams = [ "preempt=full" ];
+  };
 
   hardware.amdgpu = {
     opencl.enable = true;

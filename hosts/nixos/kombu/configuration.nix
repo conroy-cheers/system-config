@@ -22,6 +22,7 @@
     ./network.nix
     # inputs.waveforms.nixosModule
     inputs.j-link.nixosModule
+    ./fan2go.nix
   ];
 
   nixpkgs = {
