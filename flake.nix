@@ -289,6 +289,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    affinity = {
+      url = "github:mrshmllow/affinity-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     direnv-instant = {
       url = "github:Mic92/direnv-instant";
       inputs.nixpkgs.follows = "nixpkgs";
