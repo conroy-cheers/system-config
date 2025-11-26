@@ -88,6 +88,9 @@ in
           };
         };
       };
+      photo = {
+        enable = lib.mkEnableOption "corncheese photo editing suite";
+      };
     };
   };
 
@@ -335,6 +338,9 @@ in
             "nix-idea"
           ])
         ]))
+        (lib.optionals cfg.photo.enable [
+          (inputs.affinity.packages.${meta.system}.v3)
+        ])
       ];
 
     # programs.jetbrains-remote = {

@@ -32,8 +32,11 @@
       };
       rust.enable = false;
       vscode.enable = true;
-      ssh.enable = true;
-      ssh.onePassword = true;
+      ssh = {
+        enable = true;
+        onePassword = true;
+      };
+      photo.enable = true;
     };
     scm = {
       git.enable = true;
