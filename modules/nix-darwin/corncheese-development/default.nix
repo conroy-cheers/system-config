@@ -22,13 +22,13 @@ in
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
       {
+        # Custom settings written to /etc/nix/nix.custom.conf
+        determinate-nix.customSettings = {
+          flake-registry = "/etc/nix/flake-registry.json";
+        };
         nix = {
-          package = pkgs.nixVersions.monitored.latest;
-
-          # Enable flakes, the new `nix` commands and better support for flakes in it
-          extraOptions = ''
-            experimental-features = nix-command flakes
-          '';
+          # Let Determinate Nix handle Nix configuration rather than nix-darwin
+          enable = false;
 
           # This will add each flake input as a registry
           # To make nix3 commands consistent with your flake
