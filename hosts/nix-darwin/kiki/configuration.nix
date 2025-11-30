@@ -12,13 +12,15 @@
   networking.hostName = "kiki";
 
   users.users.conroy = {
+    uid = 501;
     description = "Conroy Cheers";
     home = "/Users/conroy";
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
     ];
-    shell = pkgs.zsh;
+    shell = pkgs.fish;
   };
+  users.knownUsers = [ "conroy" ];
 
   andromeda = {
     development.enable = true;
@@ -47,7 +49,7 @@
     ];
   };
 
-  programs.zsh.enable = true;
+  programs.fish.enable = true;
 
   # Fonts
   fonts.packages = with pkgs; [ nerd-fonts.meslo-lg ];

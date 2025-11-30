@@ -50,14 +50,16 @@
       };
       shell = {
         enable = true;
+        starship = true;
+        p10k = false;
+        direnv = true;
+        zoxide = true;
         atuin = {
           enable = true;
           sync = true;
           key = config.age.secrets."corncheese.atuin.key".path;
         };
-        direnv = true;
-        zoxide = true;
-        shells = [ "zsh" ];
+        shells = [ "fish" ];
       };
       wezterm = {
         enable = false;
