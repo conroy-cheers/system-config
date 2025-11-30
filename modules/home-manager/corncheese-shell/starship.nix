@@ -5,7 +5,7 @@
 
   format = lib.concatStrings [
     "[ ](base03)"
-    "$os"
+    "$os "
     "$username"
     "[](bg:base13 fg:base09)"
     "$directory"
