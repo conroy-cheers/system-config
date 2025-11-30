@@ -1,22 +1,23 @@
 # TODO: AppleSelectedInputSourcesChangedNotification
 {
   lib,
-  darwin,
+  stdenv,
   writeShellApplication,
   sketchybar,
   babashka,
   clj-kondo,
+  apple-sdk_15,
   ...
 }:
 
 let
   plugin-dir = ./plugins;
   util-dir = ./utils;
-  get-menu-bar-height = darwin.apple_sdk.stdenv.mkDerivation {
+  get-menu-bar-height = stdenv.mkDerivation {
     name = "get_menu_bar_height";
     version = "0.0.1";
     src = lib.cleanSource ./get_menu_bar_height;
-    buildInputs = with darwin.apple_sdk.frameworks; [ Cocoa ];
+    buildInputs = [ apple-sdk_15 ];
     buildPhase = ''
       clang -framework cocoa get_menu_bar_height.m -o get_menu_bar_height
     '';
