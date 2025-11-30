@@ -275,7 +275,6 @@ in
           nix-output-monitor
 
           meld # Visual diff tool
-          jdk23
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
           pyright
 

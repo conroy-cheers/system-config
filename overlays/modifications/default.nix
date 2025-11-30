@@ -2,7 +2,7 @@
 
 final: prev: {
   lib = prev.lib // {
-    maintainers = {
+    maintainers = prev.lib.maintainers // {
       conroy-cheers = {
         name = "Conroy Cheers";
         email = "conroy@corncheese.org";

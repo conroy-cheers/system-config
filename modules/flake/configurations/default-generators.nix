@@ -102,6 +102,16 @@ let
       );
     };
 
+  nixHomebrewModules = [
+    (inputs.nix-homebrew.darwinModules.nix-homebrew)
+    (
+      { config, ... }:
+      {
+        homebrew.taps = builtins.attrNames config.nix-homebrew.taps;
+      }
+    )
+  ];
+
   mkNixosHost =
     {
       meta,
@@ -200,15 +210,9 @@ let
       modules = [
         # Main configuration
         configuration
-
-        # (r)agenix && agenix-rekey
-        inputs.ragenix.darwinModules.default
-        inputs.agenix-rekey.nixosModules.default
-        (lib.optionalAttrs (meta.pubkey != null) {
-          age.rekey.hostPubkey = meta.pubkey;
-        })
-        ./agenix-rekey
-
+      ]
+      ++ nixHomebrewModules
+      ++ [
         # Home Manager
         inputs.home-manager.darwinModules.home-manager
         (homeManagerModule {
@@ -385,6 +389,7 @@ in
             metaModules.enable
             metaModules.system
             metaModules.hostname
+            metaModules.nixpkgs
             metaModules.pubkey
             metaModules.deploy
           ];
@@ -395,9 +400,11 @@ in
           inherit meta;
           configuration = configurationFiles."configuration.nix".content;
           users = genUsers configurationFiles;
-          extraModules = builtins.attrValues config.flake.darwinModules;
+          extraModules = builtins.attrValues config.flake.darwinModules ++ [
+            (agenix-module-for "darwin")
+          ];
           extraHomeModules = builtins.attrValues config.flake.homeManagerModules ++ [
-            # (agenix-module-for "darwin")
+            (agenix-module-for "homeManager")
           ];
         }
       );
