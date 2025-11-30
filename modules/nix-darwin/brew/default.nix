@@ -1,4 +1,5 @@
 {
+  inputs,
   lib,
   pkgs,
   config,
@@ -19,21 +20,24 @@ in
   };
 
   config = mkIf cfg.enable {
-    # Requires Homebrew to be installed
-    system.activationScripts.corncheeseUserActivation.text = ''
-      sudo -u ${config.system.primaryUser} bash -c '
-        if ! xcode-select --version 2>/dev/null; then
-          $DRY_RUN_CMD xcode-select --install
-        fi
-        if ! ${config.homebrew.brewPrefix}/brew --version 2>/dev/null; then
-          $DRY_RUN_CMD /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        fi 
-      '
-    '';
+    nix-homebrew = {
+      # Install Homebrew under the default prefix
+      enable = true;
 
-    home-manager.users.${config.system.primaryUser}.programs.zsh.initContent = ''
-      eval "$(${config.homebrew.brewPrefix}/brew shellenv)"
-    '';
+      # Apple Silicon Only: Also install Homebrew under the default Intel prefix for Rosetta 2
+      enableRosetta = true;
+
+      # User owning the Homebrew prefix
+      user = config.system.primaryUser;
+
+      # Optional: Declarative tap management
+      taps = {
+        "homebrew/homebrew-core" = inputs.homebrew-core;
+        "homebrew/homebrew-cask" = inputs.homebrew-cask;
+      };
+      # With mutableTaps disabled, taps can no longer be added imperatively with `brew tap`.
+      mutableTaps = false;
+    };
 
     homebrew = {
       enable = true;
@@ -53,6 +57,7 @@ in
         "openssl"
       ];
       casks = [
+        "ghostty"
         "slack"
       ];
       extraConfig = ''

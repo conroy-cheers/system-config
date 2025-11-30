@@ -110,7 +110,7 @@ in
                 small = true;
               };
             }
-            { app = "${pkgs.ghostty}/Applications/ghostty.app"; }
+            { app = "/Applications/Ghostty.app"; }
             { app = "${pkgs.slack}/Applications/Slack.app"; }
             { app = "${pkgs.element-desktop}/Applications/Element.app"; }
             { app = "/System/Applications/System\ Settings.app"; }

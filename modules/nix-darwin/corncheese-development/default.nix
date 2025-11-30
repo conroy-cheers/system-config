@@ -23,9 +23,9 @@ in
     lib.mkMerge [
       {
         # Custom settings written to /etc/nix/nix.custom.conf
-        determinate-nix.customSettings = {
-          flake-registry = "/etc/nix/flake-registry.json";
-        };
+        # determinate-nix.customSettings = {
+        #   flake-registry = "/etc/nix/flake-registry.json";
+        # };
         nix = {
           # Let Determinate Nix handle Nix configuration rather than nix-darwin
           enable = false;

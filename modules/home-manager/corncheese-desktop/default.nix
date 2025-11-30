@@ -47,17 +47,19 @@ in
 
       programs.ghostty = {
         enable = true;
+        # On macOS, the ghostty package is not available through Nix
+        package = if pkgs.ghostty.meta.available then pkgs.ghostty else null;
         # enableZshIntegration = true;  # TODO flag or remove
         enableFishIntegration = true;
         settings = {
           keybind = [
           ];
         };
+        installBatSyntax = pkgs.ghostty.meta.available;
       };
 
       home.packages = with pkgs; [
         slack
-        github-desktop
       ];
 
       programs.obsidian = {

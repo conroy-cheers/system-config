@@ -83,7 +83,8 @@
               inherit config;
             };
         in
-        {
+        mkPkgs { }
+        // {
           default = mkPkgs { allowUnfree = true; };
           withCuda = mkPkgs {
             allowUnfree = true;

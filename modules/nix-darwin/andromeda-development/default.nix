@@ -38,21 +38,22 @@ in
         };
       };
 
-      launchd.daemons.nix-daemon.command = lib.mkForce (
-        pkgs.writeShellScript "nix-daemon-with-secrets" (
-          lib.concatStringsSep "\n" (
-            [
-              "source ${config.age.secrets."andromeda.aws-cache.env".path}"
-            ]
-            ++ (lib.optionals cfg.nixDaemonSecrets.enable [
-              "source ${config.age.secrets."andromeda.aws-secrets.env".path}"
-            ])
-            ++ [
-              (lib.getExe' config.nix.package "nix-daemon")
-            ]
-          )
-        )
-      );
+      # TODO restore secrets with Determinate Nix
+      # launchd.daemons.nix-daemon.command = lib.mkForce (
+      #   pkgs.writeShellScript "nix-daemon-with-secrets" (
+      #     lib.concatStringsSep "\n" (
+      #       [
+      #         "source ${config.age.secrets."andromeda.aws-cache.env".path}"
+      #       ]
+      #       ++ (lib.optionals cfg.nixDaemonSecrets.enable [
+      #         "source ${config.age.secrets."andromeda.aws-secrets.env".path}"
+      #       ])
+      #       ++ [
+      #         (lib.getExe' config.nix.package "nix-daemon")
+      #       ]
+      #     )
+      #   )
+      # );
 
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''

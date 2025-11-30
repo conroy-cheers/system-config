@@ -15,10 +15,7 @@
 
   perSystem = {
     agenix-rekey = {
-      # NOTE: set by default, should be set by user of the module
-      # nixosConfigurations = self.nixosConfigurations;
-      # TODO:
-      # darwinConfigurations = self.darwinConfigurations;
+      nixosConfigurations = self.nixosConfigurations // self.darwinConfigurations;
     };
   };
 
