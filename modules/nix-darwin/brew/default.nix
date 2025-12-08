@@ -58,7 +58,10 @@ in
       ];
       casks = [
         "ghostty"
+        "plexamp"
         "slack"
+        "chromium"
+        "fontgoggles"
       ];
       extraConfig = ''
         cask_args appdir: "~/Applications"

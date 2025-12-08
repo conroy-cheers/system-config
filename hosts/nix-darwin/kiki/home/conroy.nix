@@ -113,6 +113,15 @@
         "scm.inputFontSize" = lib.mkForce (builtins.floor (sizes.terminal * ptToPx * 13 / 14 + 0.5));
       };
 
+    programs.ghostty.settings =
+      let
+        ptToPx = 1.0;
+      in
+      with config.stylix.fonts;
+      {
+        font-size = lib.mkForce (builtins.floor (sizes.terminal * ptToPx + 0.5));
+      };
+
     # services.gpg-agent = {
     #   enable = true;
     #   defaultCacheTtl = 1800;

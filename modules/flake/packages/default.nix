@@ -127,10 +127,9 @@
               }
             else
               # TODO: only inherit `input` if requested
-              pkgsPure.callPackage package
-                {
-                  # inherit inputs;
-                }
+              pkgsPure.callPackage package {
+                # inherit inputs;
+              }
           ))
         ];
       in

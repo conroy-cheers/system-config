@@ -32,6 +32,23 @@ in
           enable = true;
           package = pkgs.yabai;
           enableScriptingAddition = true;
+          config = {
+            layout = "bsp";
+            focus_follows_mouse = "autoraise";
+            mouse_follows_focus = "off";
+            window_placement = "second_child";
+            auto_balance = "off";
+            split_ratio = 0.50;
+            mouse_modifier = "cmd";
+            mouse_action1 = "move";
+            mouse_action2 = "resize";
+            external_bar = "all:16:0";
+            bottom_padding = 10;
+            left_padding = 10;
+            right_padding = 10;
+            window_gap = 10;
+            menubar_opacity = 0.0;
+          };
         };
 
         jankyborders = {
@@ -46,41 +63,19 @@ in
 
         sketchybar = {
           enable = true;
-          package = pkgs.sketchybar;
-          extraPackages = with pkgs; [
-            jq
-          ];
-          # config = import (lib.getExe (pkgs.callPackage ./sketchybar { }));
+          package = pkgs.efterklang-sketchybar;
         };
       };
 
-      # TODO: make builtin module work with scripts
-      # launchd.user.agents.sketchybar =
-      #   let
-      #     cfg = rec {
-      #       package = pkgs.sketchybar;
-      #       extraPackages = with pkgs; [ jq ];
-      #       # configFile = lib.getExe (pkgs.callPackage ./sketchybar { sketchybar = package; });
-      #     };
-      #   in
-      #   {
-      #     path = [ cfg.package ] ++ cfg.extraPackages ++ [ config.environment.systemPath ];
-      #     serviceConfig.ProgramArguments = [
-      #       "${lib.getExe cfg.package}"
-      #     ]
-      #     ++ optionals (cfg.configFile != null) [
-      #       "--config"
-      #       "${cfg.configFile}"
-      #     ];
-      #     serviceConfig.KeepAlive = true;
-      #     serviceConfig.RunAtLoad = true;
-      #   };
-
       # For sketchybar
-      # homebrew = {
-      #   taps = [ "shaunsingh/SFMono-Nerd-Font-Ligaturized" ];
-      #   casks = [ "font-sf-mono-nerd-font-ligaturized" ];
-      # };
+      fonts.packages = with pkgs; [
+        sketchybar-app-font
+        maple-mono.NF-CN
+      ];
+
+      system.activationScripts.postActivation.text = ''
+        yabai --load-sa
+      '';
     }
   );
 
