@@ -89,7 +89,7 @@ in
         };
 
         dock = {
-          autohide = false;
+          autohide = true;
           # Add translucency in dock for hidden applications
           showhidden = true;
           # Enable spring loading on all dock items

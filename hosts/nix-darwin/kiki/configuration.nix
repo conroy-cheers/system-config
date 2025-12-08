@@ -32,6 +32,9 @@
     desktop = {
       enable = true;
     };
+    yabai = {
+      enable = true;
+    };
     theming = {
       enable = true;
       theme = "catppuccin";

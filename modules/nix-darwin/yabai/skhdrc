@@ -1,5 +1,5 @@
-# Open WezTerm
-cmd - return : wezterm
+# Ghostty
+cmd - return : bash -c 'id=$(yabai -m query --windows | jq -re ".[] | select(.app == \"Ghostty\") | .id" | head -n 1) && [ -z "$id" ] && open -a Ghostty || (yabai -m window --focus $id && skhd -k "cmd - n")'
 
 # Close window
 cmd - q : yabai -m window --close
