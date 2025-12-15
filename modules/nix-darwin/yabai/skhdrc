@@ -98,3 +98,5 @@ shift + lctrl + alt - r : \
 # Make window native fullscreen
 alt - f         : yabai -m window --toggle zoom-fullscreen; sketchybar --trigger window_focus
 shift + alt - f : yabai -m window --toggle native-fullscreen
+
+cmd - f : open -a "Chromium"

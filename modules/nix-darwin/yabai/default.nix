@@ -42,7 +42,7 @@ in
             mouse_modifier = "cmd";
             mouse_action1 = "move";
             mouse_action2 = "resize";
-            external_bar = "all:16:0";
+            external_bar = "all:6:0";
             bottom_padding = 10;
             left_padding = 10;
             right_padding = 10;
