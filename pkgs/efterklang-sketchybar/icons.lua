@@ -48,6 +48,7 @@ local icons = {
     forward = "", -- 􀊐
     repeating = "",
     shuffle = "",
+    menu = "",
   },
 }
 
