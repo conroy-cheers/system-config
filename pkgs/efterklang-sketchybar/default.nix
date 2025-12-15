@@ -54,6 +54,10 @@ let
         items/weather/ref/weather.sh \
         --replace-fail '$HOME/.config/sketchybar' $out
 
+      substituteInPlace \
+        items/music/music.lua \
+        --replace-fail '"􁁒"' "ICONS.media.menu"
+
       cat /dev/null > helpers/init.lua
     '';
 
