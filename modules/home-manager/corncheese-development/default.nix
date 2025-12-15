@@ -18,6 +18,7 @@ let
   homeJumpHosts = [
     "pve"
     "bigbrain"
+    "sleet"
   ];
 
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension rec {
@@ -400,6 +401,11 @@ in
         };
         "bigbrain" = {
           hostname = "bigbrain.lan";
+          user = "conroy";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        "sleet" = {
+          hostname = "sleet.lan";
           user = "conroy";
           identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
