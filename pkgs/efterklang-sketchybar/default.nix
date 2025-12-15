@@ -34,6 +34,13 @@ let
     };
 
     postPatch = ''
+      rm sketchybarrc
+      cp ${sketchybarrc} ./sketchybarrc
+      cp ${./settings.lua} ./settings.lua
+      cp ${./init.lua} ./init.lua
+      cp ${./icons.lua} ./icons.lua
+      chmod a+x ./sketchybarrc
+
       substituteInPlace items/front_app/front_app.lua \
         --replace-fail 'os.getenv("HOME")' '(os.getenv("HOME") or "~")'
 
@@ -48,12 +55,6 @@ let
         --replace-fail '$HOME/.config/sketchybar' $out
 
       cat /dev/null > helpers/init.lua
-
-      rm sketchybarrc
-      cp ${sketchybarrc} ./sketchybarrc
-      cp ${./settings.lua} ./settings.lua
-      cp ${./init.lua} ./init.lua
-      chmod a+x ./sketchybarrc
     '';
 
     buildPhase = ''

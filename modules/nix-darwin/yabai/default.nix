@@ -70,7 +70,7 @@ in
       # For sketchybar
       fonts.packages = with pkgs; [
         sketchybar-app-font
-        maple-mono.NF-CN
+        maple-nf
       ];
 
       system.activationScripts.postActivation.text = ''
