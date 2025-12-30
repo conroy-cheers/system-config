@@ -36,6 +36,7 @@
       ssh.onePassword = true;
     };
     scm = {
+      email = "conroy@dromeda.com.au";
       git.enable = true;
     };
     theming = {
