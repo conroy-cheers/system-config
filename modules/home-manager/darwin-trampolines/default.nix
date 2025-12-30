@@ -15,7 +15,7 @@
     home.activation = lib.mkIf pkgs.stdenv.isDarwin {
       trampolineApps =
         let
-          mac-app-util = inputs.mac-app-util.packages.${pkgs.stdenv.system}.default;
+          mac-app-util = inputs.mac-app-util.packages.${pkgs.stdenv.hostPlatform.system}.default;
         in
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           fromDir="$HOME/Applications/Home Manager Apps"

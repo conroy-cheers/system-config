@@ -48,6 +48,9 @@
       vscode.enable = true;
       ssh.enable = true;
     };
+    scm = {
+      git.enable = true;
+    };
     wezterm = {
       enable = true;
     };
@@ -64,11 +67,6 @@
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
-
-    ## Debugger
-    gdb
-    lttng-tools
-    lttng-ust
   ];
 
   home.sessionVariables = {
@@ -102,16 +100,6 @@
 
   programs.cava = {
     enable = true;
-  };
-
-  programs.git = {
-    enable = true;
-    lfs.enable = true;
-    userName = "Conroy Cheers";
-    userEmail = "conroy@corncheese.org";
-    delta = {
-      enable = true;
-    };
   };
 
   programs.gpg = {

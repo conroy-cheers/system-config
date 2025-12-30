@@ -12,7 +12,7 @@ in
 {
   config = lib.mkIf cfg.enable {
     home.packages = with pkgs; [
-      inputs.swww.packages.${pkgs.system}.swww
+      inputs.swww.packages.${pkgs.stdenv.hostPlatform.system}.swww
       cliphist
     ];
 

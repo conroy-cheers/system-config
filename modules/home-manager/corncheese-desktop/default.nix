@@ -26,7 +26,7 @@ in
 
   config = lib.mkMerge [
     (mkIf cfg.enable {
-      xdg.mimeApps = lib.mkIf pkgs.hostPlatform.isLinux {
+      xdg.mimeApps = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
         enable = true;
         defaultApplications = {
           "text/plain" = [ "neovide.desktop" ];

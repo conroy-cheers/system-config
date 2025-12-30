@@ -35,6 +35,9 @@
       ssh.enable = true;
       ssh.onePassword = true;
     };
+    scm = {
+      git.enable = true;
+    };
     theming = {
       enable = true;
       theme = "catppuccin";
@@ -88,14 +91,10 @@
     gparted
     audacity
     libreoffice-qt6-fresh
-    jujutsu
 
     pciutils # lspci
     usbutils # lsusb
     # (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
-
-    ## Debugger
-    gdb
 
     ## Windows
     lutris
@@ -138,16 +137,6 @@
     enable = true;
   };
 
-  programs.git = {
-    enable = true;
-    lfs.enable = true;
-    userName = "Conroy Cheers";
-    userEmail = "conroy@dromeda.com.au";
-    delta = {
-      enable = true;
-    };
-  };
-
   programs.gpg = {
     enable = true;
   };
@@ -163,16 +152,4 @@
       source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/src/reovim";
     };
   };
-
-  # home.file.".stack/config.yaml".text = lib.generators.toYAML {} {
-  #   templates = {
-  #     scm-init = "git";
-  #     params = with config.programs.git; {
-  #       author-name = userName;
-  #       author-email = userEmail;
-  #       github-username = userName;
-  #     };
-  #   };
-  #   nix.enable = true;
-  # };
 }

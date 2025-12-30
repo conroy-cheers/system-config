@@ -2,7 +2,7 @@
 { pkgs, inputs, ... }:
 let
   pkgs' = import inputs.nixpkgs {
-    system = pkgs.system;
+    system = pkgs.stdenv.hostPlatform.system;
     overlays = [ inputs.agenix-rekey.overlays.default ];
   };
 in

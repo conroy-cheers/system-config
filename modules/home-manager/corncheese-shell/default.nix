@@ -27,7 +27,7 @@ let
           ${
             let
               inherit (lib.strings) hasInfix;
-              inherit (pkgs.hostPlatform)
+              inherit (pkgs.stdenv.hostPlatform)
                 isx86_64
                 isAarch64
                 isLinux
@@ -123,7 +123,7 @@ in
       home.packages =
         with pkgs;
         builtins.concatLists [
-          (optionals pkgs.hostPlatform.isLinux [
+          (optionals pkgs.stdenv.hostPlatform.isLinux [
             psmisc
           ])
           (builtins.map (lib.flip builtins.getAttr pkgs) cfg.shells)
