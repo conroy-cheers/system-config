@@ -37,6 +37,7 @@ in
         environment.systemPackages = with pkgs; [
           brightnessctl
           seahorse
+          file-roller
         ];
 
         # hyprland Nix cache
@@ -74,7 +75,6 @@ in
               thunar-volman
             ];
           };
-          file-roller.enable = true;
 
           _1password.enable = true;
           _1password-gui = {
