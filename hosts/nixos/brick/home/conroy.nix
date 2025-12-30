@@ -87,8 +87,8 @@
 
   wayland.windowManager.hyprland.settings = {
     monitor = [
-      "desc: LG Electronics 27GN950 008NTJJ7W924,3840x2160@160,0x0,1.33333"
-      "desc: Dell Inc. DELL U2720Q 8LXMZ13,3840x2160@60,2880x0,1.33333"
+      "desc: LG Electronics 27GN950 008NTJJ7W924,3840x2160@160,0x0,1.33333,vrr,3"
+      "desc: Dell Inc. DELL U2720Q 8LXMZ13,3840x2160@60,2880x0,1.33333,vrr,0"
       ",preferred,auto,1"
     ];
   };

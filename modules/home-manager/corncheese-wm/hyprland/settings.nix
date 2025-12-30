@@ -18,7 +18,7 @@ in
 
     wayland.windowManager.hyprland.settings = lib.mkMerge [
       {
-        monitor = [ ",preferred,auto,1" ];
+        monitor = lib.mkDefault [ ",preferred,auto,1" ];
 
         exec-once = [
           "wl-paste --type text --watch cliphist store" # Stores only text data
