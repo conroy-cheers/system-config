@@ -20,16 +20,15 @@ let
     "bigbrain"
   ];
 
-  pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension {
+  pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension rec {
     mktplcRef = {
       name = "pkl-vscode";
-      version = "0.18.2";
+      version = "0.21.0";
       publisher = "apple";
     };
     vsix = builtins.fetchurl {
-      url = "https://github.com/apple/pkl-vscode/releases/download/0.18.2/pkl-vscode-0.18.2.vsix";
-      sha256 = "sha256:0lvsf1y9ib05n6idbl0171ncdjb0r01kibp6128k2j8ncxyvpvy3";
-      name = "pkl-vscode-0.18.2.zip";
+      url = "https://github.com/apple/pkl-vscode/releases/download/${mktplcRef.version}/pkl-vscode-${mktplcRef.version}.vsix";
+      sha256 = "sha256:0jgbsxllqd1vhqzd83vv7bjg2hb951hqg6wflxxxalxvj4zlni79";
     };
   };
 
