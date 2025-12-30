@@ -104,15 +104,10 @@
     gparted
     audacity
     libreoffice-qt6-fresh
-    jujutsu
 
-    slack
     pciutils # lspci
     usbutils # lsusb
     # (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
-
-    ## Debugger
-    gdb
 
     ## Windows
     lutris
@@ -154,16 +149,6 @@
     enable = true;
   };
 
-  programs.git = {
-    enable = true;
-    lfs.enable = true;
-    userName = "Conroy Cheers";
-    userEmail = "conroy@corncheese.org";
-    delta = {
-      enable = true;
-    };
-  };
-
   programs.gpg = {
     enable = true;
   };
@@ -183,16 +168,4 @@
   programs.vesktop = {
     enable = true;
   };
-
-  # home.file.".stack/config.yaml".text = lib.generators.toYAML {} {
-  #   templates = {
-  #     scm-init = "git";
-  #     params = with config.programs.git; {
-  #       author-name = userName;
-  #       author-email = userEmail;
-  #       github-username = userName;
-  #     };
-  #   };
-  #   nix.enable = true;
-  # };
 }

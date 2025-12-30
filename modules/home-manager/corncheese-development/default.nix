@@ -11,7 +11,7 @@ let
   cfg = config.corncheese.development;
 
   onePassPath =
-    if pkgs.hostPlatform.isDarwin then
+    if pkgs.stdenv.hostPlatform.isDarwin then
       ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
     else
       "~/.1password/agent.sock";
@@ -306,7 +306,7 @@ in
         (lib.optionals cfg.audio.enable [ ardour ])
         (lib.optionals cfg.jetbrains.enable ([
           (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains
-            "pycharm-professional"
+            "pycharm"
             [
               "com.intellij.plugins.vscodekeymap"
               "com.github.catppuccin.jetbrains"
@@ -351,7 +351,7 @@ in
 
     programs.git = {
       enable = true;
-      extraConfig = {
+      settings = {
         merge.tool = "meld";
         mergetool.meld.cmd = ''meld "$LOCAL" "$BASE" "$REMOTE" --output "$MERGED"'';
         diff.algorithm = "patience";
@@ -370,10 +370,10 @@ in
               (lib.optionals cfg.jetbrains.enable [
                 (builtins.readFile "${gitignoreSrc}/Global/JetBrains.gitignore")
               ])
-              (lib.optionals pkgs.hostPlatform.isDarwin [
+              (lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
                 (builtins.readFile "${gitignoreSrc}/Global/macOS.gitignore")
               ])
-              (lib.optionals pkgs.hostPlatform.isLinux [
+              (lib.optionals pkgs.stdenv.hostPlatform.isLinux [
                 (builtins.readFile "${gitignoreSrc}/Global/Linux.gitignore")
               ])
             ]

@@ -24,15 +24,11 @@ in
       git = {
         enable = mkEnableOption "corncheese git setup";
       };
-      jj = {
-        enable = mkEnableOption "corncheese jj setup";
-      };
     };
   };
 
   config =
     let
-      # TODO: agenix???
       name = "Conroy Cheers";
       email = "conroy@corncheese.org";
       key = "29AFB8ECA82AD2FB";
@@ -42,21 +38,14 @@ in
         with pkgs;
         builtins.concatLists [
           (optionals cfg.git.enable [ git ])
-          (optionals cfg.jj.enable [ jujutsu ])
         ];
 
       programs.git = mkIf cfg.git.enable {
         enable = true;
-        userName = name;
-        userEmail = email;
-        signing = {
-          signByDefault = false;
-          inherit key;
-        };
-        lfs = {
-          enable = true;
-        };
-        extraConfig = {
+        settings = {
+          user = {
+            inherit name email;
+          };
           init.defaultBranch = "master";
           url = {
             "ssh://git@github.com/" = {
@@ -66,53 +55,18 @@ in
             };
           };
         };
+        signing = {
+          signByDefault = false;
+          inherit key;
+        };
+        lfs = {
+          enable = true;
+        };
       };
 
-      programs.jujutsu = mkIf cfg.jj.enable {
+      programs.delta = {
         enable = true;
-        package = pkgs.jujutsu;
-        settings = {
-          user = {
-            # name = "corncheese";
-            # email = "pavel.atanasov2001@gmail.com";
-            # name = config.programs.git.userName;
-            # email = config.programs.git.userEmail;
-            inherit name email;
-          };
-          git = {
-            fetch = [
-              "origin"
-              "upstream"
-            ];
-            push = "github";
-          };
-          signing = {
-            backend = "gpg";
-            # sign-all = true;
-            # key = "675AA7EF13964ACB";
-            # sign-all = config.programs.git.signing.signByDefault;
-            # key = config.programs.git.signing.key;
-            sign-all = true;
-            inherit key;
-          };
-          core.fsmonitor = "watchman";
-          ui = {
-            color = "always";
-            # pager = "nvim";
-            editor = "nvim";
-          };
-          revsets = {
-            log = "@ | bases | branches | curbranch::@ | @::nextbranch | downstream(@, branchesandheads)";
-          };
-          revset-aliases = {
-            "bases" = "dev";
-            "downstream(x,y)" = "(x::y) & y";
-            "branches" = "downstream(trunk(), branches()) & mine()";
-            "branchesandheads" = "branches | (heads(trunk()::) & mine())";
-            "curbranch" = "latest(branches::@- & branches)";
-            "nextbranch" = "roots(@:: & branchesandheads)";
-          };
-        };
+        enableGitIntegration = true;
       };
     };
 

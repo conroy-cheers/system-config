@@ -35,6 +35,9 @@
       ssh.enable = true;
       ssh.onePassword = true;
     };
+    scm = {
+      git.enable = true;
+    };
     theming = {
       enable = true;
       theme = "catppuccin";
@@ -100,15 +103,10 @@
     gparted
     audacity
     libreoffice-qt6-fresh
-    jujutsu
 
-    slack
     pciutils # lspci
     usbutils # lsusb
     (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
-
-    ## Debugger
-    gdb
   ];
 
   home.sessionVariables = {
@@ -142,16 +140,6 @@
 
   programs.cava = {
     enable = true;
-  };
-
-  programs.git = {
-    enable = true;
-    lfs.enable = true;
-    userName = "Conroy Cheers";
-    userEmail = "conroy@dromeda.com.au";
-    delta = {
-      enable = true;
-    };
   };
 
   programs.gpg = {
