@@ -261,6 +261,10 @@ in
         item = "GitHub"
 
         [[ssh-keys]]
+        vault = "Private"
+        item = "github-signing-key"
+
+        [[ssh-keys]]
         vault = "Work"
       '';
     };
@@ -305,16 +309,13 @@ in
         ])
         (lib.optionals cfg.audio.enable [ ardour ])
         (lib.optionals cfg.jetbrains.enable ([
-          (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains
-            "pycharm"
-            [
-              "com.intellij.plugins.vscodekeymap"
-              "com.github.catppuccin.jetbrains"
-              "com.koxudaxi.ruff"
-              "systems.fehn.intellijdirenv"
-              "nix-idea"
-            ]
-          )
+          (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "pycharm" [
+            "com.intellij.plugins.vscodekeymap"
+            "com.github.catppuccin.jetbrains"
+            "com.koxudaxi.ruff"
+            "systems.fehn.intellijdirenv"
+            "nix-idea"
+          ])
           (pkgs.jetbrains.plugins.addPlugins
             (mkClion {
               clionPkg = pkgs.jetbrains.clion;
