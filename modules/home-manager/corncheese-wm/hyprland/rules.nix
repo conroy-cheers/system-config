@@ -28,9 +28,7 @@ in
       "workspace special,content:game"
       "fullscreen,content:game"
 
-      # https://github.com/hyprwm/Hyprland/discussions/11978
-      # "pin,class:^(1Password)$,title:^(1Password)$,floating:1"
-      "fullscreen,class:^(1Password)$,title:^(1Password)$,floating:1"
+      "pin,class:^(1password)$,title:^(1Password)$,floating:1"
 
       "keepaspectratio,class:^(firefox)$,title:^(Picture-in-Picture)$"
       "noborder,class:^(firefox)$,title:^(Picture-in-Picture)$"
