@@ -44,8 +44,8 @@ in
   config = mkMerge [
     (mkIf cfg.enable {
       age.secrets = {
-        "andromeda.aws-cache.env" = {
-          rekeyFile = lib.repoSecret "andromeda/aws-cache/env.age";
+        "andromeda.aws-cache.credentials" = {
+          rekeyFile = lib.repoSecret "andromeda/aws-cache/credentials.age";
         };
         "andromeda.aws-experiments.key" = mkIf cfg.remoteBuilders.enable {
           rekeyFile = lib.repoSecret "andromeda/aws-experiments/key.age";
@@ -127,10 +127,14 @@ in
 
       systemd.services.nix-daemon = {
         serviceConfig = {
-          EnvironmentFile = [ config.age.secrets."andromeda.aws-cache.env".path ];
-        };
-        environment = {
-          AWS_DEFAULT_REGION = "ap-southeast-2";
+          BindReadOnlyPaths = [
+            "${config.age.secrets."andromeda.aws-cache.credentials".path}:/root/.aws/credentials"
+            "${pkgs.writeText "andromeda-aws-cache-config" ''
+              [default]
+              output=json
+              region=ap-southeast-2
+            ''}:/root/.aws/config"
+          ];
         };
       };
     })
