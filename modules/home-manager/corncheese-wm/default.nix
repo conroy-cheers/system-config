@@ -154,6 +154,11 @@ in
         "inode/directory" = [ "thunar.desktop" ];
       };
     };
+    xdg.configFile = {
+      "mimeapps.list" = {
+        force = true;
+      };
+    };
 
     systemd.user.services."1password" = {
       Unit = {
