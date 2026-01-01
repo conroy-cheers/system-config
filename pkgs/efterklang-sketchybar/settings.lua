@@ -12,12 +12,12 @@ HELPERS_HOME = SBAR_HOME .. "helpers/"
 PRESET_OPTIONS = {
   gnix = {
     BOREDER_WIDTH = 3,
-    HEIGHT = 32,
+    HEIGHT = 27,
     Y_OFFSET = -20,
     MARGIN = 5,
     CORNER_RADIUS = 16,
     NOTCH_OFFSET = -20,
-    NOTCH_DISPLAY_HEIGHT = 40,
+    NOTCH_DISPLAY_HEIGHT = 44,
   },
   compact = {
     BOREDER_WIDTH = 0,

@@ -313,63 +313,63 @@ in
         }
       );
     };
-    nix-on-droid = {
-      predicate = (
-        { meta, configurationFiles, ... }:
-        and [
-          meta.enable
-          (hasNixFiles [ "configuration.nix" "home.nix" ] configurationFiles)
-        ]
-      );
-      metaModule =
-        { lib, metaModules, ... }:
-        {
-          imports = [
-            metaModules.enable
-            metaModules.system
-            metaModules.hostname
-            metaModules.pubkey
-            metaModules.deploy
-          ];
+    # nix-on-droid = {
+    #   predicate = (
+    #     { meta, configurationFiles, ... }:
+    #     and [
+    #       meta.enable
+    #       (hasNixFiles [ "configuration.nix" "home.nix" ] configurationFiles)
+    #     ]
+    #   );
+    #   metaModule =
+    #     { lib, metaModules, ... }:
+    #     {
+    #       imports = [
+    #         metaModules.enable
+    #         metaModules.system
+    #         metaModules.hostname
+    #         metaModules.pubkey
+    #         metaModules.deploy
+    #       ];
 
-          options =
-            let
-              inherit (lib)
-                mkOption
-                types
-                ;
-            in
-            {
-              uid = mkOption {
-                type = types.ints.positive;
-              };
-              gid = mkOption {
-                type = types.ints.positive;
-              };
-            };
-        };
-      mkHost = (
-        { meta, configurationFiles, ... }:
-        mkNixOnDroidHost {
-          inherit meta;
-          configuration = configurationFiles."configuration.nix".content;
-          homeConfiguration = configurationFiles."home.nix".content;
-          extraModules = builtins.attrValues config.flake.nixOnDroidModules;
-          extraHomeModules = builtins.attrValues config.flake.homeManagerModules;
-        }
-      );
-      mkDeployNode = (
-        { meta, configuration }:
-        {
-          inherit (meta.deploy) hostname;
-          profiles.system = meta.deploy // {
-            path =
-              inputs.deploy-rs.lib.${meta.system}.activate.custom configuration.activationPackage
-                "${configuration.activationPackage}/activate";
-          };
-        }
-      );
-    };
+    #       options =
+    #         let
+    #           inherit (lib)
+    #             mkOption
+    #             types
+    #             ;
+    #         in
+    #         {
+    #           uid = mkOption {
+    #             type = types.ints.positive;
+    #           };
+    #           gid = mkOption {
+    #             type = types.ints.positive;
+    #           };
+    #         };
+    #     };
+    #   mkHost = (
+    #     { meta, configurationFiles, ... }:
+    #     mkNixOnDroidHost {
+    #       inherit meta;
+    #       configuration = configurationFiles."configuration.nix".content;
+    #       homeConfiguration = configurationFiles."home.nix".content;
+    #       extraModules = builtins.attrValues config.flake.nixOnDroidModules;
+    #       extraHomeModules = builtins.attrValues config.flake.homeManagerModules;
+    #     }
+    #   );
+    #   mkDeployNode = (
+    #     { meta, configuration }:
+    #     {
+    #       inherit (meta.deploy) hostname;
+    #       profiles.system = meta.deploy // {
+    #         path =
+    #           inputs.deploy-rs.lib.${meta.system}.activate.custom configuration.activationPackage
+    #             "${configuration.activationPackage}/activate";
+    #       };
+    #     }
+    #   );
+    # };
     nix-darwin = {
       hostsName = "darwinHosts";
       configurationsNameOld = "darwinConfigurations";
@@ -448,45 +448,45 @@ in
         }
       );
     };
-    openwrt = {
-      predicate = (
-        { meta, configurationFiles, ... }:
-        and [
-          meta.enable
-          (hasNixFiles [ "configuration.nix" ] configurationFiles)
-        ]
-      );
-      metaModule =
-        { lib, metaModules, ... }:
-        {
-          imports = [
-            metaModules.enable
-            metaModules.system
-          ];
+    # openwrt = {
+    #   predicate = (
+    #     { meta, configurationFiles, ... }:
+    #     and [
+    #       meta.enable
+    #       (hasNixFiles [ "configuration.nix" ] configurationFiles)
+    #     ]
+    #   );
+    #   metaModule =
+    #     { lib, metaModules, ... }:
+    #     {
+    #       imports = [
+    #         metaModules.enable
+    #         metaModules.system
+    #       ];
 
-          options =
-            let
-              inherit (lib)
-                mkOption
-                types
-                ;
-            in
-            {
-              release = mkOption {
-                type = types.str;
-              };
-              profile = mkOption {
-                type = types.str;
-              };
-            };
-        };
-      mkHost = (
-        { meta, configurationFiles, ... }:
-        mkOpenwrt {
-          inherit meta;
-          configuration = configurationFiles."configuration.nix".content;
-        }
-      );
-    };
+    #       options =
+    #         let
+    #           inherit (lib)
+    #             mkOption
+    #             types
+    #             ;
+    #         in
+    #         {
+    #           release = mkOption {
+    #             type = types.str;
+    #           };
+    #           profile = mkOption {
+    #             type = types.str;
+    #           };
+    #         };
+    #     };
+    #   mkHost = (
+    #     { meta, configurationFiles, ... }:
+    #     mkOpenwrt {
+    #       inherit meta;
+    #       configuration = configurationFiles."configuration.nix".content;
+    #     }
+    #   );
+    # };
   };
 }

@@ -96,7 +96,7 @@ shift + lctrl + alt - r : \
     launchctl kickstart -k "gui/${UID}/homebrew.mxcl.yabai"
 
 # Make window native fullscreen
-alt - f         : yabai -m window --toggle zoom-fullscreen; sketchybar --trigger window_focus
-shift + alt - f : yabai -m window --toggle native-fullscreen
+alt - w         : yabai -m window --toggle zoom-fullscreen; sketchybar --trigger window_focus
+shift + alt - w : yabai -m window --toggle native-fullscreen
 
-cmd - f : open -a "Chromium"
+alt - f : open -a "Chromium"

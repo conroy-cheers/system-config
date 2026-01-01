@@ -73,9 +73,9 @@ in
         maple-nf
       ];
 
-      system.activationScripts.postActivation.text = ''
-        yabai --load-sa
-      '';
+      system.activationScripts.yabai-setup.text = [
+        "yabai --load-sa"
+      ];
     }
   );
 
