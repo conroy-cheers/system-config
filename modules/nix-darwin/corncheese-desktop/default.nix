@@ -24,6 +24,14 @@ in
       programs._1password-gui = {
         enable = true;
       };
+
+      homebrew = {
+        casks = [
+          "plex"
+          "autodesk-fusion"
+          "steam"
+        ];
+      };
     })
   ];
 }

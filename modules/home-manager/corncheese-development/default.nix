@@ -167,8 +167,7 @@ in
             "git.enableSmartCommit" = true;
 
             # Theming
-            # "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
-            "editor.fontFamily" = lib.mkForce "Maple Mono NF CN";
+            "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "workbench.colorTheme" = lib.mkForce "Catppuccin Mocha";
             "workbench.iconTheme" = "catppuccin-mocha";
