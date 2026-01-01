@@ -24,7 +24,7 @@
         enable = true;
         sync = true;
       };
-      shells = [ "zsh" ];
+      shells = [ "fish" ];
     };
   };
 

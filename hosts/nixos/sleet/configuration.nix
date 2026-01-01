@@ -198,13 +198,13 @@
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINKbNTRUenigTtrUSGKImYezWzT/KFOR7dZSpSuvsKNY" # conroy-home
     ];
-    shell = pkgs.zsh;
+    shell = pkgs.fish;
     extraGroups = [
       "wheel"
     ];
   };
 
-  programs.zsh = {
+  programs.fish = {
     enable = true;
   };
 
