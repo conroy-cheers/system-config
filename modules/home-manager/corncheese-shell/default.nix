@@ -133,12 +133,6 @@ in
           (optionals cfg.zoxide [ zoxide ])
         ];
 
-      nix = {
-        extraOptions = ''
-          experimental-features = nix-command flakes
-        '';
-      };
-
       xdg = {
         enable = true;
       };

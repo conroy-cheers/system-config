@@ -67,7 +67,11 @@ in
       signing = {
         format = "ssh";
         signByDefault = true;
-        signer = lib.getExe' pkgs._1password-gui "op-ssh-sign";
+        signer =
+          if pkgs.stdenv.hostPlatform.isDarwin then
+            "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+          else
+            lib.getExe' pkgs._1password-gui "op-ssh-sign";
         inherit (cfg) key;
       };
       lfs = {

@@ -11,7 +11,7 @@ let
   cfg = config.andromeda.development;
 in
 {
-  imports = [ ];
+  imports = [ ./tailscale.nix ];
 
   options = {
     andromeda.development = {
@@ -22,6 +22,9 @@ in
       };
       nixDaemonSecrets = {
         enable = lib.mkEnableOption "AWS secrets for nix daemon";
+      };
+      tailscale = {
+        enable = lib.mkEnableOption "andromeda tailscale configuration";
       };
     };
   };

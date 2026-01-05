@@ -10,7 +10,9 @@ let
   cfg = config.corncheese.development;
 in
 {
-  imports = [ ];
+  imports = [
+    inputs.determinate.darwinModules.default
+  ];
 
   options = {
     corncheese.development = {
