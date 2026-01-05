@@ -23,7 +23,10 @@
   users.knownUsers = [ "conroy" ];
 
   andromeda = {
-    development.enable = true;
+    development = {
+      enable = true;
+      tailscale.enable = true;
+    };
   };
 
   corncheese = {
