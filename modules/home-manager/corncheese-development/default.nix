@@ -33,26 +33,6 @@ let
     };
   };
 
-  clionHashes = import ./clion-hashes.nix;
-  mkClion =
-    { clionPkg, version }:
-    if (version == clionPkg.version) then
-      clionPkg
-    else
-      (
-        if !(builtins.hasAttr version clionHashes) then
-          throw "Invalid CLion version '${version}'. Available versions: ${lib.concatStringsSep ", " (builtins.attrNames clionHashes)}"
-        else
-          clionPkg.overrideAttrs rec {
-            inherit version;
-            src = pkgs.fetchurl {
-              url = "https://download.jetbrains.com/cpp/CLion-${version}.tar.gz";
-              hash = clionHashes.${version};
-            };
-          }
-      );
-  clionVersion = cfg.jetbrains.clion.versionOverride;
-
 in
 {
   imports = [ inputs.vscode-server.homeModules.default ];
@@ -80,13 +60,6 @@ in
       };
       jetbrains = {
         enable = lib.mkEnableOption "corncheese jetbrains suite";
-        clion = {
-          versionOverride = lib.mkOption {
-            type = with lib.types; nullOr str;
-            description = "Override the version of CLion to install";
-            default = pkgs.jetbrains.clion.version;
-          };
-        };
       };
       photo = {
         enable = lib.mkEnableOption "corncheese photo editing suite";
@@ -275,7 +248,7 @@ in
         [
           # Nix
           nixd
-          nixfmt-rfc-style
+          nixfmt
           nix-output-monitor
 
           meld # Visual diff tool
@@ -305,39 +278,30 @@ in
         ])
         (lib.optionals cfg.mechanical.enable [
           prusa-slicer
-          freecad-wayland
+          # freecad-wayland  # https://github.com/NixOS/nixpkgs/issues/475536
         ])
         (lib.optionals cfg.audio.enable [ ardour ])
-        (lib.optionals cfg.jetbrains.enable ([
-          (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "pycharm" [
+        (lib.optionals cfg.jetbrains.enable [
+          (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "pycharm" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
             "com.koxudaxi.ruff"
             "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
-          (pkgs.jetbrains.plugins.addPlugins
-            (mkClion {
-              clionPkg = pkgs.jetbrains.clion;
-              version = clionVersion;
-            })
-            (
-              with inputs.nix-jetbrains-plugins.plugins."${meta.system}";
-              [
-                clion."${clionVersion}"."com.intellij.plugins.vscodekeymap"
-                clion."${clionVersion}"."com.github.catppuccin.jetbrains"
-                clion."${clionVersion}"."nix-idea"
-                clion."${clionVersion}"."systems.fehn.intellijdirenv"
-              ]
-            )
-          )
-          (inputs.nix-jetbrains-plugins.lib."${meta.system}".buildIdeWithPlugins pkgs.jetbrains "rust-rover" [
+          (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "clion" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
             "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
-        ]))
+          (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "rust-rover" [
+            "com.intellij.plugins.vscodekeymap"
+            "com.github.catppuccin.jetbrains"
+            "systems.fehn.intellijdirenv"
+            "nix-idea"
+          ])
+        ])
         (lib.optionals cfg.photo.enable [
           (inputs.affinity.packages.${meta.system}.v3)
         ])

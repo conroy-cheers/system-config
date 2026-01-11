@@ -8,6 +8,16 @@
 let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
+
+  waitForPipewire = pkgs.writeShellScriptBin "wait-for-pipewire" ''
+    set -euo pipefail
+
+    while ! ${pkgs.systemd}/bin/systemctl --user --quiet is-active pipewire.service \
+       || ! ${pkgs.systemd}/bin/systemctl --user --quiet is-active wireplumber.service
+    do
+      sleep 0.1
+    done
+  '';
 in
 {
   config = lib.mkIf cfg.enable {
@@ -21,6 +31,7 @@ in
         monitor = lib.mkDefault [ ",preferred,auto,1" ];
 
         exec-once = [
+          "${lib.getExe waitForPipewire}"
           "wl-paste --type text --watch cliphist store" # Stores only text data
           "wl-paste --type image --watch cliphist store" # Stores only image data
           "[workspace 1 silent] ghostty"

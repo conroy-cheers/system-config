@@ -102,7 +102,7 @@ in
         ${builtins.concatStringsSep "\n" (
           builtins.attrValues (builtins.mapAttrs (name: value: ''export ${name}="${value}"'') cfg.environment)
         )}
-        exec ${pkgs.hyprland}/bin/Hyprland
+        exec ${pkgs.hyprland}/bin/start-hyprland
       '';
       executable = true;
     };
