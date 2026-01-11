@@ -25,7 +25,8 @@ in
       # Set content type "game" for games
       "content game,class:^(steam_app_[0-9]+)$"
       "tag +game,class:^(steam_app_[0-9]+)$"
-      "workspace special,content:game"
+      "content game,class:^gamescope$"
+      "tag +game,class:^gamescope$"
       "fullscreen,content:game"
 
       "pin,class:^(1password)$,title:^(1Password)$,floating:1"
