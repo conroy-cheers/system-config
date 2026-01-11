@@ -71,6 +71,7 @@ in
   config = lib.mkIf (cfg.enable && cfg.ags.enable) {
     home.packages = with pkgs; [
       inputs.colorshell.packages.${system}.colorshell
+      pkgs.uwsm
     ];
 
     home.file.".cache/wal/colors.json".text = builtins.toJSON {
