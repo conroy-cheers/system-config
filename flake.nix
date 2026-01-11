@@ -313,7 +313,7 @@
     };
 
     colorshell = {
-      url = "github:conroy-cheers/colorshell/feature/clsh";
+      url = "github:conroy-cheers/colorshell/fix/some-deps-again";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
