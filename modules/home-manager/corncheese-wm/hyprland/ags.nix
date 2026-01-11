@@ -100,8 +100,8 @@ in
       };
     };
 
-    wayland.windowManager.hyprland.settings.exec-once = lib.mkBefore [
-      "colorshell &"
+    wayland.windowManager.hyprland.settings.exec-once = lib.mkAfter [
+      "kill $(pgrep gjs); colorshell &"
     ];
   };
 }

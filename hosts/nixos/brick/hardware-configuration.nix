@@ -1,4 +1,5 @@
 {
+  inputs,
   lib,
   pkgs,
   config,
@@ -10,7 +11,12 @@ let
   nvidiaPackage = config.hardware.nvidia.package;
 in
 {
-  imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
+  imports = [
+    inputs.hardware.nixosModules.common-cpu-amd
+    inputs.hardware.nixosModules.common-pc-ssd
+    inputs.hardware.nixosModules.common-gpu-nvidia-nonprime
+    (modulesPath + "/installer/scan/not-detected.nix")
+  ];
 
   boot = {
     # Low-latency kernel.
