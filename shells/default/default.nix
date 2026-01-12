@@ -14,7 +14,7 @@ pkgs.mkShellNoCC {
     home-manager
     git
     wireguard-tools
-    deploy-rs
+    inputs.deploy-rs.packages.${pkgs.stdenv.hostPlatform.system}.default
     # inputs.agenix.packages.${pkgs.system}.agenix
     # inputs.ragenix.packages.${pkgs.system}.ragenix
     rage

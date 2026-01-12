@@ -62,6 +62,9 @@
 
   corncheese-server = {
     media.enable = true;
+    games = {
+      minecraft.enable = true;
+    };
   };
 
   # log conroy into atuin sync
