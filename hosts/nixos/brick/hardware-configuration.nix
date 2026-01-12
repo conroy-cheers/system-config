@@ -74,5 +74,18 @@ in
 
   hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
 
+  # My Gigabyte 3080Ti seemingly has stability issues at higher temperatures.
+  systemd.services.nvidia-power-limit = {
+    description = "Set NVIDIA GPU power limit";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "nvidia-persistenced.service" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "/run/current-system/sw/bin/nvidia-smi -pl 250";
+      RemainAfterExit = true;
+    };
+  };
+
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }
