@@ -143,6 +143,7 @@ in
         };
         environment.systemPackages = with pkgs; [
           steamtinkerlaunch
+          prismlauncher
         ];
       })
     ]
