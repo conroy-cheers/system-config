@@ -95,6 +95,10 @@ in
             };
           };
           abi-dev-root = {
+            match = "host ${lib.concatStringsSep "," abiHostGlobs} user root";
+            identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
+          };
+          abi-dev-root-alias = {
             host = (lib.concatStringsSep " " abiRootHosts);
             user = "root";
             identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
