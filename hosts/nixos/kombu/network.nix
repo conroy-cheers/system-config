@@ -6,33 +6,11 @@
   ...
 }:
 {
-  environment.systemPackages = with pkgs; [ ];
+  environment.systemPackages = [ ];
 
   networking.extraHosts = ''
     127.0.0.1 kombu.local
   '';
-
-  age.secrets."home.wifi.conf" = {
-    rekeyFile = lib.repoSecret "home/wifi/conf.age";
-  };
-  networking.wireless = {
-    # enable = true;
-    userControlled.enable = true;
-    secretsFile = config.age.secrets."home.wifi.conf".path;
-    networks = {
-      "ext:ssid_home" = {
-        psk = "ext:pass_home";
-        priority = 20;
-      };
-      "ext:ssid_andromeda" = {
-        psk = "ext:pass_andromeda";
-        priority = 10;
-      };
-      "ext:ssid_abi" = {
-        psk = "ext:pass_abi";
-      };
-    };
-  };
   networking.useNetworkd = false;
 
   networking.networkmanager.enable = true;
