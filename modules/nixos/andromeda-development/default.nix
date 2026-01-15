@@ -55,6 +55,14 @@ in
           rekeyFile = lib.repoSecret "andromeda/aws-sandbox/key.age";
           mode = "400";
         };
+        "andromeda.conroy-build.key" = mkIf cfg.remoteBuilders.enable {
+          rekeyFile = lib.repoSecret "andromeda/conroy-build/key.age";
+          mode = "400";
+        };
+        "andromeda.aws-sandbox.sso-config" = mkIf cfg.remoteBuilders.enable {
+          rekeyFile = lib.repoSecret "andromeda/aws-sandbox/sso-config.age";
+          mode = "444";
+        };
       };
 
       programs.nix-ld = {
@@ -68,22 +76,36 @@ in
         }
       ];
 
+      environment.systemPackages = [
+        pkgs.awscli2
+        pkgs.ssm-session-manager-plugin
+        (pkgs.writeShellScriptBin "builder-sso-login" ''
+          sudo AWS_CONFIG_FILE=${
+            config.age.secrets."andromeda.aws-sandbox.sso-config".path
+          } aws sso login --no-browser
+        '')
+      ];
+
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''
           # big-chungus-x64
           Host 3.106.5.183
             User root
-            HostName 3.106.5.183
             Port 22
-            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
+            #ProxyCommand sh -c "AWS_CONFIG_FILE=${
+              config.age.secrets."andromeda.aws-sandbox.sso-config".path
+            } aws ssm start-session --target i-03600f75857b7aaaf --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
+            IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
             ConnectTimeout 3
-
+            
           # big-chungus-aarch64
           Host 3.104.252.233
             User root
-            HostName 3.104.252.233
             Port 22
-            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
+            #ProxyCommand sh -c "AWS_CONFIG_FILE=${
+              config.age.secrets."andromeda.aws-sandbox.sso-config".path
+            } aws ssm start-session --target i-01aa96b81201c1463 --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
+            IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
             ConnectTimeout 3
         '';
       };
