@@ -21,6 +21,7 @@ in
     corncheese.development = {
       enable = lib.mkEnableOption "corncheese development environment";
       remoteBuilders.enable = lib.mkEnableOption "corncheese remote builders";
+      tailscale.enable = lib.mkEnableOption "corncheese tailnet";
     };
   };
 
@@ -79,6 +80,12 @@ in
             builders-use-substitutes = true
           '';
         };
+      })
+      ((lib.mkIf cfg.tailscale.enable) {
+        # make the tailscale command usable to users
+        environment.systemPackages = [ pkgs.tailscale ];
+        # enable the tailscale service
+        services.tailscale.enable = true;
       })
     ]
   );

@@ -7,14 +7,11 @@
   ...
 }:
 
-let
-  nvidiaPackage = config.hardware.nvidia.package;
-in
 {
   imports = [
     inputs.hardware.nixosModules.common-cpu-amd
     inputs.hardware.nixosModules.common-pc-ssd
-    inputs.hardware.nixosModules.common-gpu-nvidia-nonprime
+    inputs.hardware.nixosModules.common-gpu-amd
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
@@ -71,21 +68,6 @@ in
   };
   hardware.xpadneo.enable = true;
   services.blueman.enable = true;
-
-  hardware.nvidia.open = lib.mkOverride 990 (nvidiaPackage ? open && nvidiaPackage ? firmware);
-
-  # My Gigabyte 3080Ti seemingly has stability issues at higher temperatures.
-  systemd.services.nvidia-power-limit = {
-    description = "Set NVIDIA GPU power limit";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "nvidia-persistenced.service" ];
-
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "/run/current-system/sw/bin/nvidia-smi -pl 250";
-      RemainAfterExit = true;
-    };
-  };
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }

@@ -10,6 +10,7 @@ in
         type = types.enum [
           "default"
           "withCuda"
+          "withRocm"
         ];
       };
     };
