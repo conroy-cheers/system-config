@@ -90,6 +90,10 @@
             allowUnfree = true;
             cudaSupport = true;
           };
+          withRocm = mkPkgs {
+            allowUnfree = true;
+            rocmSupport = true;
+          };
         };
 
       # NOTE: Export this custom `pkgs` instance

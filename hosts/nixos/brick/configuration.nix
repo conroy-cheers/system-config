@@ -81,6 +81,7 @@ in
     development = {
       enable = true;
       remoteBuilders.enable = true;
+      tailscale.enable = true;
     };
     theming = {
       enable = true;
@@ -92,7 +93,7 @@ in
         enable = true;
         equalizer.enable = true;
       };
-      nvidia = true;
+      nvidia = false;
       gaming.enable = true;
     };
   };
@@ -163,11 +164,8 @@ in
 
   hardware = {
     graphics.enable = true;
-    nvidia = {
-      powerManagement = {
-        enable = true;
-      };
-      package = config.boot.kernelPackages.nvidiaPackages.latest;
+    amdgpu = {
+      opencl.enable = true;
     };
   };
 
@@ -178,7 +176,6 @@ in
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
-    videoDrivers = lib.mkDefault [ "nvidia" ];
   };
 
   services.displayManager.sessionPackages = lib.mkBefore [

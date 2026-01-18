@@ -119,8 +119,8 @@ in
       sensors = [
         {
           id = "gpu_temp";
-          nvidia = {
-            device = "nvidia-*-*";
+          hwmon = {
+            platform = "amdgpu-*-*";
             index = 1;
           };
         }

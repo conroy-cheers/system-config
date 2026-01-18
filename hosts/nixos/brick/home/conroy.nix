@@ -47,7 +47,7 @@
     };
     wm = {
       enable = true;
-      nvidia = true;
+      nvidia = false;
       ags.enable = true;
       hyprpaper.enable = true;
       enableFancyEffects = true;
@@ -118,6 +118,8 @@
     # native wayland support (unstable)
     wineWowPackages.waylandFull
     samba
+
+    vllm
   ];
 
   home.sessionVariables = {
