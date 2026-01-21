@@ -285,7 +285,6 @@ in
           (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "pycharm" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
-            "com.koxudaxi.ruff"
             "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
