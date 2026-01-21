@@ -51,7 +51,9 @@ let
   };
 in
 {
-  imports = [ ];
+  imports = [
+    inputs.direnv-instant.homeModules.direnv-instant
+  ];
 
   options = {
     corncheese.shell = {
@@ -129,7 +131,7 @@ in
           (builtins.map (lib.flip builtins.getAttr pkgs) cfg.shells)
           (optionals cfg.starship [ starship ])
           (optionals cfg.p10k [ zsh-powerlevel10k ])
-          (optionals cfg.direnv [ direnv ])
+          # (optionals cfg.direnv [ direnv ])
           (optionals cfg.zoxide [ zoxide ])
         ];
 
@@ -138,15 +140,14 @@ in
       };
 
       # Direnv
+      programs.direnv-instant.enable = true;
       programs.direnv = mkIf cfg.direnv {
         enable = true;
-        # No Fish support currently
-        # package = inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default;
         silent = true;
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
-        # enableFishIntegration = builtins.elem "fish" cfg.shells;
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
 
         nix-direnv = {
           enable = true;
@@ -184,7 +185,7 @@ in
         enable = true;
         extraPackages = with pkgs.bat-extras; [
           batman
-          # batgrep  # FIXME https://github.com/NixOS/nixpkgs/issues/454391
+          batgrep
         ];
       };
 
