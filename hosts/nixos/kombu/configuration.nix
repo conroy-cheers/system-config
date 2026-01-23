@@ -244,6 +244,7 @@
   services.udev.packages = with pkgs; [
     teensy-udev-rules
     picoprobe-udev-rules
+    rpi-debug-probe-udev-rules
   ];
 
   ### Enable touchpad support (enabled default in most desktopManager).
@@ -272,6 +273,9 @@
       "plugdev"
       "dialout"
     ];
+  };
+  users.groups = {
+    plugdev = { };
   };
 
   programs.fish.enable = true;
