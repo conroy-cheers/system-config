@@ -119,6 +119,7 @@ in
                 # Misc
                 nix-vscode-extensions.open-vsx.tamasfe.even-better-toml
                 vscode-extensions.fill-labs.dependi
+                nix-vscode-extensions.open-vsx.openai.chatgpt
 
                 # Pkl
                 pkl-vscode
