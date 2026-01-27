@@ -150,7 +150,7 @@ in
         enableFishIntegration = builtins.elem "fish" cfg.shells;
 
         nix-direnv = {
-          enable = true;
+          enable = false;
         };
       };
 
@@ -303,7 +303,6 @@ in
         };
 
         interactiveShellInit = ''
-          ${pkgs.any-nix-shell}/bin/any-nix-shell fish --info-right | source
           atuin init fish | sed "s/-k up/up/g" | source
         '';
 
@@ -321,7 +320,6 @@ in
             };
           in
           [
-            (mkFishPlugin pisces)
             (mkFishPlugin fish-you-should-use)
             (mkFishPlugin bang-bang)
             {
