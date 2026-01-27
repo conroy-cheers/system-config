@@ -32,14 +32,35 @@ in
   config = mkMerge [
     (mkIf cfg.enable {
       age.secrets = {
-        "andromeda.aws-cache.env" = {
-          rekeyFile = lib.repoSecret "andromeda/aws-cache/env.age";
-        };
+        # "andromeda.aws-cache.credentials" = {
+        #   rekeyFile = lib.repoSecret "andromeda/aws-cache/credentials.age";
+        # };
         "andromeda.aws-experiments.key" = mkIf cfg.remoteBuilders.enable {
           rekeyFile = lib.repoSecret "andromeda/aws-experiments/key.age";
           mode = "400";
         };
       };
+
+      # system.activationScripts.rootAwsCreds.text =
+      #   let
+      #     awsConfigFile = pkgs.writeText "aws-config" ''
+      #       [default]
+      #       output=json
+      #       region=ap-southeast-2
+      #     '';
+      #   in
+      #   ''
+      #     AWS_DIR=/var/root/.aws
+
+      #     mkdir -p "$AWS_DIR"
+      #     chmod 700 "$AWS_DIR"
+
+      #     ln -sf ${config.age.secrets."andromeda.aws-cache.credentials".path} \
+      #       "$AWS_DIR/credentials"
+      #     ln -sf ${awsConfigFile} "$AWS_DIR/config"
+
+      #     chown -R root:wheel "$AWS_DIR"
+      #   '';
 
       # TODO restore secrets with Determinate Nix
       # launchd.daemons.nix-daemon.command = lib.mkForce (

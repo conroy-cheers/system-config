@@ -24,10 +24,17 @@ in
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
       {
-        # Custom settings written to /etc/nix/nix.custom.conf
-        # determinate-nix.customSettings = {
-        #   flake-registry = "/etc/nix/flake-registry.json";
-        # };
+        determinateNix = {
+          enable = true;
+          customSettings = {
+            eval-cores = 0;
+            extra-experimental-features = [
+              "external-builders"
+              "parallel-eval"
+            ];
+            inherit (config.nix.settings) substituters trusted-public-keys trusted-substituters;
+          };
+        };
         nix = {
           # Let Determinate Nix handle Nix configuration rather than nix-darwin
           enable = false;
