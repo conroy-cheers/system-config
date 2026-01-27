@@ -41,7 +41,7 @@ in
         };
       };
 
-      system.activationScripts.root-aws-creds.text =
+      system.activationScripts.extraActivation.text =
         let
           awsConfigFile = pkgs.writeText "aws-config" ''
             [default]
@@ -49,8 +49,8 @@ in
             region=ap-southeast-2
           '';
         in
-        ''
-          AWS_DIR=/var/root/.aws
+        lib.mkBefore ''
+          AWS_DIR=~root/.aws
 
           mkdir -p "$AWS_DIR"
           chmod 700 "$AWS_DIR"
@@ -61,23 +61,6 @@ in
 
           chown -R root:wheel "$AWS_DIR"
         '';
-
-      # TODO restore secrets with Determinate Nix
-      # launchd.daemons.nix-daemon.command = lib.mkForce (
-      #   pkgs.writeShellScript "nix-daemon-with-secrets" (
-      #     lib.concatStringsSep "\n" (
-      #       [
-      #         "source ${config.age.secrets."andromeda.aws-cache.env".path}"
-      #       ]
-      #       ++ (lib.optionals cfg.nixDaemonSecrets.enable [
-      #         "source ${config.age.secrets."andromeda.aws-secrets.env".path}"
-      #       ])
-      #       ++ [
-      #         (lib.getExe' config.nix.package "nix-daemon")
-      #       ]
-      #     )
-      #   )
-      # );
 
       programs.ssh = mkIf cfg.remoteBuilders.enable {
         extraConfig = ''

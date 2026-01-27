@@ -72,10 +72,6 @@ in
         sketchybar-app-font
         maple-nf
       ];
-
-      system.activationScripts.yabai-setup.text = [
-        "yabai --load-sa"
-      ];
     }
   );
 
