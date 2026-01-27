@@ -29,11 +29,6 @@ in
     lib.mkMerge [
       {
         nix = {
-          # Enable flakes, the new `nix` commands and better support for flakes in it
-          extraOptions = ''
-            experimental-features = nix-command flakes
-          '';
-
           # This will add each flake input as a registry
           # To make nix3 commands consistent with your flake
           registry = lib.mapAttrs (_: value: { flake = value; }) inputs;
@@ -44,6 +39,11 @@ in
 
           settings = {
             trusted-users = [ "root" ];
+            # Enable flakes, the new `nix` commands and better support for flakes in it
+            experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
 
             # Add nix-community cachix cache
             substituters = [ "https://nix-community.cachix.org" ];
