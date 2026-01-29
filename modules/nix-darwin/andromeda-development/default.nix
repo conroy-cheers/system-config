@@ -84,8 +84,8 @@ in
             AWS_DEFAULT_REGION = "ap-southeast-2";
           };
           settings = {
-            substituters = [ "s3://andromedarobotics-artifacts?region=ap-southeast-2" ];
-            trusted-public-keys = [
+            extra-substituters = [ "s3://andromedarobotics-artifacts?region=ap-southeast-2" ];
+            extra-trusted-public-keys = [
               "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
             ];
           };

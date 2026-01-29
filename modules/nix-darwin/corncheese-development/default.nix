@@ -32,7 +32,11 @@ in
               "external-builders"
               "parallel-eval"
             ];
-            inherit (config.nix.settings) substituters trusted-public-keys trusted-substituters;
+            inherit (config.nix.settings)
+              extra-substituters
+              extra-trusted-public-keys
+              trusted-substituters
+              ;
           };
         };
         nix = {
@@ -49,10 +53,12 @@ in
 
           settings = {
             trusted-users = [ "root" ];
-
-            # Add nix-community cachix cache
-            substituters = [ "https://nix-community.cachix.org" ];
-            trusted-public-keys = [
+            extra-substituters = [
+              "https://cache.nixos.org"
+              "https://nix-community.cachix.org"
+            ];
+            extra-trusted-public-keys = [
+              "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
               "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
             ];
           };
