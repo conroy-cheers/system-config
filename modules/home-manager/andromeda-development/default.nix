@@ -17,6 +17,7 @@ let
   };
   abiHostGlobs = [
     "abi-andr-*"
+    "*abi-*-*"
   ];
   abiHosts = builtins.attrNames abiAliases;
   abiRootHosts = map (host: host + "-root") abiHosts;
@@ -47,7 +48,7 @@ in
           # Create a set of file mappings for each identity file
           fileMapper = filename: {
             # Target path will be in ~/.ssh/
-            ".ssh/${filename}".source = ./pubkeys + "/${filename}";
+            ".ssh/${filename}".source = pkgs.copyPathToStore (./pubkeys + "/${filename}");
           };
         in
         lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles)
@@ -119,6 +120,12 @@ in
           "*" = {
             forwardAgent = false;
             hashKnownHosts = true;
+          };
+
+          "kombu" = {
+            hostname = "10.11.5.126";
+            proxyJump = "root@babi-1-dev";
+            identityFile = "${config.home.homeDirectory}/.ssh/conroy_work.id_ed25519.pub";
           };
         };
     };
