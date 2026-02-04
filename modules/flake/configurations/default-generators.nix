@@ -297,6 +297,7 @@ in
           users = genUsers configurationFiles;
           extraModules = builtins.attrValues config.flake.nixosModules ++ [
             (agenix-module-for "nixos")
+            inputs.agenix-template.nixosModules.default
           ];
           extraHomeModules = builtins.attrValues config.flake.homeManagerModules ++ [
             (agenix-module-for "homeManager")

@@ -147,18 +147,15 @@ in
         })
       ];
 
-      systemd.services.nix-daemon = {
-        serviceConfig = {
-          BindReadOnlyPaths = [
-            "${config.age.secrets."andromeda.aws-cache.credentials".path}:/root/.aws/credentials"
-            "${pkgs.writeText "andromeda-aws-cache-config" ''
-              [default]
-              output=json
-              region=ap-southeast-2
-            ''}:/root/.aws/config"
-          ];
-        };
-      };
+      systemd.tmpfiles.rules = [
+        "d /root/.aws 0700 root root -"
+        "L+ /root/.aws/credentials - - - - ${config.age.secrets."andromeda.aws-cache.credentials".path}"
+        "L+ /root/.aws/config - - - - ${pkgs.writeText "andromeda-aws-cache-config" ''
+          [default]
+          output = json
+          region = ap-southeast-2
+        ''}"
+      ];
     })
     (mkIf cfg.nixDaemonSecrets.enable {
       andromeda.development.nixDaemonSecrets.nixSandboxKeys.target = "/sops/keys.txt";
