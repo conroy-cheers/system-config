@@ -28,6 +28,25 @@ in
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
       {
+        age.secrets = {
+          "corncheese.github.token" = {
+            rekeyFile = lib.repoSecret "corncheese/github/token.age";
+            mode = "400";
+          };
+        };
+        age-template.files = {
+          "nix.extra-access-tokens.conf" = {
+            vars = {
+              githubToken = config.age.secrets."corncheese.github.token".path;
+            };
+            content = ''
+              extra-access-tokens = github.com=$githubToken
+            '';
+            path = "/etc/nix/nix.extra-access-tokens.conf";
+            mode = "0444";
+          };
+        };
+
         nix = {
           # This will add each flake input as a registry
           # To make nix3 commands consistent with your flake
@@ -53,6 +72,9 @@ in
 
             eval-cores = 0;
           };
+          extraOptions = ''
+            !include ${baseNameOf config.age-template.files."nix.extra-access-tokens.conf".path}
+          '';
         };
 
         # Fix VSCode server
