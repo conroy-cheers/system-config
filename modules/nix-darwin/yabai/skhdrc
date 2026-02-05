@@ -99,4 +99,4 @@ shift + lctrl + alt - r : \
 alt - w         : yabai -m window --toggle zoom-fullscreen; sketchybar --trigger window_focus
 shift + alt - w : yabai -m window --toggle native-fullscreen
 
-alt - f : open -a "Chromium"
+alt - f : open -a "Safari"
