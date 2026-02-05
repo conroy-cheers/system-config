@@ -150,7 +150,7 @@ in
         enableFishIntegration = builtins.elem "fish" cfg.shells;
 
         nix-direnv = {
-          enable = false;
+          enable = true;
         };
       };
 
