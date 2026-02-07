@@ -256,7 +256,8 @@ in
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
           pyright
 
-          pkgs.nerd-fonts.meslo-lg
+          nerd-fonts.meslo-lg
+          codex
         ]
         (lib.optionals cfg.electronics.enable (
           [

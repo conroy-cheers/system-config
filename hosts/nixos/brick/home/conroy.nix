@@ -118,8 +118,6 @@
     # native wayland support (unstable)
     wineWowPackages.waylandFull
     samba
-
-    vllm
   ];
 
   home.sessionVariables = {
