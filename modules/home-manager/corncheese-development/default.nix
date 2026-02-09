@@ -258,6 +258,8 @@ in
 
           nerd-fonts.meslo-lg
           codex
+
+          hoppscotch
         ]
         (lib.optionals cfg.electronics.enable (
           [
