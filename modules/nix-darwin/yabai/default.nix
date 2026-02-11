@@ -27,6 +27,10 @@ in
         setbg
       ];
 
+      system.activationScripts.extraActivation.text = lib.mkAfter ''
+        ${lib.getExe config.services.yabai.package} --load-sa
+      '';
+
       services = {
         yabai = {
           enable = true;
