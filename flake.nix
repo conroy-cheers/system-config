@@ -302,6 +302,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
     };
