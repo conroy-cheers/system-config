@@ -257,7 +257,7 @@ in
           pyright
 
           nerd-fonts.meslo-lg
-          codex
+          inputs.llm-agents.packages.${meta.system}.codex
 
           hoppscotch
         ]
