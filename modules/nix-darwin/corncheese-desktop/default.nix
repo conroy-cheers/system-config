@@ -30,6 +30,7 @@ in
           "plex"
           "autodesk-fusion"
           "steam"
+          "adobe-creative-cloud"
         ];
       };
     })
