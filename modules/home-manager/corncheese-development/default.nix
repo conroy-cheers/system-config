@@ -252,6 +252,9 @@ in
           nixfmt
           nix-output-monitor
 
+          # Git
+          lazygit
+
           meld # Visual diff tool
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
           pyright
