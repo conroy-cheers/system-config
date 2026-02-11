@@ -112,7 +112,11 @@ in
             }
             { app = "/Applications/Ghostty.app"; }
             { app = "${pkgs.slack}/Applications/Slack.app"; }
+          ]
+          ++ (lib.optionals config.home-manager.users.conroy.corncheese.desktop.element.enable [
             { app = "${pkgs.element-desktop}/Applications/Element.app"; }
+          ])
+          ++ [
             { app = "/System/Applications/System\ Settings.app"; }
           ];
           persistent-others = [ "/Users/${config.system.primaryUser}/Downloads" ];
