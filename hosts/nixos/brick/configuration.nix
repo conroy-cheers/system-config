@@ -52,6 +52,9 @@ in
             protocol: efi
             path: uuid(89a1eedd-3c95-47bf-80c6-bd131131ee54):/EFI/Microsoft/Boot/bootmgfw.efi
         '';
+        extraConfig = ''
+          timeout: 30
+        '';
       };
     };
 
@@ -170,7 +173,7 @@ in
   };
 
   services.hardware = {
-    openrgb.enable = true;
+    openrgb.enable = false; # https://gitlab.com/CalcProgrammer1/OpenRGB/-/issues/4888
   };
 
   ### Wayland specific
