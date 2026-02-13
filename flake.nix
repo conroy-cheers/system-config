@@ -320,7 +320,7 @@
     };
 
     colorshell = {
-      url = "github:conroy-cheers/colorshell/fix/some-deps-again";
+      url = "github:conroy-cheers/colorshell/ryo";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
