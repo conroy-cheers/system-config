@@ -100,8 +100,23 @@ in
       };
     };
 
-    wayland.windowManager.hyprland.settings.exec-once = lib.mkAfter [
-      "kill $(pgrep gjs); colorshell &"
-    ];
+    systemd.user.services.colorshell = {
+      Unit = {
+        Description = "colorshell";
+        PartOf = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+      };
+
+      Service = {
+        ExecStart = "${
+          inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell
+        }/bin/colorshell";
+        Restart = "on-failure";
+      };
+
+      Install = {
+        WantedBy = [ "graphical-session.target" ];
+      };
+    };
   };
 }
