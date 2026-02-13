@@ -16,7 +16,6 @@
   ];
 
   boot = {
-    # Low-latency kernel.
     kernelPackages = pkgs.linuxPackages_zen;
     initrd.availableKernelModules = [
       "xhci_pci"
@@ -32,7 +31,7 @@
     ];
     extraModulePackages = [
       # https://github.com/NixOS/nixpkgs/pull/459648
-      (pkgs.linuxPackages_zen.it87.overrideAttrs {
+      (config.boot.kernelPackages.it87.overrideAttrs {
         version = "unstable-2025-10-06";
         src = pkgs.fetchFromGitHub {
           owner = "frankcrawford";
