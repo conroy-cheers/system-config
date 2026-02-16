@@ -245,6 +245,7 @@
     teensy-udev-rules
     picoprobe-udev-rules
     rpi-debug-probe-udev-rules
+    alientek-dp100-udev-rules
   ];
 
   ### Enable touchpad support (enabled default in most desktopManager).

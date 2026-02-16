@@ -100,6 +100,9 @@
     ## Windows
     lutris
 
+    # Bench power supply
+    pydp100
+
     ## Wine
     # winetricks (all versions)
     winetricks
