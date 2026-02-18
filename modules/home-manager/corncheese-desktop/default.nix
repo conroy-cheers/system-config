@@ -54,6 +54,7 @@ in
         settings = {
           keybind = [
           ];
+          background-blur = 20;
         };
         installBatSyntax = pkgs.ghostty.meta.available;
       };
