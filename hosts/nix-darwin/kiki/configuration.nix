@@ -23,6 +23,12 @@
   };
   users.knownUsers = [ "conroy" ];
 
+  nix = {
+    settings = {
+      trusted-users = [ "conroy" ];
+    };
+  };
+
   andromeda = {
     development = {
       enable = true;
