@@ -31,6 +31,7 @@ in
           "autodesk-fusion"
           "steam"
           "adobe-creative-cloud"
+          "orcaslicer"
         ];
       };
     })
