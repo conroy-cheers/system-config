@@ -260,6 +260,7 @@ in
           pyright
 
           nerd-fonts.meslo-lg
+          inputs.llm-agents.packages.${meta.system}.claude-code
           inputs.llm-agents.packages.${meta.system}.codex
           inputs.llm-agents.packages.${meta.system}.crush
 
