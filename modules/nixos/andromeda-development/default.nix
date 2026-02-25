@@ -90,7 +90,7 @@ in
         extraConfig = ''
           # big-chungus-x64
           Host 3.106.5.183
-            User root
+            User ssm-user
             Port 22
             #ProxyCommand sh -c "AWS_CONFIG_FILE=${
               config.age.secrets."andromeda.aws-sandbox.sso-config".path
@@ -100,7 +100,7 @@ in
             
           # big-chungus-aarch64
           Host 3.104.252.233
-            User root
+            User ssm-user
             Port 22
             #ProxyCommand sh -c "AWS_CONFIG_FILE=${
               config.age.secrets."andromeda.aws-sandbox.sso-config".path
