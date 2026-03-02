@@ -304,7 +304,6 @@
     xdg-desktop-portal
     xdg-desktop-portal-wlr
     xdg-utils
-    neovim
     wget
     udiskie
   ];

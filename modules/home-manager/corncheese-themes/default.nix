@@ -54,7 +54,7 @@ in
         };
       };
 
-      targets.nixvim.enable = lib.mkIf (cfg.theme != null) false;
+      targets.nvf.enable = lib.mkIf (cfg.theme != null) false;
 
       targets.vscode.profileNames = [ "default" ];
       targets.firefox.profileNames = [ "default" ];

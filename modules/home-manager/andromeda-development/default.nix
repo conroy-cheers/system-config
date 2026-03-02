@@ -37,6 +37,7 @@ in
 
     home.sessionVariables = {
       ROS_DOMAIN_ID = "38";
+      CARGO_NET_GIT_FETCH_WITH_CLI = "true";
     };
 
     home.file = lib.mkMerge [
