@@ -79,6 +79,10 @@ in
 
         # Fix VSCode server
         services.vscode-server.enable = true;
+
+        environment.systemPackages = [
+          pkgs.can-utils
+        ];
       }
       ((lib.mkIf cfg.remoteBuilders.enable) {
         age.secrets = {
