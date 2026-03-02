@@ -57,7 +57,7 @@ in
         };
       };
 
-      targets.nixvim.enable = lib.mkIf (cfg.theme != null) false;
+      targets.nvf.enable = lib.mkIf (cfg.theme != null) false;
 
       # targets.btop.enable =
       #   lib.mkIf (settings.themecfg.themeDetails.btopTheme != null) false;

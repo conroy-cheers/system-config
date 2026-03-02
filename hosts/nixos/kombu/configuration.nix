@@ -295,7 +295,6 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     xdg-utils
-    neovim
     wget
     udiskie
   ];
