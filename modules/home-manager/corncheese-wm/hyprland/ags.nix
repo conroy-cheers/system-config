@@ -70,7 +70,7 @@ in
 
   config = lib.mkIf (cfg.enable && cfg.ags.enable) {
     home.packages = with pkgs; [
-      inputs.colorshell.packages.${system}.colorshell
+      inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell
       pkgs.uwsm
     ];
 

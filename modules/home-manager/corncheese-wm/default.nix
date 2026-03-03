@@ -138,7 +138,7 @@ in
       enable = true;
       createDirectories = true;
       extraConfig = {
-        XDG_SCREENSHOTS_DIR = "${config.home.homeDirectory}/Screenshots";
+        SCREENSHOTS = "${config.home.homeDirectory}/Screenshots";
       };
     };
 

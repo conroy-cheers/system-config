@@ -34,7 +34,7 @@ in
       };
       xdg.terminal-exec = {
         enable = true;
-        package = pkgs.xdg-terminal-exec-mkhl;
+        package = pkgs.xdg-terminal-exec;
         settings = {
           Hyprland = [
             "com.mitchellh.ghostty.desktop"

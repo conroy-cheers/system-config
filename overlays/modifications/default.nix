@@ -63,7 +63,7 @@ final: prev: {
         {
           # NOTE: `lib.getBin` is needed, otherwise the `-dev` output is chosen
           "${version}" = final.lib.getBin (
-            inputs.nix-monitored.packages.${final.system}.default.override {
+            inputs.nix-monitored.packages.${final.stdenv.hostPlatform.system}.default.override {
               nix = eval.value;
               nix-output-monitor = prev.nix-output-monitor;
             }
