@@ -106,9 +106,9 @@
     ## Wine
     # winetricks (all versions)
     winetricks
-    wineWowPackages.stagingFull
+    wineWow64Packages.stagingFull
     (pkgs.writeShellScriptBin "wine64" ''
-      exec ${lib.getExe' wineWowPackages.stagingFull "wine"} "$@"
+      exec ${lib.getExe' wineWow64Packages.stagingFull "wine"} "$@"
     '')
   ];
 

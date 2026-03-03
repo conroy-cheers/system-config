@@ -62,7 +62,7 @@ in
             enable = true;
             xwayland.enable = true;
             withUWSM = true;
-            package = inputs.hyprland.packages.${pkgs.system}.default;
+            package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.default;
             portalPackage =
               inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
           };
@@ -127,10 +127,10 @@ in
           package = pkgs.steam.override {
             extraPkgs =
               pkgs': with pkgs'; [
-                xorg.libXcursor
-                xorg.libXi
-                xorg.libXinerama
-                xorg.libXScrnSaver
+                libxcursor
+                libxi
+                libxinerama
+                libxscrnsaver
                 libpng
                 libpulseaudio
                 libvorbis
