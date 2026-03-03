@@ -137,7 +137,7 @@ in
       };
 
       programs.mpv = {
-        enable = false;
+        enable = true;
       };
     })
     (lib.mkIf cfg.media.enable {
