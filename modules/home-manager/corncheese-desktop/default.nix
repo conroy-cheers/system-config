@@ -75,7 +75,7 @@ in
           idle = true;
           maximized = false;
           mouse-cursor-icon = "arrow";
-          neovim-bin = "${pkgs.neovim}/bin/nvim";
+          neovim-bin = "${lib.getExe config.programs.nvf.finalPackage}";
           no-multigrid = false;
           srgb = true;
           tabs = true;
