@@ -36,6 +36,7 @@ in
               extra-substituters
               extra-trusted-public-keys
               trusted-substituters
+              trusted-users
               ;
           };
         };
