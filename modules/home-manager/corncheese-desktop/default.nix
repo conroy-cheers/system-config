@@ -137,7 +137,7 @@ in
       };
 
       programs.mpv = {
-        enable = true;
+        enable = pkgs.stdenv.hostPlatform.isLinux;
       };
     })
     (lib.mkIf cfg.media.enable {
@@ -146,7 +146,7 @@ in
       ];
 
       services.plex-mpv-shim = {
-        enable = false;
+        enable = pkgs.stdenv.hostPlatform.isLinux;
       };
     })
     (lib.mkIf cfg.mail.enable {
