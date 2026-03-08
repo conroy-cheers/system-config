@@ -32,6 +32,31 @@ let
       sha256 = "sha256:0jgbsxllqd1vhqzd83vv7bjg2hb951hqg6wflxxxalxvj4zlni79";
     };
   };
+
+  codex-wrapped = pkgs.symlinkJoin {
+    name = "codex-wrapped";
+    paths = [ inputs.llm-agents.packages.${meta.system}.codex ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+
+    postBuild = ''
+      wrapProgram $out/bin/codex \
+        --prefix PATH : ${
+          lib.makeBinPath [
+            pkgs.ripgrep
+            pkgs.fd
+            pkgs.gnused
+            pkgs.gawk
+            pkgs.jq
+            pkgs.curl
+            pkgs.wget2
+            pkgs.gnutar
+            pkgs.unzip
+            pkgs.just
+            pkgs.nodejs
+          ]
+        }
+    '';
+  };
 in
 {
   imports = [
@@ -539,7 +564,7 @@ in
 
           nerd-fonts.meslo-lg
           inputs.llm-agents.packages.${meta.system}.claude-code
-          inputs.llm-agents.packages.${meta.system}.codex
+          codex-wrapped
           inputs.llm-agents.packages.${meta.system}.crush
 
           hoppscotch
