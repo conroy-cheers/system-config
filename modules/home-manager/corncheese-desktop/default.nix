@@ -45,19 +45,24 @@ in
         };
       };
 
-      programs.ghostty = {
-        enable = true;
-        # On macOS, the ghostty package is not available through Nix
-        package = if pkgs.ghostty.meta.available then pkgs.ghostty else null;
-        # enableZshIntegration = true;  # TODO flag or remove
-        enableFishIntegration = true;
-        settings = {
-          keybind = [
-          ];
-          background-blur = 20;
+      programs.ghostty =
+        let
+          # On macOS, the ghostty package is not available through Nix
+          isAvailable = inputs.ghostty.packages.${pkgs.stdenv.hostPlatform.system} ? "default";
+        in
+        {
+          enable = true;
+          package =
+            if isAvailable then inputs.ghostty.packages.${pkgs.stdenv.hostPlatform.system}.default else null;
+          # enableZshIntegration = true;  # TODO flag or remove
+          enableFishIntegration = true;
+          settings = {
+            keybind = [
+            ];
+            background-blur = 20;
+          };
+          installBatSyntax = isAvailable;
         };
-        installBatSyntax = pkgs.ghostty.meta.available;
-      };
 
       home.packages = with pkgs; [
         slack

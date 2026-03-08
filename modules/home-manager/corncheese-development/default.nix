@@ -597,19 +597,16 @@ in
           (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "pycharm" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
-            "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
           (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "clion" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
-            "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
           (inputs.nix-jetbrains-plugins.lib.buildIdeWithPlugins pkgs "rust-rover" [
             "com.intellij.plugins.vscodekeymap"
             "com.github.catppuccin.jetbrains"
-            "systems.fehn.intellijdirenv"
             "nix-idea"
           ])
         ])
