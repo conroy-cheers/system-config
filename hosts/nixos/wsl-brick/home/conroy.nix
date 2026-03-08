@@ -45,6 +45,7 @@
       shells = [ "zsh" ];
     };
     development = {
+      enable = true;
       vscode.enable = true;
       ssh.enable = true;
     };

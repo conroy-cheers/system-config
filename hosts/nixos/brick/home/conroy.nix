@@ -21,6 +21,7 @@
 
   corncheese = {
     development = {
+      enable = true;
       electronics = {
         enable = true;
       };

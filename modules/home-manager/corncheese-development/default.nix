@@ -66,6 +66,7 @@ in
 
   options = {
     corncheese.development = {
+      enable = lib.mkEnableOption "corncheese development environment";
       ssh = {
         enable = lib.mkEnableOption "corncheese developer ssh config";
         onePassword = lib.mkEnableOption "corncheese developer ssh 1password integration";
@@ -94,7 +95,7 @@ in
     };
   };
 
-  config = {
+  config = lib.mkIf cfg.enable {
     services.vscode-server.enable = true;
 
     programs.vscode = lib.mkIf cfg.vscode.enable {
