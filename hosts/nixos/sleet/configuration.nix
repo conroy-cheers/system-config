@@ -60,10 +60,20 @@
     wm.enable = false;
   };
 
+  age.secrets."corncheese.nix-cache.env" = {
+    rekeyFile = lib.repoSecret "corncheese/nix-cache/env.age";
+  };
+
   corncheese-server = {
     media.enable = true;
     games = {
       minecraft.enable = true;
+    };
+    nixCache = {
+      enable = true;
+      environmentFile = config.age.secrets."corncheese.nix-cache.env".path;
+      publicHost = "cache.corncheese.org";
+      cacheName = "cache.corncheese.org";
     };
   };
 
