@@ -48,7 +48,6 @@ in
       };
       global = {
         brewfile = true; # Run brew bundle from anywhere
-        lockfiles = false; # Don't save lockfile (since running from anywhere)
       };
       taps = [
       ];
