@@ -1,5 +1,6 @@
 result
 /.direnv/
+/.act.secrets
 /secrets/*key*
 !/secrets/*.hmac
 !/secrets/*.age

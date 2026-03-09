@@ -74,10 +74,12 @@
       environmentFile = config.age.secrets."corncheese.nix-cache.env".path;
       publicHost = "cache.corncheese.org";
       cacheName = "nix-cache";
+      retentionPeriod = "90 days";
     };
   };
 
   services.atticd.settings.storage.endpoint = lib.mkForce "http://127.0.0.1:3900";
+  services.atticd.settings.garbage-collection.interval = lib.mkForce "12 hours";
 
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {

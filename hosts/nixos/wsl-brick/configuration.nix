@@ -100,7 +100,7 @@
   };
 
   ### Audio (via WSLg)
-  hardware.pulseaudio = {
+  services.pulseaudio = {
     enable = true;
   };
 
@@ -168,7 +168,6 @@
     enable = false;
     host = "0.0.0.0";
     port = 11434;
-    acceleration = "cuda";
   };
 
   # Firewall not necessary on WSL2

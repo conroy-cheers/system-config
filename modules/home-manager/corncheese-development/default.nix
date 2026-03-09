@@ -347,13 +347,13 @@ in
           statusline = {
             lualine = {
               enable = true;
-              theme = "catppuccin";
+              theme = lib.mkForce "catppuccin";
             };
           };
 
           theme = {
             enable = true;
-            name = "catppuccin";
+            name = lib.mkForce "catppuccin";
             style = "mocha";
             transparent = false;
           };

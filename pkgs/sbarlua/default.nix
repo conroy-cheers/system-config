@@ -1,12 +1,19 @@
 {
-  source,
+  fetchFromGitHub,
   lib,
   stdenv,
   readline,
 }:
 stdenv.mkDerivation {
-  inherit (source) pname src;
-  version = "unstable-${source.date}";
+  pname = "sbarlua";
+  version = "unstable-2026-03-06";
+
+  src = fetchFromGitHub {
+    owner = "FelixKratz";
+    repo = "SbarLua";
+    rev = "dba9cc421b868c918d5c23c408544a28aadf2f2f";
+    hash = "sha256-lhLTrdufA3ALJ2S5HLdgNOr5seWIWEHkVhZNPObzbvI=";
+  };
 
   postPatch = ''
     substituteInPlace makefile \

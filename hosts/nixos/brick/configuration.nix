@@ -139,10 +139,6 @@ in
   nix = {
     settings = {
       trusted-users = [ "conroy" ];
-      extra-substituters = [ "https://cache.corncheese.org/nix-cache" ];
-      extra-trusted-public-keys = [
-        "nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg="
-      ];
     };
   };
 
