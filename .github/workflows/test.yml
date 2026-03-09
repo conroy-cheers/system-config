@@ -2,14 +2,115 @@ name: "Test"
 on:
   pull_request:
   push:
+
 jobs:
-  tests:
+  nixos-configurations:
+    name: NixOS ${{ matrix.configuration }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+        - brick
+        - kombu
+        - labtop
+        - sleet
+        - wsl-brick
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v17
-    - uses: cachix/cachix-action@v16
       with:
-        name: corncheese
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: nix flake check -vL
+        extra-conf: |
+          extra-substituters = https://cache.corncheese.org/nix-cache
+          extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+    - name: Configure private flake access
+      env:
+        CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
+      run: |
+        git config --global \
+          url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
+          https://github.com/conroy-cheers/corncheese-server-config
+    - name: Disk diagnostics
+      run: |
+        df -h
+        du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
+    - name: Evaluate NixOS configuration
+      run: |
+        nix --no-eval-cache eval --raw \
+          .#nixosConfigurations.${{ matrix.configuration }}.config.system.build.toplevel.drvPath
+    - name: Nix store diagnostics
+      if: ${{ failure() }}
+      run: |
+        nix store verify --no-trust || true
+
+  darwin-configurations:
+    name: Darwin ${{ matrix.configuration }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+        - kiki
+        - squiggle
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v17
+      with:
+        extra-conf: |
+          extra-substituters = https://cache.corncheese.org/nix-cache
+          extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+    - name: Configure private flake access
+      env:
+        CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
+      run: |
+        git config --global \
+          url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
+          https://github.com/conroy-cheers/corncheese-server-config
+    - name: Disk diagnostics
+      run: |
+        df -h
+        du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
+    - name: Evaluate Darwin configuration
+      run: |
+        nix --no-eval-cache eval --raw \
+          .#darwinConfigurations.${{ matrix.configuration }}.system.drvPath
+    - name: Nix store diagnostics
+      if: ${{ failure() }}
+      run: |
+        nix store verify --no-trust || true
+
+  flake-checks:
+    name: Check ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+        - deploy-activate
+        - deploy-schema
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v17
+      with:
+        extra-conf: |
+          extra-substituters = https://cache.corncheese.org/nix-cache
+          extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+    - name: Configure private flake access
+      env:
+        CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
+      run: |
+        git config --global \
+          url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
+          https://github.com/conroy-cheers/corncheese-server-config
+    - name: Disk diagnostics
+      run: |
+        df -h
+        du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
+    - name: Evaluate flake check
+      run: |
+        nix --no-eval-cache eval --raw \
+          .#checks.x86_64-linux.${{ matrix.check }}.drvPath
+    - name: Nix store diagnostics
+      if: ${{ failure() }}
+      run: |
+        nix store verify --no-trust || true

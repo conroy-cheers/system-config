@@ -48,7 +48,7 @@ in
       programs.bash.initExtra = ''
         source ${config.home.homeDirectory}/.agent-bridge.sh
       '';
-      programs.zsh.initExtra = ''
+      programs.zsh.initContent = ''
         source ${config.home.homeDirectory}/.agent-bridge.sh
       '';
     })

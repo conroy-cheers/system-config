@@ -90,9 +90,11 @@
             systems {
               inherit (pkgsPure)
                 lib
-                # hostPlatform
-                # buildPlatform
-                # targetPlatform
+                ;
+              inherit (pkgsPure.stdenv)
+                hostPlatform
+                buildPlatform
+                targetPlatform
                 ;
             }
           ))

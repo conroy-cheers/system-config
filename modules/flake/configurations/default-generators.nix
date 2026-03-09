@@ -137,6 +137,9 @@ let
 
         # nix-topology
         inputs.nix-topology.nixosModules.default
+        {
+          topology.extractors.services.enable = false;
+        }
 
         # Sane default `networking.hostName`
         {

@@ -68,18 +68,10 @@
       };
     in
     {
-      # NOTE: hide from `nix flake show`
-      #       requires `allow-import-from-derivation`
-      legacyPackages = {
-        topology = self.topology.${system}.config.output;
-      };
-
       topology = {
-        # nixosConfigurations = {
-        #   inherit (self.nixosConfigurations)
-        #     jeeves;
-        # };
-        nixosConfigurations = self.nixosConfigurations;
+        # Reuse the already-generated host configs directly so topology
+        # doesn't recurse back through the full flake output graph.
+        nixosConfigurations = lib.mapAttrs (_: host: host.configuration) config.auto.configurations.configurationTypes.nixos.result;
         modules = [
           (
             { config, ... }:
@@ -149,10 +141,16 @@
               };
 
               nodes.jeeves = {
+                deviceType = "nixos";
                 interfaces.eth0 = {
                   addresses = [ "192.168.1.210" ];
                   network = "router2";
                   physicalConnections = [ (mkConnectionRev "router2" "lan3") ];
+                };
+                interfaces.wg0 = {
+                  addresses = [ "10.100.0.1" ];
+                  network = "wg0";
+                  physicalConnections = [ (mkConnectionRev "cheetah" "jeeves") ];
                 };
                 interfaces.wan0 = {
                   icon = "interfaces.wifi";

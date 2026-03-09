@@ -80,7 +80,7 @@ in
           idle = true;
           maximized = false;
           mouse-cursor-icon = "arrow";
-          neovim-bin = "${lib.getExe config.programs.nvf.finalPackage}";
+          neovim-bin = "${lib.getExe (if config.programs.nvf.enable then config.programs.nvf.finalPackage else pkgs.neovim)}";
           no-multigrid = false;
           srgb = true;
           tabs = true;
@@ -107,6 +107,8 @@ in
           ];
         };
       };
+
+      stylix.targets.firefox.profileNames = mkIf cfg.firefox.enable [ "default" ];
 
       programs.chromium = mkIf cfg.chromium.enable {
         enable = true;

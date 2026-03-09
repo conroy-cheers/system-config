@@ -293,6 +293,14 @@
     };
 
   config = {
+    perSystem =
+      { system, ... }:
+      {
+        checks = lib.optionalAttrs (builtins.hasAttr system inputs.deploy-rs.lib) (
+          inputs.deploy-rs.lib.${system}.deployChecks self.deploy
+        );
+      };
+
     flake =
       let
         configurationsOld = config.auto.configurations.result.configurations.old;
@@ -300,11 +308,8 @@
         deployNodes = {
           deploy.nodes = config.auto.configurations.result.deployNodes;
         };
-        deployChecks = {
-          checks = lib.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
-        };
         # TODO: lib.something for merging (asserting for no overwrites)
       in
-      configurationsOld // configurationsNew // deployNodes // deployChecks;
+      configurationsOld // configurationsNew // deployNodes;
   };
 }
