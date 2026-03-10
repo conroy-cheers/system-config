@@ -40,16 +40,6 @@ in
           file-roller
         ];
 
-        # hyprland Nix cache
-        nix = {
-          settings = {
-            substituters = [ "https://hyprland.cachix.org" ];
-            trusted-public-keys = [
-              "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-            ];
-          };
-        };
-
         hardware.graphics = {
           package = hypr-pkgs.mesa;
           package32 = hypr-pkgs.pkgsi686Linux.mesa;
