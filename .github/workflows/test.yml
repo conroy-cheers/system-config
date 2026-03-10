@@ -1,21 +1,14 @@
-name: "Test"
+name: "CI Build & Cache"
 on:
   pull_request:
   push:
 
 jobs:
-  nixos-configurations:
-    name: NixOS ${{ matrix.configuration }}
+  detect-targets:
+    name: Detect targets
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration:
-        - brick
-        - kombu
-        - labtop
-        - sleet
-        - wsl-brick
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v17
@@ -30,63 +23,77 @@ jobs:
         git config --global \
           url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
           https://github.com/conroy-cheers/corncheese-server-config
-    - name: Disk diagnostics
+    - name: Generate matrix
+      id: targets
       run: |
-        df -h
-        du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
-    - name: Evaluate NixOS configuration
-      run: |
-        nix --no-eval-cache eval --raw \
-          .#nixosConfigurations.${{ matrix.configuration }}.config.system.build.toplevel.drvPath
-    - name: Nix store diagnostics
-      if: ${{ failure() }}
-      run: |
-        nix store verify --no-trust || true
+        set -euo pipefail
 
-  darwin-configurations:
-    name: Darwin ${{ matrix.configuration }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration:
-        - kiki
-    steps:
-    - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@v17
-      with:
-        extra-conf: |
-          extra-substituters = https://cache.corncheese.org/nix-cache
-          extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
-    - name: Configure private flake access
-      env:
-        CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
-      run: |
-        git config --global \
-          url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
-          https://github.com/conroy-cheers/corncheese-server-config
-    - name: Disk diagnostics
-      run: |
-        df -h
-        du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
-    - name: Evaluate Darwin configuration
-      run: |
-        nix --no-eval-cache eval --raw \
-          .#darwinConfigurations.${{ matrix.configuration }}.system.drvPath
-    - name: Nix store diagnostics
-      if: ${{ failure() }}
-      run: |
-        nix store verify --no-trust || true
+        nixos_json="$(
+          nix --no-eval-cache eval --json '.#nixosConfigurations' \
+            --apply "cfg: builtins.map (name: { inherit name; system = cfg.\${name}.meta.system; }) (builtins.attrNames cfg)"
+        )"
+        darwin_json="$(
+          nix --no-eval-cache eval --json '.#darwinConfigurations' \
+            --apply "cfg: builtins.map (name: { inherit name; system = cfg.\${name}.meta.system; }) (builtins.attrNames cfg)"
+        )"
+        checks_json="$(
+          nix --no-eval-cache eval --json '.#checks.x86_64-linux' \
+            --apply builtins.attrNames
+        )"
 
-  flake-checks:
-    name: Check ${{ matrix.check }}
-    runs-on: ubuntu-latest
+        nixos_targets="$(
+          jq -c '[.[] | {
+            kind: "nixos",
+            name: .name,
+            system: .system,
+            runner: (if (.system | endswith("-darwin")) then "macos-latest" else "ubuntu-latest" end),
+            check_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel.drvPath"),
+            build_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel"),
+            push_enabled: true
+          }]' <<<"$nixos_json"
+        )"
+        darwin_targets="$(
+          jq -c '[.[] | {
+            kind: "darwin",
+            name: .name,
+            system: .system,
+            runner: (if (.system | endswith("-darwin")) then "macos-latest" else "ubuntu-latest" end),
+            check_attr: ("darwinConfigurations." + .name + ".system.drvPath"),
+            build_attr: ("darwinConfigurations." + .name + ".system"),
+            push_enabled: true
+          }]' <<<"$darwin_json"
+        )"
+        check_targets="$(
+          jq -c '[.[] | {
+            kind: "check",
+            name: .,
+            system: "x86_64-linux",
+            runner: "ubuntu-latest",
+            check_attr: ("checks.x86_64-linux." + . + ".drvPath"),
+            build_attr: "",
+            push_enabled: false
+          }]' <<<"$checks_json"
+        )"
+
+        matrix="$(
+          jq -cn \
+            --argjson nixos "$nixos_targets" \
+            --argjson darwin "$darwin_targets" \
+            --argjson checks "$check_targets" \
+            '{include: ($nixos + $darwin + $checks)}'
+        )"
+
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  run-target:
+    name: ${{ matrix.kind }} ${{ matrix.name }}
+    needs: detect-targets
+    runs-on: ${{ matrix.runner }}
+    env:
+      ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
     strategy:
       fail-fast: false
-      matrix:
-        check:
-        - deploy-activate
-        - deploy-schema
+      matrix: ${{ fromJSON(needs.detect-targets.outputs.matrix) }}
     steps:
     - uses: actions/checkout@v4
     - uses: DeterminateSystems/nix-installer-action@v17
@@ -101,14 +108,105 @@ jobs:
         git config --global \
           url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
           https://github.com/conroy-cheers/corncheese-server-config
-    - name: Disk diagnostics
+    - name: Disk diagnostics (before cleanup)
       run: |
         df -h
         du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
-    - name: Evaluate flake check
+    - name: Free disk space (Linux)
+      if: ${{ runner.os == 'Linux' }}
+      uses: jlumbroso/free-disk-space@main
+      with:
+        swap-storage: false
+        tool-cache: true
+    - name: Free disk space (macOS)
+      if: ${{ runner.os == 'macOS' }}
+      run: |
+        set -euo pipefail
+        echo "::group::Free space before cleanup"
+        df -h
+        echo "::endgroup::"
+        echo "::group::Cleaned Files"
+        sudo rm -rfv /Users/runner/Library/Android/sdk || true
+        brew cleanup -s || true
+        rm -rf ~/Library/Caches/Homebrew || true
+        rm -rf ~/Library/Caches/pip ~/.cache/pip || true
+        npm cache clean --force || true
+        rm -rf ~/.npm || true
+        rm -rf ~/.cargo/registry ~/.cargo/git || true
+        go clean -cache -modcache || true
+        echo "::endgroup::"
+        echo "::group::Free space after cleanup"
+        df -h
+        echo "::endgroup::"
+    - name: Disk diagnostics (after cleanup)
+      run: |
+        df -h
+        du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
+    - name: Evaluate target
       run: |
         nix --no-eval-cache eval --raw \
-          .#checks.x86_64-linux.${{ matrix.check }}.drvPath
+          .#${{ matrix.check_attr }}
+    - name: Login to Attic
+      if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
+      run: |
+        nix run github:zhaofengli/attic -- \
+          login nix-cache https://cache.corncheese.org/nix-cache "$ATTIC_PUSH_TOKEN"
+    - name: Build target
+      if: ${{ matrix.build_attr != '' }}
+      id: build_target
+      env:
+        TARGET_ATTR: ${{ matrix.build_attr }}
+        TARGET_NAME: ${{ matrix.kind }}-${{ matrix.name }}
+        ATTIC_CAN_PUSH: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
+      run: |
+        set -euo pipefail
+
+        watch_pid=""
+        watch_log="$RUNNER_TEMP/attic-watch-${TARGET_NAME}.log"
+        build_stderr="$RUNNER_TEMP/build-${TARGET_NAME}.stderr"
+        build_exit=0
+        build_path=""
+
+        cleanup() {
+          if [[ -n "$watch_pid" ]]; then
+            kill "$watch_pid" 2>/dev/null || true
+            wait "$watch_pid" 2>/dev/null || true
+          fi
+        }
+        trap cleanup EXIT
+
+        if [[ "$ATTIC_CAN_PUSH" == "true" ]]; then
+          nix run github:zhaofengli/attic -- \
+            watch-store nix-cache >"$watch_log" 2>&1 &
+          watch_pid="$!"
+        fi
+
+        set +e
+        build_output="$(nix build --no-link --print-out-paths ".#${TARGET_ATTR}" 2>"$build_stderr")"
+        build_exit="$?"
+        set -e
+
+        if [[ "$ATTIC_CAN_PUSH" == "true" && -n "$watch_pid" ]]; then
+          sleep 2
+        fi
+
+        if [[ "$build_exit" -eq 0 ]]; then
+          build_path="$(echo "$build_output" | tail -n1)"
+        else
+          echo "Build failed for ${TARGET_NAME}"
+          cat "$build_stderr" || true
+        fi
+
+        echo "exit_code=$build_exit" >>"$GITHUB_OUTPUT"
+        echo "build_path=$build_path" >>"$GITHUB_OUTPUT"
+    - name: Push build output to Attic
+      if: ${{ matrix.build_attr != '' && steps.build_target.outputs.exit_code == '0' && steps.build_target.outputs.build_path != '' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
+      run: |
+        nix run github:zhaofengli/attic -- \
+          push nix-cache "${{ steps.build_target.outputs.build_path }}"
+    - name: Fail if target build failed
+      if: ${{ matrix.build_attr != '' && steps.build_target.outputs.exit_code != '0' }}
+      run: exit 1
     - name: Nix store diagnostics
       if: ${{ failure() }}
       run: |
