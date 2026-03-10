@@ -2,6 +2,8 @@ name: "CI Build & Cache"
 on:
   pull_request:
   push:
+    branches:
+    - main
 
 jobs:
   detect-targets:
