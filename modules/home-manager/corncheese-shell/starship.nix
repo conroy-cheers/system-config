@@ -56,7 +56,7 @@
       SUSE = "";
       Raspbian = "󰐿";
       Mint = "󰣭";
-      Macos = "󰀵";
+      Macos = "󰀵 ";
       Manjaro = "";
       Linux = "󰌽";
       Gentoo = "󰣨";
