@@ -1,0 +1,31 @@
+name: "Update Flake Lock"
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: "0 0 * * 0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-flake-lock
+  cancel-in-progress: false
+
+jobs:
+  update-flake-lock:
+    runs-on: ubuntu-latest
+    env:
+      CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: DeterminateSystems/nix-installer-action@v17
+      with:
+        extra-conf: |
+          extra-substituters = https://cache.corncheese.org/nix-cache
+          extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+          access-tokens = github.com=${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}
+    - uses: DeterminateSystems/update-flake-lock@v27
+      with:
+        pr-title: "Update flake.lock"
