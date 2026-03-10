@@ -78,9 +78,6 @@
     };
   };
 
-  services.atticd.settings.storage.endpoint = lib.mkForce "http://127.0.0.1:3900";
-  services.atticd.settings.garbage-collection.interval = lib.mkForce "12 hours";
-
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {
     rekeyFile = lib.repoSecret "corncheese/atuin/key.age";
