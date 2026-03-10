@@ -146,6 +146,72 @@ jobs:
       run: |
         nix --no-eval-cache eval --raw \
           .#${{ matrix.check_attr }}
+    - name: Prefetch substitutes (retry, no local builds)
+      if: ${{ matrix.build_attr != '' }}
+      env:
+        TARGET_ATTR: ${{ matrix.build_attr }}
+      run: |
+        set -euo pipefail
+
+        attempts=4
+        sleep_seconds=10
+        plan_log="$RUNNER_TEMP/prefetch-plan-${{ matrix.kind }}-${{ matrix.name }}.log"
+        prefetch_log="$RUNNER_TEMP/prefetch-${{ matrix.kind }}-${{ matrix.name }}.log"
+
+        drv_path="$(
+          nix build --dry-run --json ".#${TARGET_ATTR}" 2>"$plan_log" \
+            | jq -r '.[0].drvPath'
+        )"
+
+        nix-store -r --dry-run "$drv_path" > /dev/null 2>"$plan_log" || true
+        fetch_count="$(
+          awk '
+            /^these [0-9]+ paths will be fetched/ { print $2; exit }
+          ' "$plan_log"
+        )"
+        fetch_count="${fetch_count:-0}"
+        if [[ "$fetch_count" -eq 0 ]]; then
+          echo "No substitutable inputs to prefetch."
+          exit 0
+        fi
+        echo "Prefetch target includes $fetch_count substitutable paths."
+
+        has_transient_substitute_error() {
+          grep -Eiq \
+            'Truncated zstd input|failed to read compressed data|some substitutes for the outputs of derivation|unable to download|download .* failed|connection reset|connection timed out|TLS|HTTP error 5[0-9][0-9]' \
+            "$prefetch_log"
+        }
+
+        for attempt in $(seq 1 "$attempts"); do
+          echo "Prefetch attempt $attempt/$attempts for .#${TARGET_ATTR}"
+
+          # Substitute-only realisation. It can exit non-zero when local builds
+          # would be required; that is non-fatal for prefetching.
+          set +e
+          nix-store -r --max-jobs 0 --keep-going "$drv_path" > /dev/null 2>"$prefetch_log"
+          prefetch_exit="$?"
+          set -e
+
+          if ! has_transient_substitute_error; then
+            if [[ "$prefetch_exit" -eq 0 ]]; then
+              echo "Prefetch succeeded without substitute errors."
+            else
+              echo "Prefetch completed without substitute errors; continuing (local build required for remaining paths)."
+              tail -n 40 "$prefetch_log" || true
+            fi
+            exit 0
+          fi
+
+          echo "Prefetch attempt $attempt hit transient substitute/download errors; recent output:"
+          tail -n 80 "$prefetch_log" || true
+          if [[ "$attempt" -lt "$attempts" ]]; then
+            sleep "$sleep_seconds"
+          fi
+        done
+
+        echo "Prefetch retries exhausted due to substitute/download errors."
+        tail -n 120 "$prefetch_log" || true
+        exit 1
     - name: Resolve Attic client
       if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
       id: attic_client
