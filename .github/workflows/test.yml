@@ -29,21 +29,26 @@ jobs:
       run: |
         set -euo pipefail
 
-        nix_args=()
-        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
-          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
-        fi
+        nix_ci() {
+          local subcommand="$1"
+          shift
+          if [[ -n "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+            nix "$subcommand" "$@"
+          else
+            nix "$subcommand" --override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config" "$@"
+          fi
+        }
 
         nixos_json="$(
-          nix --no-eval-cache eval "${nix_args[@]}" --json '.#nixosConfigurations' \
+          nix_ci eval --no-eval-cache --json '.#nixosConfigurations' \
             --apply "cfg: builtins.map (name: { inherit name; system = cfg.\${name}.meta.system; }) (builtins.attrNames cfg)"
         )"
         darwin_json="$(
-          nix --no-eval-cache eval "${nix_args[@]}" --json '.#darwinConfigurations' \
+          nix_ci eval --no-eval-cache --json '.#darwinConfigurations' \
             --apply "cfg: builtins.map (name: { inherit name; system = cfg.\${name}.meta.system; }) (builtins.attrNames cfg)"
         )"
         checks_json="$(
-          nix --no-eval-cache eval "${nix_args[@]}" --json '.#checks.x86_64-linux' \
+          nix_ci eval --no-eval-cache --json '.#checks.x86_64-linux' \
             --apply builtins.attrNames
         )"
 
@@ -158,24 +163,33 @@ jobs:
         du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
     - name: Evaluate target
       run: |
-        nix_args=()
-        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
-          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
-        fi
+        nix_ci() {
+          local subcommand="$1"
+          shift
+          if [[ -n "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+            nix "$subcommand" "$@"
+          else
+            nix "$subcommand" --override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config" "$@"
+          fi
+        }
 
-        nix --no-eval-cache eval "${nix_args[@]}" --raw \
-          .#${{ matrix.check_attr }}
+        nix_ci eval --no-eval-cache --raw .#${{ matrix.check_attr }}
     - name: Resolve Attic client
       if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
       id: attic_client
       run: |
         set -euo pipefail
-        nix_args=()
-        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
-          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
-        fi
+        nix_ci() {
+          local subcommand="$1"
+          shift
+          if [[ -n "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+            nix "$subcommand" "$@"
+          else
+            nix "$subcommand" --override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config" "$@"
+          fi
+        }
 
-        attic_bin="$(nix develop --accept-flake-config "${nix_args[@]}" --command bash -lc 'command -v attic')"
+        attic_bin="$(nix_ci develop --accept-flake-config --command bash -lc 'command -v attic')"
         echo "attic_bin=${attic_bin}" >> "$GITHUB_OUTPUT"
     - name: Login to Attic
       if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled && steps.attic_client.outputs.attic_bin != '' }}
@@ -194,10 +208,15 @@ jobs:
       run: |
         set -euo pipefail
 
-        nix_args=()
-        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
-          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
-        fi
+        nix_ci() {
+          local subcommand="$1"
+          shift
+          if [[ -n "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+            nix "$subcommand" "$@"
+          else
+            nix "$subcommand" --override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config" "$@"
+          fi
+        }
 
         watch_pid=""
         watch_log="$RUNNER_TEMP/attic-watch-${TARGET_NAME}.log"
@@ -219,7 +238,7 @@ jobs:
         fi
 
         set +e
-        build_output="$(nix build "${nix_args[@]}" --no-link --print-out-paths ".#${TARGET_ATTR}" 2>"$build_stderr")"
+        build_output="$(nix_ci build --no-link --print-out-paths ".#${TARGET_ATTR}" 2>"$build_stderr")"
         build_exit="$?"
         set -e
 
