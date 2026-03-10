@@ -94,7 +94,7 @@
       tailscale.enable = true;
       remoteBuilders.enable = true;
       tftpServer = {
-        enable = true;
+        enable = false;
         rootDirectory = "/tmp/tftp-server";
       };
       nixDaemonSecrets.enable = true;
