@@ -7,6 +7,8 @@ jobs:
   detect-targets:
     name: Detect targets
     runs-on: ubuntu-latest
+    env:
+      CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
@@ -17,8 +19,7 @@ jobs:
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
     - name: Configure private flake access
-      env:
-        CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
+      if: ${{ env.CORNCHEESE_SERVER_CONFIG_READ_TOKEN != '' }}
       run: |
         git config --global \
           url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
@@ -28,16 +29,21 @@ jobs:
       run: |
         set -euo pipefail
 
+        nix_args=()
+        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
+        fi
+
         nixos_json="$(
-          nix --no-eval-cache eval --json '.#nixosConfigurations' \
+          nix --no-eval-cache eval "${nix_args[@]}" --json '.#nixosConfigurations' \
             --apply "cfg: builtins.map (name: { inherit name; system = cfg.\${name}.meta.system; }) (builtins.attrNames cfg)"
         )"
         darwin_json="$(
-          nix --no-eval-cache eval --json '.#darwinConfigurations' \
+          nix --no-eval-cache eval "${nix_args[@]}" --json '.#darwinConfigurations' \
             --apply "cfg: builtins.map (name: { inherit name; system = cfg.\${name}.meta.system; }) (builtins.attrNames cfg)"
         )"
         checks_json="$(
-          nix --no-eval-cache eval --json '.#checks.x86_64-linux' \
+          nix --no-eval-cache eval "${nix_args[@]}" --json '.#checks.x86_64-linux' \
             --apply builtins.attrNames
         )"
 
@@ -52,6 +58,11 @@ jobs:
             push_enabled: true
           }]' <<<"$nixos_json"
         )"
+        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+          nixos_targets="$(
+            jq -c '[.[] | select(.name != "sleet")]' <<<"$nixos_targets"
+          )"
+        fi
         darwin_targets="$(
           jq -c '[.[] | {
             kind: "darwin",
@@ -91,6 +102,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
+      CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.detect-targets.outputs.matrix) }}
@@ -105,8 +117,7 @@ jobs:
       with:
         upstream-cache: https://cache.nixos.org
     - name: Configure private flake access
-      env:
-        CORNCHEESE_SERVER_CONFIG_READ_TOKEN: ${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
+      if: ${{ env.CORNCHEESE_SERVER_CONFIG_READ_TOKEN != '' }}
       run: |
         git config --global \
           url."https://x-access-token:${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}@github.com/conroy-cheers/corncheese-server-config".insteadOf \
@@ -147,14 +158,24 @@ jobs:
         du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
     - name: Evaluate target
       run: |
-        nix --no-eval-cache eval --raw \
+        nix_args=()
+        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
+        fi
+
+        nix --no-eval-cache eval "${nix_args[@]}" --raw \
           .#${{ matrix.check_attr }}
     - name: Resolve Attic client
       if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
       id: attic_client
       run: |
         set -euo pipefail
-        attic_bin="$(nix develop --accept-flake-config --command bash -lc 'command -v attic')"
+        nix_args=()
+        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
+        fi
+
+        attic_bin="$(nix develop --accept-flake-config "${nix_args[@]}" --command bash -lc 'command -v attic')"
         echo "attic_bin=${attic_bin}" >> "$GITHUB_OUTPUT"
     - name: Login to Attic
       if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled && steps.attic_client.outputs.attic_bin != '' }}
@@ -172,6 +193,11 @@ jobs:
         ATTIC_CAN_PUSH: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
       run: |
         set -euo pipefail
+
+        nix_args=()
+        if [[ -z "${CORNCHEESE_SERVER_CONFIG_READ_TOKEN:-}" ]]; then
+          nix_args=(--override-input corncheese-server "path:${GITHUB_WORKSPACE}/.github/ci-stubs/corncheese-server-config")
+        fi
 
         watch_pid=""
         watch_log="$RUNNER_TEMP/attic-watch-${TARGET_NAME}.log"
@@ -193,7 +219,7 @@ jobs:
         fi
 
         set +e
-        build_output="$(nix build --no-link --print-out-paths ".#${TARGET_ATTR}" 2>"$build_stderr")"
+        build_output="$(nix build "${nix_args[@]}" --no-link --print-out-paths ".#${TARGET_ATTR}" 2>"$build_stderr")"
         build_exit="$?"
         set -e
 
