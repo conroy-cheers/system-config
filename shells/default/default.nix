@@ -12,6 +12,7 @@ pkgs.mkShellNoCC {
   '';
   nativeBuildInputs = with pkgs; [
     act
+    attic-client
     home-manager
     git
     wireguard-tools

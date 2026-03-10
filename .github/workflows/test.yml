@@ -146,17 +146,26 @@ jobs:
       run: |
         nix --no-eval-cache eval --raw \
           .#${{ matrix.check_attr }}
-    - name: Login to Attic
+    - name: Resolve Attic client
       if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
+      id: attic_client
       run: |
-        nix run github:zhaofengli/attic -- \
-          login nix-cache https://cache.corncheese.org/nix-cache "$ATTIC_PUSH_TOKEN"
+        set -euo pipefail
+        attic_bin="$(nix develop --accept-flake-config --command bash -lc 'command -v attic')"
+        echo "attic_bin=${attic_bin}" >> "$GITHUB_OUTPUT"
+    - name: Login to Attic
+      if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled && steps.attic_client.outputs.attic_bin != '' }}
+      env:
+        ATTIC_BIN: ${{ steps.attic_client.outputs.attic_bin }}
+      run: |
+        "$ATTIC_BIN" login nix-cache https://cache.corncheese.org/nix-cache "$ATTIC_PUSH_TOKEN"
     - name: Build target
       if: ${{ matrix.build_attr != '' }}
       id: build_target
       env:
         TARGET_ATTR: ${{ matrix.build_attr }}
         TARGET_NAME: ${{ matrix.kind }}-${{ matrix.name }}
+        ATTIC_BIN: ${{ steps.attic_client.outputs.attic_bin }}
         ATTIC_CAN_PUSH: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
       run: |
         set -euo pipefail
@@ -176,8 +185,7 @@ jobs:
         trap cleanup EXIT
 
         if [[ "$ATTIC_CAN_PUSH" == "true" ]]; then
-          nix run github:zhaofengli/attic -- \
-            watch-store nix-cache >"$watch_log" 2>&1 &
+          "$ATTIC_BIN" watch-store nix-cache >"$watch_log" 2>&1 &
           watch_pid="$!"
         fi
 
@@ -200,10 +208,11 @@ jobs:
         echo "exit_code=$build_exit" >>"$GITHUB_OUTPUT"
         echo "build_path=$build_path" >>"$GITHUB_OUTPUT"
     - name: Push build output to Attic
-      if: ${{ matrix.build_attr != '' && steps.build_target.outputs.exit_code == '0' && steps.build_target.outputs.build_path != '' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled }}
+      if: ${{ matrix.build_attr != '' && steps.build_target.outputs.exit_code == '0' && steps.build_target.outputs.build_path != '' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && env.ATTIC_PUSH_TOKEN != '' && matrix.push_enabled && steps.attic_client.outputs.attic_bin != '' }}
+      env:
+        ATTIC_BIN: ${{ steps.attic_client.outputs.attic_bin }}
       run: |
-        nix run github:zhaofengli/attic -- \
-          push nix-cache "${{ steps.build_target.outputs.build_path }}"
+        "$ATTIC_BIN" push nix-cache "${{ steps.build_target.outputs.build_path }}"
     - name: Fail if target build failed
       if: ${{ matrix.build_attr != '' && steps.build_target.outputs.exit_code != '0' }}
       run: exit 1
