@@ -558,6 +558,7 @@ in
 
           # Git
           lazygit
+          git-spice
 
           meld # Visual diff tool
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
@@ -583,11 +584,7 @@ in
           probe-rs-tools
         ])
         (lib.optionals cfg.rust.enable [
-          rustc
-          cargo
-          clippy
-          rustfmt
-          rust-analyzer
+          rustup
         ])
         (lib.optionals cfg.mechanical.enable [
           prusa-slicer
@@ -615,6 +612,10 @@ in
           (inputs.affinity.packages.${meta.system}.v3)
         ])
       ];
+
+    home.sessionVariables = {
+      GIT_SPICE_NO_GS_WARNING = "1";
+    };
 
     # programs.jetbrains-remote = {
     #   enable = true;
