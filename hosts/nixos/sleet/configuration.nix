@@ -70,10 +70,19 @@
   };
 
   corncheese-server = {
-    auth.authelia.enable = true;
+    auth.authelia = {
+      enable = true;
+      openFirewall = true;
+      publicHost = "auth.corncheese.org";
+    };
     media = {
       enable = true;
-      filebrowserQuantum.enable = true;
+      filebrowserQuantum = {
+        enable = true;
+        openFirewall = true;
+        publicHost = "home.conroycheers.me";
+        publicPath = "/files";
+      };
     };
     games = {
       minecraft.enable = true;
@@ -246,7 +255,6 @@
   ];
 
   # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   networking.firewall.enable = true;
