@@ -70,7 +70,11 @@
   };
 
   corncheese-server = {
-    media.enable = true;
+    auth.authelia.enable = true;
+    media = {
+      enable = true;
+      filebrowserQuantum.enable = true;
+    };
     games = {
       minecraft.enable = true;
     };
