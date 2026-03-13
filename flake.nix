@@ -330,7 +330,7 @@
     };
 
     colorshell = {
-      url = "github:conroy-cheers/colorshell/ryo";
+      url = "github:conroy-cheers/colorshell/fix/export-resources";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
