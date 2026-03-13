@@ -8,6 +8,19 @@
 
 let
   cfg = config.corncheese.shell;
+  nixosFastfetchLogoSvg = pkgs.fetchurl {
+    url = "https://github.com/NixOS/branding/releases/download/nixos-branding-guide-v0.1.0/nixos-logomark-default-gradient-recommended.svg";
+    sha256 = "0p4bx7p2rnxzmjfdad7iay661vgnh1ky2hpmm7ywa2scbrm59py1";
+  };
+  nixosFastfetchLogoPng = pkgs.runCommandLocal "nixos-fastfetch-logo.png" {
+    nativeBuildInputs = [
+      pkgs.librsvg
+      pkgs.imagemagick
+    ];
+  } ''
+    rsvg-convert --output rendered.png ${nixosFastfetchLogoSvg}
+    magick rendered.png -alpha on -background none -fuzz 1% -transparent white -trim +repage -resize x400 "png32:$out"
+  '';
 
   inherit (lib)
     mkEnableOption
@@ -193,8 +206,12 @@ in
         enable = true;
         settings = {
           logo = {
-            source = "nixos_small";
+            source = "${nixosFastfetchLogoPng}";
+            type = "kitty";
+            width = 11;
+            height = 5;
             padding = {
+              top = 1;
               right = 1;
             };
           };
