@@ -39,6 +39,5 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "pyOCD udev rule for Pi Debug Probe";
     platforms = lib.platforms.linux;
-    maintainers = [ ];
   };
 }

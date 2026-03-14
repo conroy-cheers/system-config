@@ -179,6 +179,5 @@ in
   };
 
   meta = {
-    maintainers = with lib.maintainers; [ conroy-cheers ];
   };
 }
