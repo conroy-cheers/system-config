@@ -141,9 +141,9 @@ in
           dim_special = 0.2;
           shadow = lib.mkForce {
             enabled = true;
-            range = 50;
-            render_power = 2;
-            color = "rgba(030a1420)";
+            range = 35;
+            render_power = 3;
+            color = "rgba(030a1460)";
             offset = "10 20";
             scale = 0.98;
           };
