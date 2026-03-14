@@ -39,7 +39,11 @@ in
             "node.software-dsp.rules" = [
               {
                 matches = [
-                  { "node.name" = "alsa_output.usb-MOTU_M2_M20000055223-00.HiFi__Line1__sink"; }
+                  {
+                    "alsa.card_name" = "M2";
+                    "device.profile.name" = "HiFi: Line: sink";
+                    "media.class" = "Audio/Sink";
+                  }
                 ];
                 actions = {
                   create-filter = {
