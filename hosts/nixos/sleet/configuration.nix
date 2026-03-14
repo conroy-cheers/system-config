@@ -63,11 +63,21 @@
   age.secrets."corncheese.nix-cache.env" = {
     rekeyFile = lib.repoSecret "corncheese/nix-cache/env.age";
   };
+  age.secrets."hydra-admin-password" = {
+    rekeyFile = lib.repoSecret "hydra/admin-password.age";
+    owner = "root";
+    mode = "0400";
+  };
 
   corncheese-server = {
     media.enable = true;
     games = {
       minecraft.enable = true;
+    };
+    hydra = {
+      enable = true;
+      port = 3010;
+      admin.passwordFile = config.age.secrets."hydra-admin-password".path;
     };
     nixCache = {
       enable = true;
