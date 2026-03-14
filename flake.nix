@@ -26,6 +26,7 @@
           ./modules/flake/modules
           ./modules/flake/configurations
           ./modules/flake/agenix
+          ./modules/flake/hydra
           ./modules/flake/topology
           ./modules/flake/packages
           ./modules/flake/overlays
