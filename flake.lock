@@ -470,11 +470,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1773469512,
-        "narHash": "sha256-MOdFzNEJfssU22fTbtIbf5vdYDuSoRVi8f765MRuuws=",
+        "lastModified": 1773492677,
+        "narHash": "sha256-uPs5uVMNFfqsDhyTjiI0K+t7jEaoU4mYNve696OIfdA=",
         "ref": "refs/heads/main",
-        "rev": "42ee682b2a04a4edbd762d02f4b81bca14e7b91b",
-        "revCount": 14,
+        "rev": "c889b8c7408b3872e5e0b0106611ae449eeaa667",
+        "revCount": 15,
         "type": "git",
         "url": "https://github.com/conroy-cheers/corncheese-server-config"
       },
