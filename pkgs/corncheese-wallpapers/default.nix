@@ -22,7 +22,6 @@ let
 
         meta = with lib; {
           description = "A curated collection of high-quality wallpapers";
-          maintainers = with maintainers; [ conroy-cheers ];
           platforms = platforms.all;
         };
       }

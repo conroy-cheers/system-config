@@ -40,7 +40,6 @@ let
         '';
         license = lib.licenses.ofl;
         platforms = lib.platforms.all;
-        maintainers = with lib.maintainers; [ oluceps ];
       };
     };
 

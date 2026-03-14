@@ -36,6 +36,5 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "udev rule for Alientek DP100";
     platforms = lib.platforms.linux;
-    maintainers = [ ];
   };
 }
