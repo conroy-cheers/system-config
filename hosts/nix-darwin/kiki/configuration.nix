@@ -33,6 +33,7 @@
     development = {
       enable = true;
       tailscale.enable = true;
+      remoteBuilders.enable = true;
     };
   };
 

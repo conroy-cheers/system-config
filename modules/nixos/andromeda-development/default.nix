@@ -11,16 +11,15 @@ let
   cfg = config.andromeda.development;
 in
 {
-  imports = [ ./tailscale.nix ];
+  imports = [
+    ../../common/andromeda-builders
+    ./tailscale.nix
+  ];
 
   options = {
     andromeda.development = {
       enable = mkEnableOption "andromeda development environment";
       tailscale.enable = mkEnableOption "andromeda tailnet";
-      remoteBuilders = {
-        enable = lib.mkEnableOption "andromeda remote builders";
-        useHomeBuilders = lib.mkEnableOption "using home builders by default";
-      };
       nixDaemonSecrets = {
         enable = lib.mkEnableOption "AWS secrets for nix daemon";
         nixSandboxKeys = {
@@ -55,10 +54,6 @@ in
           rekeyFile = lib.repoSecret "andromeda/aws-sandbox/key.age";
           mode = "400";
         };
-        "andromeda.conroy-build.key" = mkIf cfg.remoteBuilders.enable {
-          rekeyFile = lib.repoSecret "andromeda/conroy-build/key.age";
-          mode = "400";
-        };
         "andromeda.aws-sandbox.sso-config" = mkIf cfg.remoteBuilders.enable {
           rekeyFile = lib.repoSecret "andromeda/aws-sandbox/sso-config.age";
           mode = "444";
@@ -86,30 +81,6 @@ in
         '')
       ];
 
-      programs.ssh = mkIf cfg.remoteBuilders.enable {
-        extraConfig = ''
-          # big-chungus-x64
-          Host 3.106.5.183
-            User ssm-user
-            Port 22
-            #ProxyCommand sh -c "AWS_CONFIG_FILE=${
-              config.age.secrets."andromeda.aws-sandbox.sso-config".path
-            } aws ssm start-session --target i-03600f75857b7aaaf --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
-            IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
-            ConnectTimeout 3
-            
-          # big-chungus-aarch64
-          Host 3.104.252.233
-            User ssm-user
-            Port 22
-            #ProxyCommand sh -c "AWS_CONFIG_FILE=${
-              config.age.secrets."andromeda.aws-sandbox.sso-config".path
-            } aws ssm start-session --target i-01aa96b81201c1463 --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
-            IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
-            ConnectTimeout 3
-        '';
-      };
-
       nix = mkMerge [
         {
           settings = {
@@ -119,32 +90,6 @@ in
             ];
           };
         }
-        (mkIf cfg.remoteBuilders.enable {
-          extraOptions = ''
-            builders-use-substitutes = true
-          '';
-          distributedBuilds = true;
-          buildMachines = [
-            {
-              # big-chungus-x64
-              hostName = "3.106.5.183";
-              system = "x86_64-linux";
-              speedFactor = 1;
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
-            }
-            {
-              # big-chungus-aarch64
-              hostName = "3.104.252.233";
-              system = "aarch64-linux";
-              speedFactor = 8;
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUVDaGFtWWV2d0wwejc1em1ycXhzMFZuRDlxNCtEcUxiOEZZWFcyV0hlL04K";
-            }
-          ];
-        })
       ];
 
       systemd.tmpfiles.rules = [

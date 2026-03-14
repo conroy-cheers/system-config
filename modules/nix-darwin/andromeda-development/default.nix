@@ -11,15 +11,14 @@ let
   cfg = config.andromeda.development;
 in
 {
-  imports = [ ./tailscale.nix ];
+  imports = [
+    ../../common/andromeda-builders
+    ./tailscale.nix
+  ];
 
   options = {
     andromeda.development = {
       enable = mkEnableOption "andromeda development environment";
-      remoteBuilders = {
-        enable = lib.mkEnableOption "andromeda remote builders";
-        useHomeBuilders = lib.mkEnableOption "using home builders by default";
-      };
       nixDaemonSecrets = {
         enable = lib.mkEnableOption "AWS secrets for nix daemon";
       };
@@ -62,22 +61,6 @@ in
           chown -R root:wheel "$AWS_DIR"
         '';
 
-      programs.ssh = mkIf cfg.remoteBuilders.enable {
-        extraConfig = ''
-          Host big-chungus-x64
-            User root
-            HostName 3.106.5.183
-            Port 22
-            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
-
-          Host big-chungus-aarch64
-            User root
-            HostName 3.104.252.233
-            Port 22
-            IdentityFile ${config.age.secrets."andromeda.aws-sandbox.key".path}
-        '';
-      };
-
       nix = mkMerge [
         {
           envVars = {
@@ -90,29 +73,6 @@ in
             ];
           };
         }
-        (mkIf cfg.remoteBuilders.enable {
-          extraOptions = ''
-            builders-use-substitutes = true
-          '';
-          distributedBuilds = true;
-          buildMachines = [
-            {
-              hostName = "18.136.8.225";
-              system = "aarch64-linux";
-              speedFactor = 4;
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUN1RkZBcHZUdjZneHBmRlJZTGFkZnVhdG9hLytBb3V5MjJxSnhjRitDdkQK";
-            }
-            {
-              hostName = "big-chungus";
-              system = "x86_64-linux";
-              maxJobs = 32;
-              supportedFeatures = [ "big-parallel" ];
-              publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
-            }
-          ];
-        })
       ];
     })
     (mkIf cfg.nixDaemonSecrets.enable {
