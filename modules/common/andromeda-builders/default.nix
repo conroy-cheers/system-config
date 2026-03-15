@@ -1,7 +1,19 @@
-{ lib, config, ... }:
+{
+  lib,
+  config,
+  options,
+  ...
+}:
 
 let
   cfg = config.andromeda.development.remoteBuilders;
+  hasDeterminateBuilders =
+    options ? determinateNix
+    && options.determinateNix ? buildMachines
+    && options.determinateNix ? distributedBuilds;
+  hasDeterminateCustomSettings =
+    options ? determinateNix
+    && options.determinateNix ? customSettings;
 
   buildMachines = [
     {
@@ -31,40 +43,49 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    determinateNix = {
-      distributedBuilds = true;
-      inherit buildMachines;
-    };
-    nix = {
-      extraOptions = ''
-        builders-use-substitutes = true
-      '';
-      distributedBuilds = true;
-      inherit buildMachines;
-    };
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        nix = {
+          extraOptions = ''
+            builders-use-substitutes = true
+          '';
+          distributedBuilds = true;
+          inherit buildMachines;
+        };
 
-    age.secrets = {
-      "andromeda.conroy-build.key" = {
-        rekeyFile = lib.repoSecret "andromeda/conroy-build/key.age";
-        mode = "400";
-      };
-    };
+        age.secrets = {
+          "andromeda.conroy-build.key" = {
+            rekeyFile = lib.repoSecret "andromeda/conroy-build/key.age";
+            mode = "400";
+          };
+        };
 
-    programs.ssh.extraConfig = ''
-      # big-chungus-x64
-      Host 3.106.5.183
-        User ssm-user
-        Port 22
-        IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
-        ConnectTimeout 3
-        
-      # big-chungus-aarch64
-      Host 3.104.252.233
-        User ssm-user
-        Port 22
-        IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
-        ConnectTimeout 3
-    '';
-  };
+        programs.ssh.extraConfig = ''
+          # big-chungus-x64
+          Host 3.106.5.183
+            User ssm-user
+            Port 22
+            IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
+            ConnectTimeout 3
+
+          # big-chungus-aarch64
+          Host 3.104.252.233
+            User ssm-user
+            Port 22
+            IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
+            ConnectTimeout 3
+        '';
+      }
+      (lib.optionalAttrs hasDeterminateBuilders {
+        determinateNix = {
+          distributedBuilds = true;
+          inherit buildMachines;
+        };
+      })
+      (lib.optionalAttrs hasDeterminateCustomSettings {
+        determinateNix.customSettings.builders-use-substitutes = true;
+      })
+    ]
+  );
 }
