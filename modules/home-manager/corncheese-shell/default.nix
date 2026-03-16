@@ -8,19 +8,6 @@
 
 let
   cfg = config.corncheese.shell;
-  nixosFastfetchLogoSvg = pkgs.fetchurl {
-    url = "https://github.com/NixOS/branding/releases/download/nixos-branding-guide-v0.1.0/nixos-logomark-default-gradient-recommended.svg";
-    sha256 = "0p4bx7p2rnxzmjfdad7iay661vgnh1ky2hpmm7ywa2scbrm59py1";
-  };
-  nixosFastfetchLogoPng = pkgs.runCommandLocal "nixos-fastfetch-logo.png" {
-    nativeBuildInputs = [
-      pkgs.librsvg
-      pkgs.imagemagick
-    ];
-  } ''
-    rsvg-convert --output rendered.png ${nixosFastfetchLogoSvg}
-    magick rendered.png -alpha on -background none -fuzz 1% -transparent white -trim +repage -resize x400 "png32:$out"
-  '';
 
   inherit (lib)
     mkEnableOption
@@ -66,6 +53,7 @@ in
 {
   imports = [
     inputs.direnv-instant.homeModules.direnv-instant
+    ./fastfetch.nix
   ];
 
   options = {
@@ -202,54 +190,6 @@ in
         ];
       };
 
-      programs.fastfetch = {
-        enable = true;
-        settings = {
-          logo = {
-            source = "${nixosFastfetchLogoPng}";
-            type = "kitty";
-            width = 11;
-            height = 5;
-            padding = {
-              top = 1;
-              right = 1;
-            };
-          };
-          display = {
-            separator = " ›  ";
-          };
-          modules = [
-            "break"
-            {
-              type = "os";
-              key = "OS  ";
-              keyColor = "31";
-            }
-            {
-              type = "kernel";
-              key = "KER ";
-              keyColor = "32";
-            }
-            {
-              type = "shell";
-              key = "SH  ";
-              keyColor = "34";
-            }
-            {
-              type = "terminal";
-              key = "TER ";
-              keyColor = "35";
-            }
-            {
-              type = "wm";
-              key = "WM  ";
-              keyColor = "36";
-            }
-            "break"
-          ];
-        };
-      };
-
       # Starship
       programs.starship = mkIf cfg.starship {
         enable = true;
@@ -312,12 +252,6 @@ in
       programs.fish = mkIf (builtins.elem "fish" cfg.shells) {
         enable = true;
         package = pkgs.fish;
-
-        functions = {
-          fish_greeting = ''
-            ${lib.getExe config.programs.fastfetch.package}
-          '';
-        };
 
         interactiveShellInit = ''
           atuin init fish | sed "s/-k up/up/g" | source
