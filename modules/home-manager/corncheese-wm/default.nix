@@ -76,9 +76,6 @@ in
 
     services.hyprpaper = mkIf cfg.hyprpaper.enable { enable = true; };
 
-    # Stylix tries to set hyprlock wallpaper. We don't want this
-    stylix.targets.hyprlock.enable = false;
-
     gtk = {
       enable = true;
       iconTheme = {
