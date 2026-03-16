@@ -70,34 +70,24 @@
   };
 
   corncheese-server = {
+    ingress.enable = true;
     auth.authelia = {
       enable = true;
-      openFirewall = true;
-      publicHost = "auth.corncheese.org";
     };
     media = {
       enable = true;
-      filebrowserQuantum = {
-        enable = true;
-        openFirewall = true;
-        publicHost = "home.conroycheers.me";
-        publicPath = "/files";
-      };
+      filebrowserQuantum.enable = true;
     };
     games = {
       minecraft.enable = true;
     };
     hydra = {
       enable = true;
-      port = 3010;
       admin.passwordFile = config.age.secrets."hydra-admin-password".path;
     };
     nixCache = {
       enable = true;
       environmentFile = config.age.secrets."corncheese.nix-cache.env".path;
-      publicHost = "cache.corncheese.org";
-      cacheName = "nix-cache";
-      retentionPeriod = "90 days";
     };
   };
 
