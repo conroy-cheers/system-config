@@ -78,6 +78,50 @@ in
       }
     ];
 
+    systemd.user.services.claude-settings-merge = {
+      Unit = {
+        Description = "Merge Claude settings with Nix-defined configuration";
+        After = [ "default.target" ];
+      };
+      Service =
+        let
+          claudeSettings = {
+            awsAuthRefresh = "aws sso login --profile andromeda";
+            env = {
+              AWS_REGION = "ap-southeast-2";
+              AWS_PROFILE = "andromeda";
+              CLAUDE_CODE_USE_BEDROCK = 1;
+            };
+            skipDangerousModePermissionPrompt = true;
+          };
+          settingsFile = "${config.home.homeDirectory}/.claude/settings.json";
+          mergeScript = pkgs.writeShellScript "merge-claude-settings" ''
+            # Create .claude directory if it doesn't exist
+            mkdir -p "${config.home.homeDirectory}/.claude"
+
+            # Merge settings with Nix definitions taking precedence
+            if [ -f "${settingsFile}" ]; then
+              # Read existing settings and merge with Nix settings (Nix settings override)
+              ${pkgs.jq}/bin/jq -s '.[0] * .[1]' \
+                "${settingsFile}" \
+                <(echo '${builtins.toJSON claudeSettings}') \
+                > "${settingsFile}.tmp" && mv "${settingsFile}.tmp" "${settingsFile}"
+            else
+              # No existing file, just write Nix settings
+              echo '${builtins.toJSON claudeSettings}' > "${settingsFile}"
+            fi
+          '';
+        in
+        {
+          Type = "oneshot";
+          ExecStart = "${mergeScript}";
+          RemainAfterExit = true;
+        };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+    };
+
     programs.ssh = {
       enable = true;
       matchBlocks =
@@ -135,6 +179,15 @@ in
       enable = true;
       settings = {
         "default" = {
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile andromeda" = {
+          sso_start_url = "https://d-9767b8dd82.awsapps.com/start/";
+          sso_region = "ap-southeast-2";
+          sso_account_id = "440744238060";
+          sso_role_name = "AWSPowerUserAccess";
           region = "ap-southeast-2";
           output = "json";
         };
