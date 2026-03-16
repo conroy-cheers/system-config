@@ -41,59 +41,50 @@ in
         ignore_empty_input = true;
       };
 
-      background = {
-        path = "screenshot";
-        blur_passes = 3;
-        blur_size = 10;
-        brightness = 1.0;
-        contrast = 1.0;
-        noise = 2.0e-2;
-      };
-
       input-field = {
         monitor = "";
         size = "250, 50";
         outline_thickness = 0;
         dots_size = 0.26;
-        inner_color = "#${config.lib.stylix.colors.base05}";
+        # inner_color = "#${config.lib.stylix.colors.base05}";
         dots_spacing = 0.64;
         dots_center = true;
         fade_on_empty = true;
         placeholder_text = "<i>Password...</i>";
         hide_input = false;
-        check_color = "rgb(40, 200, 250)";
+        # check_color = "rgb(40, 200, 250)";
         position = "0, 50";
         halign = "center";
         valign = "bottom";
       };
     };
-    programs.hyprlock.extraConfig = ''
+    programs.hyprlock.extraConfig = with config.lib.stylix.colors; ''
       label {
           monitor =
           text = cmd[update:1000] echo "<b><big> $(date +"%H:%M") </big></b>"
-          color = "#${config.lib.stylix.colors.base05}";
+          color = rgba(${base00-rgb-r}, ${base00-rgb-g}, ${base00-rgb-b}, 0.7)
 
-          font_size = 64
+          font_size = 108
           font_family = MesloLGM Nerd Font Propo
 
-          position = 0, -40
+          position = 0, 310
           halign = center
           valign = center
 
           shadow_passes = 4
           shadow_size = 4
-          shadow_boost = 0.8
+          shadow_boost = 0.2
       }
 
       label {
           monitor =
           text = cmd[update:18000000] echo "<b> "$(date +'%A, %-d %B %Y')" </b>"
-          color = "#${config.lib.stylix.colors.base05}";
+          color = rgba(${base00-rgb-r}, ${base00-rgb-g}, ${base00-rgb-b}, 0.7)
 
           font_size = 24
           font_family = MesloLGM Nerd Font Propo
 
-          position = 0, -120
+          position = 0, 215
           halign = center
           valign = center
 
