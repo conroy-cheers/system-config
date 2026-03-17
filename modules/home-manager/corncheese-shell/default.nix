@@ -141,14 +141,18 @@ in
       };
 
       # Direnv
-      programs.direnv-instant.enable = true;
+      programs.direnv-instant = {
+        enable = true;
+      };
       programs.direnv = mkIf cfg.direnv {
         enable = true;
-        silent = true;
 
-        enableNushellIntegration = builtins.elem "nushell" cfg.shells;
-        enableZshIntegration = builtins.elem "zsh" cfg.shells;
-        enableFishIntegration = builtins.elem "fish" cfg.shells;
+        # enableNushellIntegration = builtins.elem "nushell" cfg.shells;
+        # enableZshIntegration = builtins.elem "zsh" cfg.shells;
+        # enableFishIntegration = builtins.elem "fish" cfg.shells;
+        enableNushellIntegration = false;
+        enableZshIntegration = false;
+        enableFishIntegration = false;
 
         nix-direnv = {
           enable = true;
@@ -161,8 +165,7 @@ in
 
         enableNushellIntegration = builtins.elem "nushell" cfg.shells;
         enableZshIntegration = builtins.elem "zsh" cfg.shells;
-        # enableFishIntegration = builtins.elem "fish" cfg.shells;
-        enableFishIntegration = false; # https://github.com/atuinsh/atuin/issues/2940
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
 
         daemon.enable = true;
 
@@ -252,10 +255,6 @@ in
       programs.fish = mkIf (builtins.elem "fish" cfg.shells) {
         enable = true;
         package = pkgs.fish;
-
-        interactiveShellInit = ''
-          atuin init fish | sed "s/-k up/up/g" | source
-        '';
 
         shellAliases = shellAliases // {
           ls = "${pkgs.lsd}/bin/lsd";
