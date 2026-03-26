@@ -57,6 +57,58 @@ let
         }
     '';
   };
+
+  claude-code-wrapped = pkgs.symlinkJoin {
+    name = "claude-code-wrapped";
+    paths = [ inputs.llm-agents.packages.${meta.system}.claude-code ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+
+    postBuild = ''
+      wrapProgram $out/bin/claude \
+        --prefix PATH : ${
+          lib.makeBinPath (
+            with pkgs;
+            [
+              gh
+              jq
+              yq
+              curl
+              python3
+              openssl
+              ripgrep
+              fd
+              dig
+              tree
+              file
+              xxd
+              bc
+              sqlite
+              envsubst
+              gnutar
+              gzip
+              unzip
+              zstd
+              shellcheck
+              findutils
+              diffutils
+              patch
+              nix-diff
+              lsof
+              strace
+              gnused
+              gawk
+
+              nmap
+              tcpdump
+              socat
+              netcat
+              curl
+              wget2
+            ]
+          )
+        }
+    '';
+  };
 in
 {
   imports = [
@@ -529,11 +581,7 @@ in
     ];
 
     xdg.configFile = lib.mkIf cfg.ssh.onePassword {
-      "1Password/ssh/agent.toml".text = ''
-        [[ssh-keys]]
-        vault = "Private"
-        item = "conroy-home"
-
+      "1Password/ssh/agent.toml".text = lib.mkAfter ''
         [[ssh-keys]]
         vault = "Private"
         item = "GitHub"
@@ -543,7 +591,8 @@ in
         item = "github-signing-key"
 
         [[ssh-keys]]
-        vault = "Work"
+        vault = "Private"
+        item = "conroy-home"
       '';
     };
 
@@ -565,7 +614,7 @@ in
           pyright
 
           nerd-fonts.meslo-lg
-          inputs.llm-agents.packages.${meta.system}.claude-code
+          claude-code-wrapped
           codex-wrapped
           inputs.llm-agents.packages.${meta.system}.crush
 
