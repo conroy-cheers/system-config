@@ -94,7 +94,6 @@ let
               patch
               nix-diff
               lsof
-              strace
               gnused
               gawk
 
@@ -571,7 +570,7 @@ in
           # Create a set of file mappings for each identity file
           fileMapper = filename: {
             # Target path will be in ~/.ssh/
-            ".ssh/${filename}".source = ./pubkeys + "/${filename}";
+            ".ssh/${filename}".source = pkgs.copyPathToStore (./pubkeys + "/${filename}");
           };
         in
         lib.mkMerge [
@@ -715,6 +714,7 @@ in
           hostname = "corncheese.org";
           user = "conroycheers";
           identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          identitiesOnly = true;
         };
         "pve" = {
           hostname = "10.1.1.3";
@@ -734,6 +734,7 @@ in
         home = {
           host = (lib.concatStringsSep " " homeJumpHosts);
           proxyJump = "beluga";
+          identitiesOnly = true;
         };
         "*" = {
           forwardAgent = false;

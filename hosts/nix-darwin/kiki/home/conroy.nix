@@ -36,6 +36,7 @@
         enable = true;
         vscode.enable = true;
         ssh.enable = true;
+        ssh.onePassword = true;
       };
       scm = {
         git.enable = true;
