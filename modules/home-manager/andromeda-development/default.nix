@@ -78,6 +78,13 @@ in
       }
     ];
 
+    xdg.configFile = {
+      "1Password/ssh/agent.toml".text = lib.mkBefore ''
+        [[ssh-keys]]
+        vault = "Work"
+      '';
+    };
+
     systemd.user.services.claude-settings-merge = {
       Unit = {
         Description = "Merge Claude settings with Nix-defined configuration";
@@ -86,11 +93,14 @@ in
       Service =
         let
           claudeSettings = {
-            awsAuthRefresh = "aws sso login --profile andromeda";
+            awsAuthRefresh = "aws sso login --sso-session Andromeda";
             env = {
-              AWS_REGION = "ap-southeast-2";
-              AWS_PROFILE = "andromeda";
-              CLAUDE_CODE_USE_BEDROCK = 1;
+              CLAUDE_CODE_USE_BEDROCK = "1";
+              AWS_REGION = "us-west-2";
+              ANTHROPIC_DEFAULT_SONNET_MODEL = "global.anthropic.claude-sonnet-4-6";
+              ANTHROPIC_DEFAULT_HAIKU_MODEL = "global.anthropic.claude-haiku-4-5-20251001-v1:0";
+              ANTHROPIC_DEFAULT_OPUS_MODEL = "global.anthropic.claude-opus-4-6-v1";
+              AWS_PROFILE = "sandbox";
             };
             skipDangerousModePermissionPrompt = true;
           };
@@ -183,13 +193,16 @@ in
           output = "json";
         };
 
-        "profile andromeda" = {
-          sso_start_url = "https://d-9767b8dd82.awsapps.com/start/";
-          sso_region = "ap-southeast-2";
+        "profile sandbox" = {
+          sso_session = "Andromeda";
           sso_account_id = "440744238060";
           sso_role_name = "AWSPowerUserAccess";
-          region = "ap-southeast-2";
-          output = "json";
+        };
+
+        "sso-session Andromeda" = {
+          sso_start_url = "https://d-9767b8dd82.awsapps.com/start/#/?tab=accounts";
+          sso_region = "ap-southeast-2";
+          sso_registration_scopes = "sso:account:access";
         };
 
         "profile iot-crossaccount" = {
