@@ -21,6 +21,33 @@ let
   ];
   abiHosts = builtins.attrNames abiAliases;
   abiRootHosts = map (host: host + "-root") abiHosts;
+
+  claudeSettings = {
+    awsAuthRefresh = "aws sso login --sso-session Andromeda";
+    env = {
+      CLAUDE_CODE_USE_BEDROCK = "1";
+      AWS_REGION = "us-west-2";
+      ANTHROPIC_DEFAULT_SONNET_MODEL = "global.anthropic.claude-sonnet-4-6";
+      ANTHROPIC_DEFAULT_HAIKU_MODEL = "global.anthropic.claude-haiku-4-5-20251001-v1:0";
+      ANTHROPIC_DEFAULT_OPUS_MODEL = "global.anthropic.claude-opus-4-6-v1";
+      AWS_PROFILE = "sandbox";
+    };
+    skipDangerousModePermissionPrompt = true;
+  };
+  claudeSettingsFile = "${config.home.homeDirectory}/.claude/settings.json";
+  claudeSettingsSource = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
+  mergeClaudeSettings = pkgs.writeShellScript "merge-claude-settings" ''
+    mkdir -p "${config.home.homeDirectory}/.claude"
+
+    if [ -f "${claudeSettingsFile}" ]; then
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' \
+        "${claudeSettingsFile}" \
+        "${claudeSettingsSource}" \
+        > "${claudeSettingsFile}.tmp" && mv "${claudeSettingsFile}.tmp" "${claudeSettingsFile}"
+    else
+      cp "${claudeSettingsSource}" "${claudeSettingsFile}"
+    fi
+  '';
 in
 {
   options = {
@@ -85,51 +112,27 @@ in
       '';
     };
 
-    systemd.user.services.claude-settings-merge = {
+    systemd.user.services.claude-settings-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
       Unit = {
         Description = "Merge Claude settings with Nix-defined configuration";
         After = [ "default.target" ];
       };
-      Service =
-        let
-          claudeSettings = {
-            awsAuthRefresh = "aws sso login --sso-session Andromeda";
-            env = {
-              CLAUDE_CODE_USE_BEDROCK = "1";
-              AWS_REGION = "us-west-2";
-              ANTHROPIC_DEFAULT_SONNET_MODEL = "global.anthropic.claude-sonnet-4-6";
-              ANTHROPIC_DEFAULT_HAIKU_MODEL = "global.anthropic.claude-haiku-4-5-20251001-v1:0";
-              ANTHROPIC_DEFAULT_OPUS_MODEL = "global.anthropic.claude-opus-4-6-v1";
-              AWS_PROFILE = "sandbox";
-            };
-            skipDangerousModePermissionPrompt = true;
-            includeCoAuthoredBy = false;
-          };
-          settingsFile = "${config.home.homeDirectory}/.claude/settings.json";
-          mergeScript = pkgs.writeShellScript "merge-claude-settings" ''
-            # Create .claude directory if it doesn't exist
-            mkdir -p "${config.home.homeDirectory}/.claude"
-
-            # Merge settings with Nix definitions taking precedence
-            if [ -f "${settingsFile}" ]; then
-              # Read existing settings and merge with Nix settings (Nix settings override)
-              ${pkgs.jq}/bin/jq -s '.[0] * .[1]' \
-                "${settingsFile}" \
-                <(echo '${builtins.toJSON claudeSettings}') \
-                > "${settingsFile}.tmp" && mv "${settingsFile}.tmp" "${settingsFile}"
-            else
-              # No existing file, just write Nix settings
-              echo '${builtins.toJSON claudeSettings}' > "${settingsFile}"
-            fi
-          '';
-        in
-        {
-          Type = "oneshot";
-          ExecStart = "${mergeScript}";
-          RemainAfterExit = true;
-        };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${mergeClaudeSettings}";
+        RemainAfterExit = true;
+      };
       Install = {
         WantedBy = [ "default.target" ];
+      };
+    };
+
+    launchd.agents.claude-settings-merge = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+      enable = true;
+      config = {
+        ProgramArguments = [ "${mergeClaudeSettings}" ];
+        ProcessType = "Background";
+        RunAtLoad = true;
       };
     };
 
