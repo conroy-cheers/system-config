@@ -81,6 +81,7 @@
     music = {
       enable = true;
     };
+    games.minecraft = true;
   };
   andromeda = {
     development.enable = true;

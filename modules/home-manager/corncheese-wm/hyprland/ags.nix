@@ -8,8 +8,14 @@
 let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
+  system = pkgs.stdenv.hostPlatform.system;
 
   asztal = pkgs.callPackage ../ags/default.nix { inherit inputs; };
+  colorshellPkg = inputs.colorshell.packages.${system}.colorshell.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [
+      ../../../../patches/colorshell-application-launch.patch
+    ];
+  });
   agsColors = {
     wallpaper = themeDetails.wallpaper;
     theme = {
@@ -70,7 +76,7 @@ in
 
   config = lib.mkIf (cfg.enable && cfg.ags.enable) {
     home.packages = with pkgs; [
-      inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell
+      colorshellPkg
       pkgs.uwsm
     ];
 
@@ -108,9 +114,7 @@ in
       };
 
       Service = {
-        ExecStart = "${
-          inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell
-        }/bin/colorshell";
+        ExecStart = "${colorshellPkg}/bin/colorshell";
         Restart = "on-failure";
       };
 
