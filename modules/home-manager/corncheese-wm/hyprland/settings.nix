@@ -143,8 +143,8 @@ in
             enabled = true;
             range = 35;
             render_power = 3;
-            color = "rgba(030a1460)";
-            offset = "10 20";
+            color = "rgba(030a1430)";
+            offset = "10 12";
             scale = 0.98;
           };
           blur = {
