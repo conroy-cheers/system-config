@@ -140,7 +140,7 @@ in
         decoration = {
           dim_special = 0.2;
           shadow = lib.mkForce {
-            enabled = true;
+            enabled = false;
             range = 35;
             render_power = 3;
             color = "rgba(030a1430)";

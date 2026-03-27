@@ -7,11 +7,67 @@
 }:
 
 let
-  cfg = config.corncheese.desktop;
+  desktopCfg = config.corncheese.desktop;
+  gamesCfg = config.corncheese.games;
   inherit (lib) mkEnableOption mkIf;
+  filterOutLibrary = libraryName: libraries:
+    builtins.filter (library: (library.name or "") != libraryName) libraries;
+  filterOutLibraryPrefix = prefix: libraries:
+    builtins.filter (library: !(lib.hasPrefix prefix (library.name or ""))) libraries;
+  exportEnvVars = variables:
+    lib.concatStringsSep "\n" (
+      lib.mapAttrsToList (name: values: ''export ${name}="${lib.concatStringsSep ":" (lib.toList values)}"'') variables
+    );
+
+  radianceJar = pkgs.fetchurl {
+    url = "https://github.com/Minecraft-Radiance/Radiance/releases/download/v0.1.4-alpha/Radiance-0.1.4-alpha-fabric-1.21.4-linux.jar";
+    hash = "sha256-Pj0h6u9/JkStheMobbAdvOPIL9ITgEMA4wQPZ9hHB3E=";
+  };
+
+  fabricApiJar = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/P7dR8mSH/versions/sVqpGIb1/fabric-api-0.119.3%2B1.21.4.jar";
+    hash = "sha256-ay3wDFI5TDmA+HE3/Wk37o10iItFyuZ9RwfMoCZ6bR8=";
+  };
+
+  irisJar = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/YL57xq9U/versions/fDpuVzVr/iris-fabric-1.10.7%2Bmc1.21.11.jar";
+    hash = "sha256-WMVdoYGJyRpJ+EfTzuRRYzojtXX7acDFtl3bJ0Q2yxk=";
+  };
+
+  sodiumJar = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/AANobbMI/versions/UddlN6L4/sodium-fabric-0.8.7%2Bmc1.21.11.jar";
+    hash = "sha256-wI+uhrNQqqio835zR5Kd848BzCNIzzHDImFVZL3FOYM=";
+  };
+
+  photonShaderZip = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/lLqFfGNs/versions/rz2vlXVm/photon_v1.2a.zip";
+    hash = "sha256-pxNKEBOPbl/lI9r6I70ma6LlNiGsZaXiMpT+mhJbnXM=";
+  };
+
+  spbrResourcePackName = "SPBR-14.2.zip";
+  spbrSource = pkgs.fetchFromGitHub {
+    owner = "ShulkerSakura";
+    repo = "SPBR";
+    rev = "14.2";
+    hash = "sha256-O3m5DpssE6fkv4NYI556jUf1LwUSxiEzUZ+WDL/EG1k=";
+  };
+  spbrResourcePackZip = pkgs.runCommandLocal spbrResourcePackName { nativeBuildInputs = [ pkgs.zip ]; } ''
+    mkdir -p work
+    cp -r ${spbrSource}/src/. work/
+    chmod -R u+w work
+    cd work
+    zip -qr "$out" .
+  '';
+
+  photonOptionsTxt = pkgs.writeText "minecraft-photon-options.txt" ''
+    guiScale:3
+  '';
+
+  corncraftServerName = "corncraft";
+  corncraftServerAddress = "lasagne.xyz";
 in
 {
-  imports = [ ];
+  imports = [ inputs.nixcraft.homeModules.default ];
 
   options = {
     corncheese.desktop = {
@@ -22,10 +78,27 @@ in
       element.enable = mkEnableOption "element configuration";
       media.enable = mkEnableOption "media viewer configuration";
     };
+
+    corncheese.games = {
+      minecraft = mkEnableOption "Minecraft 1.21.4 client with Radiance";
+    };
   };
 
   config = lib.mkMerge [
-    (mkIf cfg.enable {
+    {
+      nixcraft = {
+        client.instances = lib.mkDefault { };
+        server.instances = lib.mkDefault { };
+      };
+
+      assertions = [
+        {
+          assertion = (!gamesCfg.minecraft) || pkgs.stdenv.hostPlatform.isLinux;
+          message = "corncheese.games.minecraft requires a Linux Home Manager configuration.";
+        }
+      ];
+    }
+    (mkIf desktopCfg.enable {
       xdg.mimeApps = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
         enable = true;
         defaultApplications = {
@@ -80,7 +153,9 @@ in
           idle = true;
           maximized = false;
           mouse-cursor-icon = "arrow";
-          neovim-bin = "${lib.getExe (if config.programs.nvf.enable then config.programs.nvf.finalPackage else pkgs.neovim)}";
+          neovim-bin = "${lib.getExe (
+            if config.programs.nvf.enable then config.programs.nvf.finalPackage else pkgs.neovim
+          )}";
           no-multigrid = false;
           srgb = true;
           tabs = true;
@@ -96,7 +171,7 @@ in
         };
       };
 
-      programs.firefox = mkIf cfg.firefox.enable {
+      programs.firefox = mkIf desktopCfg.firefox.enable {
         enable = true;
         profiles.default = {
           id = 0;
@@ -108,9 +183,9 @@ in
         };
       };
 
-      stylix.targets.firefox.profileNames = mkIf cfg.firefox.enable [ "default" ];
+      stylix.targets.firefox.profileNames = mkIf desktopCfg.firefox.enable [ "default" ];
 
-      programs.chromium = mkIf cfg.chromium.enable {
+      programs.chromium = mkIf desktopCfg.chromium.enable {
         enable = true;
         package = pkgs.chromium;
         extensions = [
@@ -119,7 +194,7 @@ in
         ];
       };
 
-      programs.element-desktop = mkIf cfg.element.enable {
+      programs.element-desktop = mkIf desktopCfg.element.enable {
         enable = true;
         package = pkgs.element-desktop;
         settings = {
@@ -147,7 +222,7 @@ in
         enable = pkgs.stdenv.hostPlatform.isLinux;
       };
     })
-    (lib.mkIf cfg.media.enable {
+    (lib.mkIf desktopCfg.media.enable {
       home.packages = with pkgs; [
         # plex-desktop
       ];
@@ -156,7 +231,7 @@ in
         enable = pkgs.stdenv.hostPlatform.isLinux;
       };
     })
-    (lib.mkIf cfg.mail.enable {
+    (lib.mkIf desktopCfg.mail.enable {
       age.secrets."corncheese.mail.icloud" = {
         rekeyFile = lib.repoSecret "corncheese/mail/icloud.age";
       };
@@ -252,6 +327,265 @@ in
         };
       };
     })
+    (mkIf (gamesCfg.minecraft && pkgs.stdenv.hostPlatform.isLinux) (
+      let
+        minecraftAuthTool = pkgs.callPackage ../../../pkgs/minecraft-auth { };
+        minecraftInstanceSyncTool = pkgs.callPackage ../../../pkgs/minecraft-instance-sync { };
+
+        syncMinecraftInstance = instance: ''
+          ${lib.getExe minecraftInstanceSyncTool} \
+            --instance-dir ${lib.escapeShellArg instance.absoluteDir} \
+            --server-name ${lib.escapeShellArg corncraftServerName} \
+            --server-address ${lib.escapeShellArg corncraftServerAddress} \
+            --resource-pack ${lib.escapeShellArg spbrResourcePackName}
+        '';
+
+        minecraftPhotonOnlineLauncher = makeMinecraftOnlineLauncher {
+          launcherName = "minecraft-photon-online";
+          instance = config.nixcraft.client.instances.photonOnline;
+        };
+
+        minecraftRadianceOnlineLauncher = makeMinecraftOnlineLauncher {
+          launcherName = "minecraft-radiance-online";
+          instance = config.nixcraft.client.instances.radianceOnline;
+        };
+
+        makeDesktopEntry =
+          {
+            fileName,
+            name,
+            comment,
+            exec,
+            terminal ? false,
+            icon ? null,
+            categories ? [ "Game" ],
+            mimeType ? null,
+          }:
+          pkgs.writeText fileName ''
+            [Desktop Entry]
+            Type=Application
+            Version=1.5
+            Name=${name}
+            Comment=${comment}
+            Exec=${exec}
+            Terminal=${if terminal then "true" else "false"}
+            ${lib.optionalString (icon != null) "Icon=${icon}"}
+            Categories=${lib.concatStringsSep ";" categories};
+            ${lib.optionalString (mimeType != null) "MimeType=${mimeType}"}
+          '';
+
+        makeMinecraftOnlineLauncher =
+          {
+            launcherName,
+            instance,
+          }:
+          pkgs.writeShellScriptBin launcherName ''
+            set -euo pipefail
+
+            auth_account="''${MINECRAFT_AUTH_ACCOUNT:-default}"
+            auth_json="$(${lib.getExe minecraftAuthTool} ensure --account "$auth_account" --json)"
+            username="$(${pkgs.jq}/bin/jq -r '.username' <<<"$auth_json")"
+            uuid="$(${pkgs.jq}/bin/jq -r '.uuid' <<<"$auth_json")"
+            access_token="$(${pkgs.jq}/bin/jq -r '.access_token' <<<"$auth_json")"
+
+            ${exportEnvVars instance.envVars}
+            ${instance.finalPreLaunchShellScript}
+
+            cd ${lib.escapeShellArg instance.absoluteDir}
+
+            exec "${instance.java.package}/bin/java" \
+              ${instance.java.finalArgumentShellString} \
+              ${instance.finalArgumentShellString} \
+              --username "$username" \
+              --uuid "$uuid" \
+              --accessToken "$access_token" \
+              "$@"
+          '';
+      in
+      {
+        nixcraft = {
+          enable = true;
+          server.instances = { };
+          client = {
+            shared = {
+              useDiscreteGPU = false;
+            };
+
+            instances.radiance = {
+              enable = true;
+              version = "1.21.4";
+              placeFilesAtActivation = true;
+              account = {
+                username = config.home.username;
+                offline = true;
+              };
+              libraries = lib.mkForce (filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radiance.meta.versionData.libraries);
+              runtimeLibs = with pkgs; [
+                zlib
+                bzip2
+                xz
+                openssl
+              ];
+
+              fabricLoader = {
+                enable = true;
+                version = "0.18.3";
+              };
+
+              binEntry = {
+                enable = true;
+                name = "minecraft-radiance";
+              };
+
+              desktopEntry.enable = false;
+
+              files = {
+                "mods/fabric-api-0.119.3+1.21.4.jar".source = fabricApiJar;
+                "mods/Radiance-0.1.4-alpha-fabric-1.21.4-linux.jar".source = radianceJar;
+                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+              };
+
+              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.radiance);
+            };
+
+            instances.radianceOnline = {
+              enable = true;
+              version = "1.21.4";
+              placeFilesAtActivation = true;
+              account = lib.mkForce null;
+              libraries = lib.mkForce (filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radianceOnline.meta.versionData.libraries);
+              runtimeLibs = with pkgs; [
+                zlib
+                bzip2
+                xz
+                openssl
+              ];
+
+              fabricLoader = {
+                enable = true;
+                version = "0.18.3";
+              };
+
+              binEntry.enable = false;
+              desktopEntry.enable = false;
+
+              files = {
+                "mods/fabric-api-0.119.3+1.21.4.jar".source = fabricApiJar;
+                "mods/Radiance-0.1.4-alpha-fabric-1.21.4-linux.jar".source = radianceJar;
+                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+              };
+
+              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.radianceOnline);
+            };
+
+            instances.photon = {
+              enable = true;
+              version = "1.21.11";
+              placeFilesAtActivation = true;
+              account = {
+                username = config.home.username;
+                offline = true;
+              };
+              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon.meta.versionData.libraries);
+
+              fabricLoader = {
+                enable = true;
+                version = "0.18.5";
+              };
+
+              binEntry = {
+                enable = true;
+                name = "minecraft-photon";
+              };
+
+              desktopEntry.enable = false;
+
+              files = {
+                "mods/iris-fabric-1.10.7+mc1.21.11.jar".source = irisJar;
+                "mods/sodium-fabric-0.8.7+mc1.21.11.jar".source = sodiumJar;
+                "shaderpacks/photon_v1.2a.zip".source = photonShaderZip;
+                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+                "config/iris.properties" = {
+                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                    enableShaders = true;
+                    shaderPack = "photon_v1.2a.zip";
+                  };
+                  method = lib.mkForce "copy-init";
+                };
+                "options.txt" = {
+                  source = photonOptionsTxt;
+                  method = lib.mkForce "copy-init";
+                };
+              };
+
+              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photon);
+            };
+
+            instances.photonOnline = {
+              enable = true;
+              version = "1.21.11";
+              placeFilesAtActivation = true;
+              account = lib.mkForce null;
+              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photonOnline.meta.versionData.libraries);
+
+              fabricLoader = {
+                enable = true;
+                version = "0.18.5";
+              };
+
+              binEntry.enable = false;
+              desktopEntry.enable = false;
+
+              files = {
+                "mods/iris-fabric-1.10.7+mc1.21.11.jar".source = irisJar;
+                "mods/sodium-fabric-0.8.7+mc1.21.11.jar".source = sodiumJar;
+                "shaderpacks/photon_v1.2a.zip".source = photonShaderZip;
+                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+                "config/iris.properties" = {
+                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                    enableShaders = true;
+                    shaderPack = "photon_v1.2a.zip";
+                  };
+                  method = lib.mkForce "copy-init";
+                };
+                "options.txt" = {
+                  source = photonOptionsTxt;
+                  method = lib.mkForce "copy-init";
+                };
+              };
+
+              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photonOnline);
+            };
+          };
+        };
+
+        home.file = {
+          ".local/share/applications/minecraft-photon-online.desktop".source = makeDesktopEntry {
+            fileName = "minecraft-photon-online.desktop";
+            name = "Minecraft 1.21.11 (with Photon)";
+            comment = "Online Fabric client with Iris, Sodium, Photon, and Microsoft sign-in";
+            exec = lib.getExe minecraftPhotonOnlineLauncher;
+            terminal = true;
+            categories = [ "Game" ];
+          };
+
+          ".local/share/applications/minecraft-radiance-online.desktop".source = makeDesktopEntry {
+            fileName = "minecraft-radiance-online.desktop";
+            name = "Minecraft 1.21.4 (with Radiance)";
+            comment = "Online Fabric client with Radiance and Microsoft sign-in";
+            exec = lib.getExe minecraftRadianceOnlineLauncher;
+            terminal = true;
+            categories = [ "Game" ];
+          };
+        };
+
+        home.packages = [
+          minecraftAuthTool
+          minecraftPhotonOnlineLauncher
+          minecraftRadianceOnlineLauncher
+        ];
+      }
+    ))
   ];
 
   meta = {
