@@ -34,9 +34,19 @@ let
     hash = "sha256-WMVdoYGJyRpJ+EfTzuRRYzojtXX7acDFtl3bJ0Q2yxk=";
   };
 
+  iris26Jar = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/YL57xq9U/versions/Yi5E3d2l/iris-fabric-1.10.8%2Bmc26.1.jar";
+    hash = "sha256-Aa85HHybu7gGDnmKWeocEt5oGFnQx4l/rcYdkVblyiw=";
+  };
+
   sodiumJar = pkgs.fetchurl {
     url = "https://cdn.modrinth.com/data/AANobbMI/versions/UddlN6L4/sodium-fabric-0.8.7%2Bmc1.21.11.jar";
     hash = "sha256-wI+uhrNQqqio835zR5Kd848BzCNIzzHDImFVZL3FOYM=";
+  };
+
+  sodium26Jar = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/AANobbMI/versions/Amr4VcZo/sodium-fabric-0.8.7%2Bmc26.1.jar";
+    hash = "sha256-+QaQEkF0cpvFUGgoJWnMmde5y1Q2hiaci6IpXVL5bh0=";
   };
 
   photonShaderZip = pkgs.fetchurl {
@@ -345,6 +355,11 @@ in
           instance = config.nixcraft.client.instances.photonOnline;
         };
 
+        minecraftPhoton26OnlineLauncher = makeMinecraftOnlineLauncher {
+          launcherName = "minecraft-photon-26-online";
+          instance = config.nixcraft.client.instances.photon26Online;
+        };
+
         minecraftRadianceOnlineLauncher = makeMinecraftOnlineLauncher {
           launcherName = "minecraft-radiance-online";
           instance = config.nixcraft.client.instances.radianceOnline;
@@ -442,7 +457,10 @@ in
               files = {
                 "mods/fabric-api-0.119.3+1.21.4.jar".source = fabricApiJar;
                 "mods/Radiance-0.1.4-alpha-fabric-1.21.4-linux.jar".source = radianceJar;
-                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+                "resourcepacks/${spbrResourcePackName}" = {
+                  source = spbrResourcePackZip;
+                  method = lib.mkForce "copy";
+                };
               };
 
               activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.radiance);
@@ -472,7 +490,10 @@ in
               files = {
                 "mods/fabric-api-0.119.3+1.21.4.jar".source = fabricApiJar;
                 "mods/Radiance-0.1.4-alpha-fabric-1.21.4-linux.jar".source = radianceJar;
-                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+                "resourcepacks/${spbrResourcePackName}" = {
+                  source = spbrResourcePackZip;
+                  method = lib.mkForce "copy";
+                };
               };
 
               activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.radianceOnline);
@@ -504,7 +525,10 @@ in
                 "mods/iris-fabric-1.10.7+mc1.21.11.jar".source = irisJar;
                 "mods/sodium-fabric-0.8.7+mc1.21.11.jar".source = sodiumJar;
                 "shaderpacks/photon_v1.2a.zip".source = photonShaderZip;
-                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+                "resourcepacks/${spbrResourcePackName}" = {
+                  source = spbrResourcePackZip;
+                  method = lib.mkForce "copy";
+                };
                 "config/iris.properties" = {
                   source = (pkgs.formats.keyValue {}).generate "iris.properties" {
                     enableShaders = true;
@@ -540,7 +564,10 @@ in
                 "mods/iris-fabric-1.10.7+mc1.21.11.jar".source = irisJar;
                 "mods/sodium-fabric-0.8.7+mc1.21.11.jar".source = sodiumJar;
                 "shaderpacks/photon_v1.2a.zip".source = photonShaderZip;
-                "resourcepacks/${spbrResourcePackName}".source = spbrResourcePackZip;
+                "resourcepacks/${spbrResourcePackName}" = {
+                  source = spbrResourcePackZip;
+                  method = lib.mkForce "copy";
+                };
                 "config/iris.properties" = {
                   source = (pkgs.formats.keyValue {}).generate "iris.properties" {
                     enableShaders = true;
@@ -556,6 +583,91 @@ in
 
               activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photonOnline);
             };
+
+            instances.photon26 = {
+              enable = true;
+              version = "26.1";
+              placeFilesAtActivation = true;
+              account = {
+                username = config.home.username;
+                offline = true;
+              };
+              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26.meta.versionData.libraries);
+
+              fabricLoader = {
+                enable = true;
+                version = "0.18.5";
+              };
+
+              binEntry = {
+                enable = true;
+                name = "minecraft-photon-26";
+              };
+
+              desktopEntry.enable = false;
+
+              files = {
+                "mods/iris-fabric-1.10.8+mc26.1.jar".source = iris26Jar;
+                "mods/sodium-fabric-0.8.7+mc26.1.jar".source = sodium26Jar;
+                "shaderpacks/photon_v1.2a.zip".source = photonShaderZip;
+                "resourcepacks/${spbrResourcePackName}" = {
+                  source = spbrResourcePackZip;
+                  method = lib.mkForce "copy";
+                };
+                "config/iris.properties" = {
+                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                    enableShaders = true;
+                    shaderPack = "photon_v1.2a.zip";
+                  };
+                  method = lib.mkForce "copy-init";
+                };
+                "options.txt" = {
+                  source = photonOptionsTxt;
+                  method = lib.mkForce "copy-init";
+                };
+              };
+
+              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photon26);
+            };
+
+            instances.photon26Online = {
+              enable = true;
+              version = "26.1";
+              placeFilesAtActivation = true;
+              account = lib.mkForce null;
+              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26Online.meta.versionData.libraries);
+
+              fabricLoader = {
+                enable = true;
+                version = "0.18.5";
+              };
+
+              binEntry.enable = false;
+              desktopEntry.enable = false;
+
+              files = {
+                "mods/iris-fabric-1.10.8+mc26.1.jar".source = iris26Jar;
+                "mods/sodium-fabric-0.8.7+mc26.1.jar".source = sodium26Jar;
+                "shaderpacks/photon_v1.2a.zip".source = photonShaderZip;
+                "resourcepacks/${spbrResourcePackName}" = {
+                  source = spbrResourcePackZip;
+                  method = lib.mkForce "copy";
+                };
+                "config/iris.properties" = {
+                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                    enableShaders = true;
+                    shaderPack = "photon_v1.2a.zip";
+                  };
+                  method = lib.mkForce "copy-init";
+                };
+                "options.txt" = {
+                  source = photonOptionsTxt;
+                  method = lib.mkForce "copy-init";
+                };
+              };
+
+              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photon26Online);
+            };
           };
         };
 
@@ -565,6 +677,15 @@ in
             name = "Minecraft 1.21.11 (with Photon)";
             comment = "Online Fabric client with Iris, Sodium, Photon, and Microsoft sign-in";
             exec = lib.getExe minecraftPhotonOnlineLauncher;
+            terminal = true;
+            categories = [ "Game" ];
+          };
+
+          ".local/share/applications/minecraft-photon-26-online.desktop".source = makeDesktopEntry {
+            fileName = "minecraft-photon-26-online.desktop";
+            name = "Minecraft 26.1 (with Photon)";
+            comment = "Online Fabric client with Iris, Sodium, Photon, and Microsoft sign-in";
+            exec = lib.getExe minecraftPhoton26OnlineLauncher;
             terminal = true;
             categories = [ "Game" ];
           };
@@ -582,6 +703,7 @@ in
         home.packages = [
           minecraftAuthTool
           minecraftPhotonOnlineLauncher
+          minecraftPhoton26OnlineLauncher
           minecraftRadianceOnlineLauncher
         ];
       }

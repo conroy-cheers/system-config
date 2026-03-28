@@ -18,6 +18,8 @@ in
       "tag +game,match:class ^(steam_app_[0-9]+)$"
       "content game,match:class ^gamescope$"
       "tag +game,match:class ^gamescope$"
+      "content game,match:class ^Minecraft[*].*$"
+      "tag +game,match:class ^Minecraft[*].*$"
       "fullscreen yes,match:content 3" # fullscreen all games
 
       # 1Password unlock dialog
