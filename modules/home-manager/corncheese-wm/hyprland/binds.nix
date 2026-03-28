@@ -47,7 +47,6 @@ in
       # Application shortcuts.
       "$mod, Return, exec, ghostty"
       "$mod SHIFT, Return, exec, ghostty '--title=ghostty-floating'"
-      "$mod, D, exec, neovide --no-vsync"
       "$mod, F, exec, chromium --disable-features=WaylandWpColorManagerV1"
       "$mod, T, exec, thunar"
 
@@ -141,6 +140,24 @@ in
     bind=,escape,submap,reset
 
     # will reset the submap, meaning end the current one and return to the global one
+    submap=reset
+
+    # while focused on a window tagged "game", only keep workspace switching and quit binds
+    submap=game
+    bind=$mod,Q,killactive,
+    bind=$mod CTRL,delete,exit,
+    bind=$mod,1,exec,hyprworkspace 1
+    bind=$mod,2,exec,hyprworkspace 2
+    bind=$mod,3,exec,hyprworkspace 3
+    bind=$mod,4,exec,hyprworkspace 4
+    bind=$mod,5,exec,hyprworkspace 5
+    bind=$mod,6,exec,hyprworkspace 6
+    bind=$mod,7,exec,hyprworkspace 7
+    bind=$mod,8,exec,hyprworkspace 8
+    bind=$mod,9,exec,hyprworkspace 9
+    bind=$mod CTRL,h,workspace,r-1
+    bind=$mod CTRL,l,workspace,r+1
+
     submap=reset
   '';
 }
