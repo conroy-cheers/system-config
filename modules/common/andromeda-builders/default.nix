@@ -11,14 +11,11 @@ let
     options ? determinateNix
     && options.determinateNix ? buildMachines
     && options.determinateNix ? distributedBuilds;
-  hasDeterminateCustomSettings =
-    options ? determinateNix
-    && options.determinateNix ? customSettings;
+  hasDeterminateCustomSettings = options ? determinateNix && options.determinateNix ? customSettings;
 
   buildMachines = [
     {
-      # big-chungus-x64
-      hostName = "3.106.5.183";
+      hostName = "big-chungus-x86-64";
       system = "x86_64-linux";
       speedFactor = 1;
       maxJobs = 32;
@@ -26,8 +23,7 @@ let
       publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSVB0NmdlTlEvZmpvYXNpQ1ZPbDYvaFIrSTZ4QTNndE9WNWVtc3NBNHVHeUUK";
     }
     {
-      # big-chungus-aarch64
-      hostName = "3.104.252.233";
+      hostName = "big-chungus-aarch64";
       system = "aarch64-linux";
       speedFactor = 8;
       maxJobs = 32;
@@ -62,15 +58,13 @@ in
         };
 
         programs.ssh.extraConfig = ''
-          # big-chungus-x64
-          Host 3.106.5.183
+          Host big-chungus-x86-64
             User ssm-user
             Port 22
             IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
             ConnectTimeout 3
 
-          # big-chungus-aarch64
-          Host 3.104.252.233
+          Host big-chungus-aarch64
             User ssm-user
             Port 22
             IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}

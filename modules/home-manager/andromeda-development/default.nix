@@ -103,6 +103,7 @@ in
               AWS_PROFILE = "sandbox";
             };
             skipDangerousModePermissionPrompt = true;
+            includeCoAuthoredBy = false;
           };
           settingsFile = "${config.home.homeDirectory}/.claude/settings.json";
           mergeScript = pkgs.writeShellScript "merge-claude-settings" ''
