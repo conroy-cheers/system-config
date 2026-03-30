@@ -705,6 +705,13 @@ in
         lib.filter (value: !(lib.hasPrefix "#" value || value == "")) (lib.splitString "\n" gitignoreText);
     };
 
+    programs.gh = {
+      enable = true;
+      settings = {
+        git_protocol = "ssh";
+      };
+    };
+
     programs.ssh = lib.mkIf cfg.ssh.enable {
       enable = true;
       enableDefaultConfig = false;
