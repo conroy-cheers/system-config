@@ -1,0 +1,14 @@
+#!@lua@/bin/lua
+
+local config_dir = debug.getinfo(1, "S").source:sub(2):match("(.*/)")
+
+package.path = table.concat({
+  package.path,
+  config_dir .. "?.lua",
+  config_dir .. "?/init.lua",
+}, ";")
+package.cpath = package.cpath .. ";@sbarlua@/lib/lua/5.4/?.so"
+
+-- Load the sketchybar-package and prepare the helper binaries
+require("helpers")
+require("init")

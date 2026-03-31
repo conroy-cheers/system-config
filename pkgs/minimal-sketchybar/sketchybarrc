@@ -1,0 +1,53 @@
+#!/usr/bin/env sh
+
+CONFIG_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+sketchybar --bar \
+  topmost=window \
+  height=35 \
+  margin=0 \
+  y_offset=0 \
+  corner_radius=0 \
+  color=0x00000000 \
+  blur_radius=0 \
+  border_width=0 \
+  shadow=off \
+  sticky=on \
+  padding_left=12 \
+  padding_right=12
+
+sketchybar --default \
+  icon.drawing=off \
+  label.font="SF Pro Display:Semibold:13.0" \
+  label.color=0xffe6e6e6 \
+  background.height=28 \
+  background.corner_radius=5 \
+  background.border_width=0 \
+  background.color=0x00000000 \
+  padding_left=10 \
+  padding_right=10
+
+for sid in $(seq 1 10); do
+  sketchybar --add item "space.$sid" left
+  sketchybar --set "space.$sid" \
+    label="$sid" \
+    script="$PLUGIN_DIR/space.sh $sid" \
+    click_script="yabai -m space --focus $sid" \
+    update_freq=2 \
+    padding_left=6 \
+    padding_right=6 \
+    background.height=26 \
+    background.corner_radius=6
+done
+
+sketchybar --add item clock right
+sketchybar --set clock \
+  update_freq=10 \
+  script="$PLUGIN_DIR/clock.sh" \
+  label=""
+
+sketchybar --update
+
+pkill -x sketchybar-toggle >/dev/null 2>&1 || true
+sketchybar-toggle &
