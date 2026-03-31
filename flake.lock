@@ -443,16 +443,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1773408675,
-        "narHash": "sha256-TTXYzRbbBoQXBThQike+BM+nU6YTyh8xOdCiG/hXGB4=",
+        "lastModified": 1774961796,
+        "narHash": "sha256-KscfoCahHI2ngQ+QbviRAnXjrkcvACkkDEcAMonoyMs=",
         "owner": "conroy-cheers",
         "repo": "colorshell",
-        "rev": "b974a3cdf7b9e02d131da3b45f965a411d304b1b",
+        "rev": "84d0fcc189f8cc9a1dc9496c7a24e2e9170d88f6",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
-        "ref": "fix/export-resources",
+        "ref": "fix/gtk-launch",
         "repo": "colorshell",
         "type": "github"
       }
