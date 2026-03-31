@@ -69,7 +69,8 @@ in
 
   systemd.services.liquidcfg = {
     description = "AIO startup service";
-    wantedBy = [ "default.target" ];
+    wantedBy = [ "multi-user.target" ];
+    before = [ "fan2go.service" ];
     serviceConfig = {
       ExecStart = ''
         ${lib.getExe pkgs.liquidctl} initialize all
@@ -173,5 +174,10 @@ in
         }
       ];
     };
+  };
+
+  systemd.services.fan2go = {
+    wants = [ "liquidcfg.service" ];
+    after = [ "liquidcfg.service" ];
   };
 }
