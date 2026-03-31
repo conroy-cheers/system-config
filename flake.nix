@@ -4,7 +4,11 @@
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } (
-      { withSystem, flake-parts-lib, ... }:
+      {
+        withSystem,
+        flake-parts-lib,
+        ...
+      }:
       {
         systems = [
           "aarch64-linux"
@@ -336,7 +340,7 @@
     };
 
     colorshell = {
-      url = "github:conroy-cheers/colorshell/fix/export-resources";
+      url = "github:conroy-cheers/colorshell/fix/gtk-launch";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

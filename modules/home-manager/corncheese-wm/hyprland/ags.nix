@@ -11,11 +11,7 @@ let
   system = pkgs.stdenv.hostPlatform.system;
 
   asztal = pkgs.callPackage ../ags/default.nix { inherit inputs; };
-  colorshellPkg = inputs.colorshell.packages.${system}.colorshell.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [
-      ../../../../patches/colorshell-application-launch.patch
-    ];
-  });
+  colorshellPkg = inputs.colorshell.packages.${system}.colorshell;
   agsColors = {
     wallpaper = themeDetails.wallpaper;
     theme = {
