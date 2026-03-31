@@ -55,7 +55,7 @@ in
           # Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)
           AppleKeyboardUIMode = 3;
           # Automatically show and hide the menu bar
-          _HIHideMenuBar = false;
+          _HIHideMenuBar = true;
           # Expand save panel by default
           NSNavPanelExpandedStateForSaveMode = true;
           # Expand print panel by default
@@ -170,6 +170,9 @@ in
         echo "Require password immediately after sleep or screen saver begins"
         defaults write com.apple.screensaver askForPassword -int 1
         defaults write com.apple.screensaver askForPasswordDelay -int 0
+
+        echo "Keep the menu bar hidden in full screen"
+        defaults write NSGlobalDomain AppleMenuBarVisibleInFullscreen -bool false
 
         echo "Allow apps from anywhere"
         SPCTL="$(spctl --status)"
