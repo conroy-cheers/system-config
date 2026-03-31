@@ -1,0 +1,19 @@
+{
+  "enabled": 1,
+  "hidden": true,
+  "description": "Hydra jobset generator for system-config",
+  "nixexprinput": "declInput",
+  "nixexprpath": ".hydra/jobsets.nix",
+  "checkinterval": 300,
+  "schedulingshares": 100,
+  "enableemail": false,
+  "emailoverride": "",
+  "keepnr": 3,
+  "inputs": {
+    "nixpkgs": {
+      "type": "git",
+      "value": "https://github.com/NixOS/nixpkgs.git nixos-unstable",
+      "emailresponsible": false
+    }
+  }
+}
