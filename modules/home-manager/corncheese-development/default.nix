@@ -19,6 +19,7 @@ let
     "pve"
     "bigbrain"
     "sleet"
+    "alexandria"
   ];
 
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension rec {
@@ -736,6 +737,11 @@ in
         "sleet" = {
           hostname = "sleet.lan";
           user = "conroy";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        "alexandria" = {
+          hostname = "10.1.1.30";
+          user = "root";
           identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         home = {
