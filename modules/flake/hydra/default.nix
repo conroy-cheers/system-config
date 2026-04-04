@@ -14,9 +14,13 @@
       filterEvaluableHostJobs =
         jobs:
         lib.filterAttrs (
-          _: job:
-          lib.isDerivation job
-          && (builtins.tryEval job.drvPath).success
+          name: _:
+          let
+            evaluatedJob = builtins.tryEval jobs.${name};
+          in
+          evaluatedJob.success
+          && lib.isDerivation evaluatedJob.value
+          && (builtins.tryEval evaluatedJob.value.drvPath).success
         ) jobs;
 
       filterHydraChecks =
@@ -36,6 +40,7 @@
         );
 
       nixosHosts = config.auto.configurations.configurationTypes.nixos.result or { };
+      darwinHosts = lib.attrByPath [ "nix-darwin" ] { } config.auto.configurations.configurationTypes;
     in
     {
       packages = perSystemJobs "packages";
@@ -44,6 +49,8 @@
       nixosConfigurations = filterEvaluableHostJobs (
         lib.mapAttrs (_: host: host.configuration.config.system.build.toplevel) nixosHosts
       );
-      darwinConfigurations = { };
+      darwinConfigurations = filterEvaluableHostJobs (
+        lib.mapAttrs (_: host: host.configuration.config.system.build.toplevel) (darwinHosts.result or { })
+      );
     };
 }
