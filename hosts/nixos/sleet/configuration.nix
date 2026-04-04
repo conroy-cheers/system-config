@@ -51,6 +51,7 @@
   corncheese = {
     development = {
       enable = false;
+      githubAccess.enable = true;
       remoteBuilders.enable = true; # this machine is colocated with the corncheese builders
     };
     theming = {
