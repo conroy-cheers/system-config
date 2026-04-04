@@ -1,4 +1,5 @@
 {
+  lib,
   fetchFromGitHub,
   rustPlatform,
 }:
@@ -14,4 +15,11 @@ rustPlatform.buildRustPackage rec {
   };
 
   cargoHash = "sha256-0sOjrYNUYw4YBwSxUM+Y2K9bB0rW6+oooqrZ9rgMrWM=";
+
+  meta = {
+    description = "Lightweight macOS daemon that coordinates SketchyBar and the native menu bar";
+    homepage = "https://github.com/malpern/sketchybar-toggle";
+    mainProgram = pname;
+    platforms = lib.platforms.darwin;
+  };
 }
