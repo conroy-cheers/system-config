@@ -69,6 +69,11 @@
     owner = "root";
     mode = "0400";
   };
+  age.secrets."corncheese.github.hydra-token" = {
+    rekeyFile = lib.repoSecret "corncheese/github/hydra-token.age";
+    owner = "root";
+    mode = "0400";
+  };
 
   corncheese-server = {
     ingress.enable = true;
@@ -85,6 +90,7 @@
     hydra = {
       enable = true;
       admin.passwordFile = config.age.secrets."hydra-admin-password".path;
+      github.tokenFile = config.age.secrets."corncheese.github.hydra-token".path;
     };
     nixCache = {
       enable = true;

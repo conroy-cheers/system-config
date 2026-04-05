@@ -31,6 +31,7 @@ in
       age.secrets = {
         "corncheese.github.token" = {
           rekeyFile = lib.repoSecret "corncheese/github/token.age";
+          owner = config.system.primaryUser;
           mode = "400";
         };
       };
