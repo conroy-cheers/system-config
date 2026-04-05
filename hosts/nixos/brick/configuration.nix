@@ -83,6 +83,7 @@ in
   corncheese = {
     development = {
       enable = true;
+      githubAccess.enable = true;
       remoteBuilders.enable = true;
       tailscale.enable = true;
     };

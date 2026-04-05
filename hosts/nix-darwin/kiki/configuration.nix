@@ -52,6 +52,7 @@
     };
     development = {
       enable = true;
+      githubAccess.enable = true;
       remoteBuilders.enable = true;
     };
   };
