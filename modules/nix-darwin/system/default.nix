@@ -175,9 +175,9 @@ in
         defaults write NSGlobalDomain AppleMenuBarVisibleInFullscreen -bool false
 
         echo "Allow apps from anywhere"
-        SPCTL="$(spctl --status)"
+        SPCTL="$(spctl --status 2>/dev/null || true)"
         if ! [ "''${SPCTL}" = "assessments disabled" ]; then
-            sudo spctl --master-disable
+            spctl --master-disable || true
         fi
 
         # echo "Set hostname"
