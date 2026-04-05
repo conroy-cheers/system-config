@@ -34,24 +34,9 @@ in
           mode = "400";
         };
       };
-      age-template.files = {
-        "nix.extra-access-tokens.conf" = {
-          vars = {
-            githubToken = config.age.secrets."corncheese.github.token".path;
-          };
-          content = ''
-            extra-access-tokens = github.com=$githubToken
-          '';
-          path = "/etc/nix/nix.extra-access-tokens.conf";
-          mode = "0444";
-        };
-      };
 
-      nix = {
-        extraOptions = ''
-          !include ${baseNameOf config.age-template.files."nix.extra-access-tokens.conf".path}
-        '';
-      };
+      systemd.services.nix-daemon.environment.NIX_CONFIG =
+        "include ${config.age.secrets."corncheese.github.token".path}";
     })
     (lib.mkIf cfg.enable {
       nix = {
