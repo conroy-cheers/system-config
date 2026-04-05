@@ -35,8 +35,22 @@ in
         };
       };
 
-      systemd.services.nix-daemon.environment.NIX_CONFIG =
-        "include ${config.age.secrets."corncheese.github.token".path}";
+      age-template.files = {
+        "nix.extra-access-tokens.conf" = {
+          vars = {
+            githubConfig = config.age.secrets."corncheese.github.token".path;
+          };
+          content = ''
+            $githubConfig
+          '';
+          path = "/etc/nix/nix.extra-access-tokens.conf";
+          mode = "0444";
+        };
+      };
+
+      nix.extraOptions = ''
+        !include ${builtins.baseNameOf config.age-template.files."nix.extra-access-tokens.conf".path}
+      '';
     })
     (lib.mkIf cfg.enable {
       nix = {

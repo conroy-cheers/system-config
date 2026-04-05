@@ -46,7 +46,7 @@
               '';
               type = types.path;
               default = "${self}/pkgs";
-              defaultText = ''''${self}/pkgs'';
+              defaultText = "\${self}/pkgs";
             };
             result = lib.mkOption {
               description = ''

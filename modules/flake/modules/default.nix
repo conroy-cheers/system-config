@@ -52,7 +52,7 @@
                 '';
                 type = types.path;
                 default = "${self}/modules";
-                defaultText = ''''${self}/modules'';
+                defaultText = "\${self}/modules";
               };
               moduleTypes = lib.mkOption {
                 # NOTE: default value set in the global `config` below, for visibility

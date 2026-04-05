@@ -4,12 +4,7 @@
   flake.hydraJobs =
     let
       filterEvaluableJobs =
-        jobs:
-        lib.filterAttrs (
-          _: job:
-          lib.isDerivation job
-          && (builtins.tryEval job.drvPath).success
-        ) jobs;
+        jobs: lib.filterAttrs (_: job: lib.isDerivation job && (builtins.tryEval job.drvPath).success) jobs;
 
       filterEvaluableHostJobs =
         jobs:
@@ -23,9 +18,7 @@
           && (builtins.tryEval evaluatedJob.value.drvPath).success
         ) jobs;
 
-      filterHydraChecks =
-        checks:
-        lib.filterAttrs (name: _: !(lib.hasPrefix "deploy-" name)) checks;
+      filterHydraChecks = checks: lib.filterAttrs (name: _: !(lib.hasPrefix "deploy-" name)) checks;
 
       perSystemJobs =
         attr:
@@ -33,8 +26,7 @@
           system:
           let
             jobs = (config.perSystem system).${attr} or { };
-            filteredJobs =
-              if attr == "checks" then filterHydraChecks jobs else jobs;
+            filteredJobs = if attr == "checks" then filterHydraChecks jobs else jobs;
           in
           filterEvaluableJobs filteredJobs
         );

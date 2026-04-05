@@ -46,7 +46,7 @@
               '';
               type = types.path;
               default = "${self}/shells";
-              defaultText = ''''${self}/shells'';
+              defaultText = "\${self}/shells";
             };
             result = lib.mkOption {
               description = ''
