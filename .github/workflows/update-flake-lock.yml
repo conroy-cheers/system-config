@@ -25,7 +25,7 @@ jobs:
         extra-conf: |
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
-          access-tokens = github.com=${CORNCHEESE_SERVER_CONFIG_READ_TOKEN}
+          access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN }}
     - uses: DeterminateSystems/update-flake-lock@v27
       with:
         pr-title: "Update flake.lock"
