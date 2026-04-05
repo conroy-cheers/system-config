@@ -8,10 +8,9 @@
 let
   cfg = config.corncheese.development;
   githubAccessInclude = "!include ${config.age.secrets."corncheese.github.token".path}";
-  determinateConfigLib =
-    import "${inputs.determinate.outPath}/modules/nix-darwin/config/config.nix" {
-      inherit lib;
-    };
+  determinateConfigLib = import "${inputs.determinate.outPath}/modules/nix-darwin/config/config.nix" {
+    inherit lib;
+  };
 in
 {
   imports = [

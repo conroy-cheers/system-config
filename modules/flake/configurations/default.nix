@@ -51,7 +51,7 @@
                 '';
                 type = types.path;
                 default = "${self}/hosts";
-                defaultText = ''''${self}/hosts'';
+                defaultText = "\${self}/hosts";
               };
               configurationTypes = lib.mkOption {
                 # TODO: better merging (test on separate flake)

@@ -6,7 +6,6 @@
   meta,
   ...
 }:
-
 let
   cfg = config.corncheese.development;
 
@@ -744,8 +743,14 @@ in
           user = "root";
           identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
+        "haos" = {
+          hostname = "10.1.1.114";
+          port = 22222;
+          user = "root";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
         home = {
-          host = (lib.concatStringsSep " " homeJumpHosts);
+          host = lib.concatStringsSep " " homeJumpHosts;
           proxyJump = "beluga";
           identitiesOnly = true;
         };

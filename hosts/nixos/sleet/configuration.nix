@@ -98,6 +98,8 @@
     };
   };
 
+  age-template.files."hydra-github-authorizations.conf".mode = lib.mkForce "0440";
+
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {
     rekeyFile = lib.repoSecret "corncheese/atuin/key.age";

@@ -42,7 +42,7 @@
               '';
               type = types.path;
               default = "${self}/overlays";
-              defaultText = ''''${self}/overlays'';
+              defaultText = "\${self}/overlays";
             };
             result = lib.mkOption {
               description = ''

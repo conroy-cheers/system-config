@@ -10,13 +10,17 @@ let
   desktopCfg = config.corncheese.desktop;
   gamesCfg = config.corncheese.games;
   inherit (lib) mkEnableOption mkIf;
-  filterOutLibrary = libraryName: libraries:
-    builtins.filter (library: (library.name or "") != libraryName) libraries;
-  filterOutLibraryPrefix = prefix: libraries:
+  filterOutLibrary =
+    libraryName: libraries: builtins.filter (library: (library.name or "") != libraryName) libraries;
+  filterOutLibraryPrefix =
+    prefix: libraries:
     builtins.filter (library: !(lib.hasPrefix prefix (library.name or ""))) libraries;
-  exportEnvVars = variables:
+  exportEnvVars =
+    variables:
     lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (name: values: ''export ${name}="${lib.concatStringsSep ":" (lib.toList values)}"'') variables
+      lib.mapAttrsToList (
+        name: values: ''export ${name}="${lib.concatStringsSep ":" (lib.toList values)}"''
+      ) variables
     );
 
   radianceJar = pkgs.fetchurl {
@@ -61,13 +65,15 @@ let
     rev = "14.2";
     hash = "sha256-O3m5DpssE6fkv4NYI556jUf1LwUSxiEzUZ+WDL/EG1k=";
   };
-  spbrResourcePackZip = pkgs.runCommandLocal spbrResourcePackName { nativeBuildInputs = [ pkgs.zip ]; } ''
-    mkdir -p work
-    cp -r ${spbrSource}/src/. work/
-    chmod -R u+w work
-    cd work
-    zip -qr "$out" .
-  '';
+  spbrResourcePackZip =
+    pkgs.runCommandLocal spbrResourcePackName { nativeBuildInputs = [ pkgs.zip ]; }
+      ''
+        mkdir -p work
+        cp -r ${spbrSource}/src/. work/
+        chmod -R u+w work
+        cd work
+        zip -qr "$out" .
+      '';
 
   photonOptionsTxt = pkgs.writeText "minecraft-photon-options.txt" ''
     guiScale:3
@@ -434,7 +440,9 @@ in
                 username = config.home.username;
                 offline = true;
               };
-              libraries = lib.mkForce (filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radiance.meta.versionData.libraries);
+              libraries = lib.mkForce (
+                filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radiance.meta.versionData.libraries
+              );
               runtimeLibs = with pkgs; [
                 zlib
                 bzip2
@@ -463,7 +471,9 @@ in
                 };
               };
 
-              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.radiance);
+              activationShellScript = lib.mkAfter (
+                syncMinecraftInstance config.nixcraft.client.instances.radiance
+              );
             };
 
             instances.radianceOnline = {
@@ -471,7 +481,9 @@ in
               version = "1.21.4";
               placeFilesAtActivation = true;
               account = lib.mkForce null;
-              libraries = lib.mkForce (filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radianceOnline.meta.versionData.libraries);
+              libraries = lib.mkForce (
+                filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radianceOnline.meta.versionData.libraries
+              );
               runtimeLibs = with pkgs; [
                 zlib
                 bzip2
@@ -496,7 +508,9 @@ in
                 };
               };
 
-              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.radianceOnline);
+              activationShellScript = lib.mkAfter (
+                syncMinecraftInstance config.nixcraft.client.instances.radianceOnline
+              );
             };
 
             instances.photon = {
@@ -507,7 +521,9 @@ in
                 username = config.home.username;
                 offline = true;
               };
-              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon.meta.versionData.libraries);
+              libraries = lib.mkForce (
+                filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon.meta.versionData.libraries
+              );
 
               fabricLoader = {
                 enable = true;
@@ -530,7 +546,7 @@ in
                   method = lib.mkForce "copy";
                 };
                 "config/iris.properties" = {
-                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                  source = (pkgs.formats.keyValue { }).generate "iris.properties" {
                     enableShaders = true;
                     shaderPack = "photon_v1.2a.zip";
                   };
@@ -550,7 +566,9 @@ in
               version = "1.21.11";
               placeFilesAtActivation = true;
               account = lib.mkForce null;
-              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photonOnline.meta.versionData.libraries);
+              libraries = lib.mkForce (
+                filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photonOnline.meta.versionData.libraries
+              );
 
               fabricLoader = {
                 enable = true;
@@ -569,7 +587,7 @@ in
                   method = lib.mkForce "copy";
                 };
                 "config/iris.properties" = {
-                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                  source = (pkgs.formats.keyValue { }).generate "iris.properties" {
                     enableShaders = true;
                     shaderPack = "photon_v1.2a.zip";
                   };
@@ -581,7 +599,9 @@ in
                 };
               };
 
-              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photonOnline);
+              activationShellScript = lib.mkAfter (
+                syncMinecraftInstance config.nixcraft.client.instances.photonOnline
+              );
             };
 
             instances.photon26 = {
@@ -592,7 +612,9 @@ in
                 username = config.home.username;
                 offline = true;
               };
-              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26.meta.versionData.libraries);
+              libraries = lib.mkForce (
+                filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26.meta.versionData.libraries
+              );
 
               fabricLoader = {
                 enable = true;
@@ -615,7 +637,7 @@ in
                   method = lib.mkForce "copy";
                 };
                 "config/iris.properties" = {
-                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                  source = (pkgs.formats.keyValue { }).generate "iris.properties" {
                     enableShaders = true;
                     shaderPack = "photon_v1.2a.zip";
                   };
@@ -627,7 +649,9 @@ in
                 };
               };
 
-              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photon26);
+              activationShellScript = lib.mkAfter (
+                syncMinecraftInstance config.nixcraft.client.instances.photon26
+              );
             };
 
             instances.photon26Online = {
@@ -635,7 +659,9 @@ in
               version = "26.1";
               placeFilesAtActivation = true;
               account = lib.mkForce null;
-              libraries = lib.mkForce (filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26Online.meta.versionData.libraries);
+              libraries = lib.mkForce (
+                filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26Online.meta.versionData.libraries
+              );
 
               fabricLoader = {
                 enable = true;
@@ -654,7 +680,7 @@ in
                   method = lib.mkForce "copy";
                 };
                 "config/iris.properties" = {
-                  source = (pkgs.formats.keyValue {}).generate "iris.properties" {
+                  source = (pkgs.formats.keyValue { }).generate "iris.properties" {
                     enableShaders = true;
                     shaderPack = "photon_v1.2a.zip";
                   };
@@ -666,7 +692,9 @@ in
                 };
               };
 
-              activationShellScript = lib.mkAfter (syncMinecraftInstance config.nixcraft.client.instances.photon26Online);
+              activationShellScript = lib.mkAfter (
+                syncMinecraftInstance config.nixcraft.client.instances.photon26Online
+              );
             };
           };
         };

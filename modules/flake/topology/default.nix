@@ -71,7 +71,9 @@
       topology = {
         # Reuse the already-generated host configs directly so topology
         # doesn't recurse back through the full flake output graph.
-        nixosConfigurations = lib.mapAttrs (_: host: host.configuration) config.auto.configurations.configurationTypes.nixos.result;
+        nixosConfigurations = lib.mapAttrs (
+          _: host: host.configuration
+        ) config.auto.configurations.configurationTypes.nixos.result;
         modules = [
           (
             { config, ... }:
