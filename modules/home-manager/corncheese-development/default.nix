@@ -615,7 +615,6 @@ in
           nerd-fonts.meslo-lg
           claude-code-wrapped
           codex-wrapped
-          inputs.llm-agents.packages.${meta.system}.crush
 
           hoppscotch
         ]

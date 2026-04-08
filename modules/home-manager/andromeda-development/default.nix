@@ -33,6 +33,10 @@ let
       AWS_PROFILE = "sandbox";
     };
     skipDangerousModePermissionPrompt = true;
+    attribution = {
+      commit = "";
+      pr = "";
+    };
   };
   claudeSettingsFile = "${config.home.homeDirectory}/.claude/settings.json";
   claudeSettingsSource = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
