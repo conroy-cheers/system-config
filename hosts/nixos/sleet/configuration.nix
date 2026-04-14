@@ -127,6 +127,10 @@
   # };
 
   nix = {
+    gc = {
+      automatic = true;
+      dates = "04:00";
+    };
     settings = {
       trusted-users = [ "conroy" ];
     };
