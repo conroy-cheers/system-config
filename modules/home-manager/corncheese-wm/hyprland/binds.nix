@@ -52,6 +52,7 @@ in
 
       # Special workspace
       "$mod, S, togglespecialworkspace"
+      "$mod CTRL,S,togglespecialworkspace"
       "$mod SHIFT, S, movetoworkspacesilent, special"
 
       # Launcher
@@ -157,6 +158,9 @@ in
     bind=$mod,9,exec,hyprworkspace 9
     bind=$mod CTRL,h,workspace,r-1
     bind=$mod CTRL,l,workspace,r+1
+    bind=$mod CTRL,S,togglespecialworkspace
+
+    bind=SHIFT,F10,exec,/home/conroy/src/erss/tools/mark_erss_state.sh /tmp/erss-watch-mark 'visual glitch observed'
 
     submap=reset
   '';
