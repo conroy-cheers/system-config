@@ -21,7 +21,7 @@ in
             platform = "it8613-isa-*";
             rpmChannel = 2;
           };
-          curve = "exhaust_top_curve";
+          curve = "intake_cpu_curve";
         }
         {
           id = "intake_cpu";
@@ -50,15 +50,6 @@ in
               { "30" = 0; }
               { "40" = 50; }
               { "85" = 255; }
-            ];
-          };
-        }
-        {
-          id = "exhaust_top_curve";
-          function = {
-            type = "sum";
-            curves = [
-              "intake_cpu_curve"
             ];
           };
         }
