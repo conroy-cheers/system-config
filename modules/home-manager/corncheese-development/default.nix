@@ -289,6 +289,12 @@ in
           viAlias = true;
           vimAlias = true;
 
+          clipboard = {
+            enable = true;
+            registers = "unnamedplus";
+            providers.wl-copy.enable = true;
+          };
+
           lsp = {
             # This must be enabled for the language modules to hook into
             # the LSP API.
@@ -303,6 +309,14 @@ in
             otter-nvim.enable = true;
             nvim-docs-view.enable = true;
             harper-ls.enable = true;
+
+            servers.nixd.settings.nixd = {
+              nixpkgs.expr = "import (builtins.getFlake \"/home/conroy/.config/system-config\").inputs.nixpkgs { }";
+              options = {
+                nixos.expr = "(builtins.getFlake \"/home/conroy/.config/system-config\").nixosConfigurations.${meta.hostname}.options";
+                home-manager.expr = "(builtins.getFlake \"/home/conroy/.config/system-config\").nixosConfigurations.${meta.hostname}.options.home-manager.users.type.getSubOptions []";
+              };
+            };
           };
 
           debugger = {
@@ -320,7 +334,11 @@ in
             enableExtraDiagnostics = true;
 
             # Languages that will be supported in default and maximal configurations.
-            nix.enable = true;
+            nix = {
+              enable = true;
+              lsp.servers = ["nixd"];
+              format.type = ["nixfmt"];
+            };
             markdown.enable = true;
 
             # Languages that are enabled in the maximal configuration.
@@ -337,7 +355,10 @@ in
             go.enable = false;
             lua.enable = true;
             zig.enable = false;
-            python.enable = true;
+            python = {
+              enable = true;
+              format.type = ["ruff"];
+            };
             typst.enable = false;
             rust = {
               enable = true;
@@ -510,7 +531,10 @@ in
           ui = {
             borders.enable = true;
             noice.enable = true;
-            colorizer.enable = true;
+            colorizer = {
+              enable = true;
+              setupOpts.filetypes."*" = {};
+            };
             modes-nvim.enable = false; # the theme looks terrible with catppuccin
             illuminate.enable = true;
             breadcrumbs = {
