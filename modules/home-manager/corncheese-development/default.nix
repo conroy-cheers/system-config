@@ -65,6 +65,7 @@ let
 
     postBuild = ''
       wrapProgram $out/bin/claude \
+        --add-flags --dangerously-skip-permissions \
         --prefix PATH : ${
           lib.makeBinPath (
             with pkgs;
