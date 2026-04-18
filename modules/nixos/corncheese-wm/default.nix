@@ -8,7 +8,7 @@
 
 let
   cfg = config.corncheese.wm;
-  inherit (lib) mkEnableOption mkIf;
+  inherit (lib) mkEnableOption mkIf mkOption types;
 
   hypr-pkgs = inputs.hyprland.inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
 in
@@ -24,7 +24,17 @@ in
       enable = mkEnableOption "corncheese system window manager setup";
       audio = {
         enable = mkEnableOption "audio configuration";
-        equalizer.enable = mkEnableOption "AutoEQ headphone equalizer profile";
+        equalizer = {
+          enable = mkEnableOption "AutoEQ headphone equalizer profile";
+          defaultEnabled = mkOption {
+            type = types.bool;
+            default = true;
+            description = lib.mdDoc ''
+              Default runtime state for the MOTU M2 equalizer when no persisted
+              user preference exists yet.
+            '';
+          };
+        };
       };
       nvidia = mkEnableOption "special nvidia configuration";
       gaming.enable = mkEnableOption "corncheese gaming configuration";
