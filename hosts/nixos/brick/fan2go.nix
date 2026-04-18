@@ -73,7 +73,7 @@ in
     before = [ "fan2go.service" ];
     serviceConfig = {
       ExecStart = ''
-        ${lib.getExe pkgs.liquidctl} initialize all
+        ${lib.getExe pkgs.liquidctl} --match EVGA initialize
       '';
       Type = "oneshot";
     };
