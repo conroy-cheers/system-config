@@ -240,7 +240,7 @@ in
     })
     (lib.mkIf desktopCfg.media.enable {
       home.packages = with pkgs; [
-        # plex-desktop
+        plex-desktop
       ];
 
       services.plex-mpv-shim = {
