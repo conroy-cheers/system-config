@@ -9,11 +9,13 @@
 let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
+  colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   inherit (lib) mkEnableOption mkOption mkIf;
 in
 {
   imports = [
-    (import ./hyprland/ags.nix {
+    inputs.colorshell.homeManagerModules.default
+    (import ./hyprland/colorshell.nix {
       inherit
         inputs
         pkgs
@@ -57,7 +59,6 @@ in
         '';
       };
       nvidia = mkEnableOption "special nvidia environment options";
-      ags.enable = mkEnableOption "ags widget system";
       hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
       enableFancyEffects = mkEnableOption "GPU-intensive effects";
     };
@@ -74,7 +75,7 @@ in
       ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
     };
 
-    services.hyprpaper = mkIf cfg.hyprpaper.enable { enable = true; };
+    services.hyprpaper = mkIf (cfg.hyprpaper.enable && !colorshellEnabled) { enable = true; };
 
     gtk = {
       enable = true;
@@ -153,6 +154,16 @@ in
         "x-scheme-handler/unknown" = [ "chromium-browser.desktop" ];
         "inode/directory" = [ "thunar.desktop" ];
       };
+    };
+    xdg.desktopEntries.plexamp = {
+      name = "Plexamp";
+      genericName = "Music Player";
+      exec = lib.getExe pkgs.plexamp;
+      terminal = false;
+      type = "Application";
+      icon = "plexamp";
+      categories = [ "AudioVideo" ];
+      comment = "The best little audio player on the planet";
     };
     xdg.configFile = {
       "mimeapps.list" = {

@@ -344,6 +344,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    walbridge = {
+      url = "github:conroy-cheers/walbridge";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     corncheese-server = {
       url = "github:conroy-cheers/corncheese-server-config";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -218,7 +218,7 @@ in
             # Theming
             "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
-            "workbench.colorTheme" = lib.mkForce "Catppuccin Mocha";
+            "workbench.colorTheme" = "Walbridge";
             "workbench.iconTheme" = "catppuccin-mocha";
 
             # C++

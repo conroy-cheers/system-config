@@ -7,6 +7,8 @@
 
 let
   cfg = config.corncheese.wm;
+  colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
+  lockCommand = if colorshellEnabled then "colorshell lock" else "hyprlock";
 in
 {
   wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
@@ -35,14 +37,12 @@ in
       "$mod, E, togglefloating,"
       "$mod CTRL, delete, exit,"
 
-      "$mod, F5, exec, colorshell reload"
-
       # Dwindle
       "$mod, O, togglesplit,"
       "$mod, P, pseudo,"
 
       # Lock screen
-      "$mod, Escape, exec, hyprlock"
+      "$mod, Escape, exec, ${lockCommand}"
 
       # Application shortcuts.
       "$mod, Return, exec, ghostty"
@@ -57,10 +57,6 @@ in
 
       # Launcher
       # "$mod, A, exec, rofi -show drun -kb-cancel Super_L"
-      "$mod, Space, exec, colorshell runner"
-      "$mod, V, exec, colorshell runner '>'"
-      "$mod, M, exec, colorshell toggle center-window"
-
       # Screenshot
       "$mod SHIFT, PRINT, exec, grimblast copy area"
       "$mod, PRINT, exec, grimblast copysave screen"
@@ -120,6 +116,12 @@ in
       "$mod SHIFT, 0, movetoworkspace, 10"
       "$mod CTRL SHIFT, l, movetoworkspace, r+1"
       "$mod CTRL SHIFT, h, movetoworkspace, r-1"
+    ]
+    ++ lib.optionals colorshellEnabled [
+      "$mod, F5, exec, colorshell reload"
+      "$mod, Space, exec, colorshell runner"
+      "$mod, V, exec, colorshell runner '>'"
+      "$mod, M, exec, colorshell toggle center-window"
     ];
   };
   wayland.windowManager.hyprland.extraConfig = ''
