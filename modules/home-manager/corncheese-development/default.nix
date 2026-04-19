@@ -8,6 +8,7 @@
 }:
 let
   cfg = config.corncheese.development;
+  themeDetails = config.corncheese.theming.themeDetails;
 
   onePassPath =
     if pkgs.stdenv.hostPlatform.isDarwin then
@@ -428,7 +429,7 @@ in
             enable = true;
             name = lib.mkForce "catppuccin";
             style = "mocha";
-            transparent = false;
+            transparent = themeDetails.terminalTuiTransparent or false;
           };
 
           autopairs.nvim-autopairs.enable = true;

@@ -14,11 +14,16 @@
   font = "Meslo LG";
   fontPkg = pkgs.nerd-fonts.meslo-lg;
   fontSize = 11;
+  terminalFontFamily = "MesloLGM Nerd Font Mono";
+  terminalEmojiFontFamily = "Noto Color Emoji";
 
   wallpaper = pkgs.corncheese-wallpapers.paths.green;
 
   # Hyprland and ags.
   opacity = 0.8; # affects theme.blur in ags.
+  terminalOpacity = 1.0; # avoid compositing artifacts for terminal backgrounds.
+  terminalBackgroundBlur = 0;
+  terminalTuiTransparent = true;
   roundingRadius = 15; # affects theme.rounding in ags.
   shadows = false; # affects theme.shadows in ags.
   bordersPlusPlus = false;

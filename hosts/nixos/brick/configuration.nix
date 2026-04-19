@@ -90,6 +90,28 @@ in
     theming = {
       enable = true;
       theme = "catppuccin";
+      themeOverrides = {
+        # Keep Stylix visibly separate from walbridge's runtime palette so
+        # unsupported targets are obvious.
+        stylixOverride = {
+          base00 = "101010";
+          base01 = "181818";
+          base02 = "202020";
+          base03 = "585858";
+          base04 = "b0b0b0";
+          base05 = "c8c8c8";
+          base06 = "e0e0e0";
+          base07 = "f5f5f5";
+          base08 = "707070";
+          base09 = "7a7a7a";
+          base0A = "8a8a8a";
+          base0B = "9a9a9a";
+          base0C = "aaaaaa";
+          base0D = "bababa";
+          base0E = "cacaca";
+          base0F = "dadada";
+        };
+      };
     };
     wm = {
       enable = true;

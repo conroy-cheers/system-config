@@ -1,4 +1,5 @@
 {
+  inputs,
   pkgs,
   lib,
   config,
@@ -10,30 +11,46 @@ let
     inherit pkgs;
   }) cfg.themeOverrides;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
-  walbridgeGhosttyPlaceholder = with config.lib.stylix.colors.withHashtag; ''
-    background = ${base00}
-    foreground = ${base05}
-    cursor-color = ${base05}
-    selection-background = ${base02}
-    selection-foreground = ${base05}
-    palette = 0=${base00}
-    palette = 1=${base08}
-    palette = 2=${base0B}
-    palette = 3=${base0A}
-    palette = 4=${base0D}
-    palette = 5=${base0E}
-    palette = 6=${base0C}
-    palette = 7=${base05}
-    palette = 8=${base03}
-    palette = 9=${base08}
-    palette = 10=${base0B}
-    palette = 11=${base0A}
-    palette = 12=${base0D}
-    palette = 13=${base0E}
-    palette = 14=${base0C}
-    palette = 15=${base07}
+  walbridgePackage = inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  terminalTuiTransparent = themeDetails.terminalTuiTransparent or false;
+  walbridgeApplyScript = pkgs.writeShellScript "walbridge-apply-runtime" ''
+    set -euo pipefail
+
+    palette_path="''${1:?usage: walbridge-apply-runtime <palette.json>}"
+
+    ${lib.getExe' walbridgePackage "walbridge"} apply --palette "$palette_path"
+
+    if [ "${if terminalTuiTransparent then "1" else "0"}" = "1" ]; then
+      btop_theme="$HOME/.config/btop/themes/walbridge.theme"
+      if [ -f "$btop_theme" ]; then
+        ${lib.getExe pkgs.gnused} -i 's|^theme\[main_bg\]=.*$|theme[main_bg]=""|' "$btop_theme"
+      fi
+    fi
   '';
-  walbridgeBatPlaceholder = with config.lib.stylix.colors.withHashtag; ''
+  walbridgeGhosttyPlaceholder = ''
+    background = 11111b
+    foreground = cdd6f4
+    cursor-color = cdd6f4
+    selection-background = 313244
+    selection-foreground = cdd6f4
+    palette = 0=11111b
+    palette = 1=f38ba8
+    palette = 2=a6e3a1
+    palette = 3=f9e2af
+    palette = 4=89b4fa
+    palette = 5=cba6f7
+    palette = 6=94e2d5
+    palette = 7=cdd6f4
+    palette = 8=45475a
+    palette = 9=f38ba8
+    palette = 10=a6e3a1
+    palette = 11=f9e2af
+    palette = 12=89b4fa
+    palette = 13=cba6f7
+    palette = 14=94e2d5
+    palette = 15=f5e0dc
+  '';
+  walbridgeBatPlaceholder = ''
     <?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
     <plist version="1.0">
@@ -46,47 +63,47 @@ let
             <key>settings</key>
             <dict>
               <key>background</key>
-              <string>${base00}</string>
+              <string>#11111b</string>
               <key>foreground</key>
-              <string>${base05}</string>
+              <string>#cdd6f4</string>
               <key>caret</key>
-              <string>${base05}</string>
+              <string>#cdd6f4</string>
               <key>selection</key>
-              <string>${base02}</string>
+              <string>#313244</string>
             </dict>
           </dict>
         </array>
       </dict>
     </plist>
   '';
-  walbridgeWeztermPlaceholder = with config.lib.stylix.colors.withHashtag; ''
+  walbridgeWeztermPlaceholder = ''
     return {
       color_scheme = "walbridge",
       color_schemes = {
         walbridge = {
-          ansi = { "${base00}", "${base08}", "${base0B}", "${base0A}", "${base0D}", "${base0E}", "${base0C}", "${base05}" },
-          brights = { "${base03}", "${base08}", "${base0B}", "${base0A}", "${base0D}", "${base0E}", "${base0C}", "${base07}" },
-          background = "${base00}",
-          cursor_bg = "${base05}",
-          cursor_fg = "${base00}",
-          compose_cursor = "${base07}",
-          foreground = "${base05}",
+          ansi = { "#11111b", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#cba6f7", "#94e2d5", "#cdd6f4" },
+          brights = { "#45475a", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#cba6f7", "#94e2d5", "#f5e0dc" },
+          background = "#11111b",
+          cursor_bg = "#cdd6f4",
+          cursor_fg = "#11111b",
+          compose_cursor = "#f5e0dc",
+          foreground = "#cdd6f4",
         },
       },
     }
   '';
-  walbridgeFishPlaceholder = with config.lib.stylix.colors; ''
-    set -g fish_color_normal ${base05}
-    set -g fish_color_command ${base0D}
-    set -g fish_color_keyword ${base0E}
-    set -g fish_color_quote ${base0B}
-    set -g fish_color_redirection ${base0C}
-    set -g fish_color_end ${base09}
-    set -g fish_color_error ${base08}
-    set -g fish_color_param ${base05}
-    set -g fish_color_comment ${base03}
-    set -g fish_color_autosuggestion ${base03}
-    set -g fish_color_selection --background=${base02}
+  walbridgeFishPlaceholder = ''
+    set -g fish_color_normal cdd6f4
+    set -g fish_color_command 89b4fa
+    set -g fish_color_keyword cba6f7
+    set -g fish_color_quote a6e3a1
+    set -g fish_color_redirection 94e2d5
+    set -g fish_color_end fab387
+    set -g fish_color_error f38ba8
+    set -g fish_color_param cdd6f4
+    set -g fish_color_comment 45475a
+    set -g fish_color_autosuggestion 45475a
+    set -g fish_color_selection --background=313244
   '';
 in
 {
@@ -107,11 +124,17 @@ in
         description = "Imported theme data";
         readOnly = true;
       };
+      walbridgeApplyCommand = lib.mkOption {
+        type = with lib.types; package;
+        description = "Runtime walbridge apply helper used by colorshell and activation.";
+        readOnly = true;
+      };
     };
   };
 
   config = lib.mkIf cfg.enable {
     corncheese.theming.themeDetails = themeDetails;
+    corncheese.theming.walbridgeApplyCommand = walbridgeApplyScript;
 
     stylix = {
       enable = true;
@@ -150,6 +173,10 @@ in
     programs.bat.config.theme = lib.mkIf colorshellEnabled "walbridge";
     programs.btop.settings.color_theme = lib.mkIf colorshellEnabled "walbridge";
     programs.ghostty.settings.theme = lib.mkIf colorshellEnabled "walbridge";
+
+    home.sessionVariables = lib.mkIf colorshellEnabled {
+      WALBRIDGE_TERMINAL_TUI_TRANSPARENT = if terminalTuiTransparent then "1" else "0";
+    };
 
     home.activation.ensureWalbridgeThemePlaceholders = lib.mkIf colorshellEnabled (
       lib.hm.dag.entryBefore [ "batCache" "onFilesChange" ] ''
@@ -192,6 +219,11 @@ EOF
 
         if [ ! -e "$starship_runtime" ] && [ -e "$starship_template" ]; then
           cp "$starship_template" "$starship_runtime"
+        fi
+
+        wal_palette="$HOME/.cache/wal/colors.json"
+        if [ -e "$wal_palette" ]; then
+          ${walbridgeApplyScript} "$wal_palette"
         fi
       ''
     );

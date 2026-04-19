@@ -22,7 +22,7 @@
 
 (doto config
   (tset :freetype_render_target    :Light)
-  (tset :window_background_opacity 0.8)
+  (tset :window_background_opacity 1.0)
   (tset :window_background_image   "")
   (tset :window_decorations        :RESIZE)
   (tset :window_close_confirmation :NeverPrompt)

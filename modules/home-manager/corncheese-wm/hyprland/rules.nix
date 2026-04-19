@@ -32,6 +32,8 @@ in
       "float yes,match:class ^(firefox)$,match:title ^(Firefox)$"
       "float yes,match:class ^(firefox)$,match:title ^(Picture-in-Picture)$"
 
+      "opacity 1.0,match:class ^(com.mitchellh.ghostty)$"
+      "opacity 1.0,match:class ^(org.wezfurlong.wezterm)$"
       "float yes,match:class ^(com.mitchellh.ghostty)$,match:title ^(ghostty-floating)$"
       "size 50% 50%,match:class ^(floating)$,match:title ^(ghostty)$"
       "center yes,match:class ^(floating)$,match:title ^(ghostty)$"
@@ -53,5 +55,6 @@ in
     ];
 
     workspace = [ "special,gapsin:24,gapsout:64" ];
+
   };
 }

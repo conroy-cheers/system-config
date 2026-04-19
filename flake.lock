@@ -4211,11 +4211,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776603440,
-        "narHash": "sha256-dnEG3LaKMf3acQ40FNuQT/e4Z4G/iHtjkSv12OfWOQo=",
+        "lastModified": 1776612572,
+        "narHash": "sha256-4d+dfLbqpoFKSHl8kdHutAIkPQkf7s+RvOAZ9Haa+nc=",
         "owner": "conroy-cheers",
         "repo": "walbridge",
-        "rev": "fe6ea2cf258529f998230218746a8847125de327",
+        "rev": "7e0ad183f37fd92bc37eaaa7f459257dc29d7bb8",
         "type": "github"
       },
       "original": {
