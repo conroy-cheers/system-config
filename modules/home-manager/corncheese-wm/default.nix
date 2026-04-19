@@ -116,6 +116,8 @@ in
       };
     };
 
+    gtk.gtk4.theme = config.gtk.theme;
+
     xdg.portal = {
       enable = true;
       xdgOpenUsePortal = true;
@@ -134,6 +136,7 @@ in
     xdg.userDirs = {
       enable = true;
       createDirectories = true;
+      setSessionVariables = true;
       extraConfig = {
         SCREENSHOTS = "${config.home.homeDirectory}/Screenshots";
       };
