@@ -59,7 +59,7 @@ let
       </dict>
     </plist>
   '';
-  walbridgeWeztermPlaceholder = with config.lib.stylix.colors; ''
+  walbridgeWeztermPlaceholder = with config.lib.stylix.colors.withHashtag; ''
     return {
       color_scheme = "walbridge",
       color_schemes = {
@@ -144,6 +144,7 @@ in
       targets.bat.enable = lib.mkIf colorshellEnabled false;
       targets.ghostty.enable = lib.mkIf colorshellEnabled false;
       targets.fish.enable = lib.mkIf colorshellEnabled false;
+      targets.wezterm.enable = lib.mkIf colorshellEnabled false;
     };
 
     programs.bat.config.theme = lib.mkIf colorshellEnabled "walbridge";
