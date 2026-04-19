@@ -198,7 +198,7 @@ in
       programs.starship = mkIf cfg.starship {
         enable = true;
         package = pkgs.starship;
-        settings = mkIf (!colorshellEnabled) (import ./starship.nix { inherit lib; });
+        settings = import ./starship.nix { inherit lib; };
 
         enableFishIntegration = builtins.elem "fish" cfg.shells;
       };
