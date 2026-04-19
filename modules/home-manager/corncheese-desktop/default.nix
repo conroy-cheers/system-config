@@ -15,6 +15,7 @@ let
   filterOutLibraryPrefix =
     prefix: libraries:
     builtins.filter (library: !(lib.hasPrefix prefix (library.name or ""))) libraries;
+  themeDetails = config.corncheese.theming.themeDetails;
   exportEnvVars =
     variables:
     lib.concatStringsSep "\n" (
@@ -149,6 +150,12 @@ in
             keybind = [
             ];
             background-blur = 20;
+            background-opacity = themeDetails.opacity;
+            font-family = [
+              config.stylix.fonts.monospace.name
+              config.stylix.fonts.emoji.name
+            ];
+            font-size = themeDetails.fontSize;
           };
           installBatSyntax = isAvailable;
         };
