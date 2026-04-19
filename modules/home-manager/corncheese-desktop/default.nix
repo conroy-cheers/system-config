@@ -16,6 +16,10 @@ let
     prefix: libraries:
     builtins.filter (library: !(lib.hasPrefix prefix (library.name or ""))) libraries;
   themeDetails = config.corncheese.theming.themeDetails;
+  terminalOpacity = themeDetails.terminalOpacity or themeDetails.opacity;
+  terminalBlur = themeDetails.terminalBackgroundBlur or 0;
+  terminalFontFamily = themeDetails.terminalFontFamily or "MesloLGM Nerd Font Mono";
+  terminalEmojiFontFamily = themeDetails.terminalEmojiFontFamily or "Noto Color Emoji";
   exportEnvVars =
     variables:
     lib.concatStringsSep "\n" (
@@ -149,11 +153,11 @@ in
           settings = {
             keybind = [
             ];
-            background-blur = 20;
-            background-opacity = themeDetails.opacity;
+            background-blur = terminalBlur;
+            background-opacity = terminalOpacity;
             font-family = [
-              config.stylix.fonts.monospace.name
-              config.stylix.fonts.emoji.name
+              terminalFontFamily
+              terminalEmojiFontFamily
             ];
             font-size = themeDetails.fontSize;
           };

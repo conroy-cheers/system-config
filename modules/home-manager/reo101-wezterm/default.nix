@@ -8,6 +8,11 @@
 with lib;
 let
   cfg = config.corncheese.wezterm;
+  terminalOpacity = config.corncheese.theming.themeDetails.terminalOpacity or 1.0;
+  weztermConfig = builtins.replaceStrings
+    [ "__WALBRIDGE_WINDOW_BACKGROUND_OPACITY__" ]
+    [ (toString terminalOpacity) ]
+    (builtins.readFile ./wezterm.lua);
 in
 {
   imports = [ ];
@@ -36,7 +41,7 @@ in
     programs.wezterm = {
       enable = true;
       extraConfig = builtins.concatStringsSep "\n" [
-        (builtins.readFile ./wezterm.lua)
+        weztermConfig
         cfg.extraConfig
       ];
     };

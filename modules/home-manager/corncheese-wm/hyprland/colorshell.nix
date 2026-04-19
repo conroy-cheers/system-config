@@ -98,7 +98,7 @@ in
           default_path = toString themeDetails.wallpaper;
         };
         theming = {
-          apply_command = "${lib.getExe' walbridgePackage "walbridge"} apply --palette ${config.home.homeDirectory}/.cache/wal/colors.json";
+          apply_command = "${config.corncheese.theming.walbridgeApplyCommand} ${config.home.homeDirectory}/.cache/wal/colors.json";
         };
         idle = {
           lock_timeout = 900;

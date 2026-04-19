@@ -40,7 +40,7 @@ M.freetype_render_target = "Light"
 --------------------
 -- Window options --
 --------------------
-M.window_background_opacity = 0.8
+M.window_background_opacity = __WALBRIDGE_WINDOW_BACKGROUND_OPACITY__
 M.text_background_opacity = 1.0
 -- M.window_background_image = ""
 M.window_decorations = "RESIZE"
