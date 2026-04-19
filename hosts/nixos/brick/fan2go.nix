@@ -34,6 +34,24 @@ let
     ${getClcData} "Liquid temperature" "1000"
   '';
 
+  liquidcfgInit = pkgs.writeShellScript "liquidcfg-init" ''
+    set -o pipefail
+
+    if output="$(${lib.getExe pkgs.liquidctl} --match EVGA initialize 2>&1)"; then
+      printf '%s\n' "$output"
+      exit 0
+    fi
+
+    printf '%s\n' "$output" >&2
+
+    if printf '%s\n' "$output" | ${lib.getExe pkgs.gnugrep} -qi 'resource busy'; then
+      echo "liquidcfg: EVGA device already busy, treating initialize as already satisfied" >&2
+      exit 0
+    fi
+
+    exit 1
+  '';
+
   clcFanSpeed = pkgs.writeShellScript "clc-fan-speed" ''
     STATE_FILE="/run/clc-fan-speed"
     DEFAULT_SPEED=15
@@ -72,9 +90,7 @@ in
     wantedBy = [ "multi-user.target" ];
     before = [ "fan2go.service" ];
     serviceConfig = {
-      ExecStart = ''
-        ${lib.getExe pkgs.liquidctl} --match EVGA initialize
-      '';
+      ExecStart = liquidcfgInit;
       Type = "oneshot";
     };
   };

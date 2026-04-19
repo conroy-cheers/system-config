@@ -137,4 +137,12 @@ M.hyperlink_rules = {
     },
 }
 
+local walbridge_path = os.getenv("HOME") .. "/.config/wezterm/walbridge.lua"
+local walbridge_loaded, walbridge = pcall(dofile, walbridge_path)
+if walbridge_loaded and type(walbridge) == "table" then
+    for key, value in pairs(walbridge) do
+        M[key] = value
+    end
+end
+
 return M

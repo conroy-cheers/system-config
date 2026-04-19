@@ -50,7 +50,6 @@
         # AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card:/dev/dri/by-path/pci-0000:63:00.0-card"; # Prefer discrete GPU
         #AQ_DRM_DEVICES = "/dev/dri/card0"; # Use discrete GPU
       };
-      ags.enable = true;
       hyprpaper.enable = true;
     };
     desktop = {
@@ -75,6 +74,8 @@
   andromeda = {
     development.enable = true;
   };
+
+  programs.colorshell.enable = true;
 
   wayland.windowManager.hyprland.settings =
     let

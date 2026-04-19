@@ -8,6 +8,7 @@
 
 let
   cfg = config.corncheese.shell;
+  colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
 
   inherit (lib)
     mkEnableOption
@@ -197,7 +198,7 @@ in
       programs.starship = mkIf cfg.starship {
         enable = true;
         package = pkgs.starship;
-        settings = import ./starship.nix { inherit lib; };
+        settings = mkIf (!colorshellEnabled) (import ./starship.nix { inherit lib; });
 
         enableFishIntegration = builtins.elem "fish" cfg.shells;
       };
@@ -227,6 +228,9 @@ in
             shellPackage = builtins.getAttr (builtins.head cfg.shells) pkgs;
           in
           "${shellPackage}/${shellPackage.shellPath}";
+      }
+      // lib.optionalAttrs (cfg.starship && colorshellEnabled) {
+        STARSHIP_CONFIG = lib.mkForce "${config.xdg.configHome}/starship-walbridge.toml";
       };
 
       # Nushell
@@ -255,6 +259,12 @@ in
       programs.fish = mkIf (builtins.elem "fish" cfg.shells) {
         enable = true;
         package = pkgs.fish;
+        interactiveShellInit = mkIf colorshellEnabled (lib.mkAfter ''
+          set -gx STARSHIP_CONFIG ${config.xdg.configHome}/starship-walbridge.toml
+          if test -f ${config.xdg.configHome}/fish/conf.d/walbridge.fish
+              source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
+          end
+        '');
 
         shellAliases = shellAliases // {
           ls = "${pkgs.lsd}/bin/lsd";

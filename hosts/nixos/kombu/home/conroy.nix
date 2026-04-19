@@ -46,7 +46,6 @@
     };
     wm = {
       enable = true;
-      ags.enable = true;
       hyprpaper.enable = true;
     };
     desktop = {
@@ -74,6 +73,8 @@
   andromeda = {
     development.enable = true;
   };
+
+  programs.colorshell.enable = true;
 
   wayland.windowManager.hyprland.settings = {
     monitor = [
