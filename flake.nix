@@ -308,7 +308,7 @@
     };
 
     direnv-instant = {
-      url = "github:Mic92/direnv-instant";
+      url = "github:conroy-cheers/direnv-instant/inline-scroll-region-viewer";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
