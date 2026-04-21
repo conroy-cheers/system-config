@@ -144,13 +144,13 @@ in
       # Direnv
       programs.direnv-instant = {
         enable = true;
+        settings.inline_viewer = true;
+        settings.mux_delay = 0.5;
       };
       programs.direnv = mkIf cfg.direnv {
         enable = true;
 
-        # enableNushellIntegration = builtins.elem "nushell" cfg.shells;
-        # enableZshIntegration = builtins.elem "zsh" cfg.shells;
-        # enableFishIntegration = builtins.elem "fish" cfg.shells;
+        # direnv-instant replaces all shell hooks
         enableNushellIntegration = false;
         enableZshIntegration = false;
         enableFishIntegration = false;
@@ -265,6 +265,12 @@ in
               source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
           end
         '');
+
+        interactiveShellInit = mkIf cfg.direnv ''
+          # Erase direnv's vendor fish hooks — direnv-instant replaces them.
+          # The vendor_conf.d/direnv.fish registers these before config.fish runs.
+          functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
+        '';
 
         shellAliases = shellAliases // {
           ls = "${pkgs.lsd}/bin/lsd";
