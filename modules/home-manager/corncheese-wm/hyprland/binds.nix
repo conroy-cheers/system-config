@@ -161,6 +161,7 @@ in
     bind=$mod CTRL,h,workspace,r-1
     bind=$mod CTRL,l,workspace,r+1
     bind=$mod CTRL,S,togglespecialworkspace
+    bind=$mod SHIFT,W,fullscreen,
 
     bind=SHIFT,F10,exec,/home/conroy/src/erss/tools/mark_erss_state.sh /tmp/erss-watch-mark 'visual glitch observed'
 
