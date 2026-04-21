@@ -5,3 +5,4 @@ result
 !/secrets/*.hmac
 !/secrets/*.age
 !/secrets/rekeyed
+.omx/

@@ -53,7 +53,29 @@ let
             pkgs.gnutar
             pkgs.unzip
             pkgs.just
-            pkgs.nodejs
+          ]
+        }
+    '';
+  };
+
+  oh-my-codex-wrapped = pkgs.symlinkJoin {
+    name = "omx-wrapped";
+    paths = [ inputs.llm-agents.packages.${meta.system}.oh-my-codex ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/omx \
+        --prefix PATH : ${
+          lib.makeBinPath [
+            pkgs.ripgrep
+            pkgs.fd
+            pkgs.gnused
+            pkgs.gawk
+            pkgs.jq
+            pkgs.curl
+            pkgs.wget2
+            pkgs.gnutar
+            pkgs.unzip
+            pkgs.just
           ]
         }
     '';
@@ -337,8 +359,8 @@ in
             # Languages that will be supported in default and maximal configurations.
             nix = {
               enable = true;
-              lsp.servers = ["nixd"];
-              format.type = ["nixfmt"];
+              lsp.servers = [ "nixd" ];
+              format.type = [ "nixfmt" ];
             };
             markdown.enable = true;
 
@@ -358,7 +380,7 @@ in
             zig.enable = false;
             python = {
               enable = true;
-              format.type = ["ruff"];
+              format.type = [ "ruff" ];
             };
             typst.enable = false;
             rust = {
@@ -534,7 +556,7 @@ in
             noice.enable = true;
             colorizer = {
               enable = true;
-              setupOpts.filetypes."*" = {};
+              setupOpts.filetypes."*" = { };
             };
             modes-nvim.enable = false; # the theme looks terrible with catppuccin
             illuminate.enable = true;
@@ -639,8 +661,11 @@ in
           pyright
 
           nerd-fonts.meslo-lg
+          nodejs-slim
+          tmux 
           claude-code-wrapped
           codex-wrapped
+          oh-my-codex-wrapped
 
           hoppscotch
         ]
