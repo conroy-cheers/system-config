@@ -48,6 +48,7 @@ in
           brightnessctl
           seahorse
           file-roller
+          gpu-screen-recorder-gtk
         ];
 
         hardware.graphics = {
@@ -84,6 +85,8 @@ in
             enable = true;
             polkitPolicyOwners = [ "conroy" ];
           };
+
+          gpu-screen-recorder.enable = true;
         };
 
         services.gvfs.enable = true;
