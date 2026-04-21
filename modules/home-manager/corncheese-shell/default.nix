@@ -176,6 +176,11 @@ in
             inline_height = 20;
             dialect = "uk";
           }
+          (mkIf colorshellEnabled {
+            theme = {
+              name = "walbridge";
+            };
+          })
           (mkIf cfg.atuin.sync {
             auto_sync = true;
             sync_frequency = "5m";
