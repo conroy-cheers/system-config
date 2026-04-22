@@ -4,7 +4,7 @@
   stdenv,
   replaceVars,
   writeShellApplication,
-  lua5_4,
+  lua5_5,
   sbarlua,
   sketchybar,
   jq,
@@ -14,7 +14,8 @@
 let
   sketchybarrc = replaceVars ./sketchybarrc {
     inherit sbarlua;
-    lua = lua5_4;
+    lua = lua5_5;
+    luaAbi = lib.versions.majorMinor lua5_5.version;
   };
   initLua = ./init.lua;
 
