@@ -184,8 +184,10 @@ in
         # sudo scutil --set HostName $hostname
 
         ${
-          inputs.mac-app-util.packages.${pkgs.stdenv.hostPlatform.system}.default
-        }/bin/mac-app-util sync-trampolines "/Applications/Nix Apps" "/Applications/Nix Trampolines"
+          lib.optionalString pkgs.stdenv.hostPlatform.isx86_64 ''
+            ${inputs.mac-app-util.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mac-app-util sync-trampolines "/Applications/Nix Apps" "/Applications/Nix Trampolines"
+          ''
+        }
       '';
 
       # User-level settings

@@ -7,7 +7,7 @@ package.path = table.concat({
   config_dir .. "?.lua",
   config_dir .. "?/init.lua",
 }, ";")
-package.cpath = package.cpath .. ";@sbarlua@/lib/lua/5.4/?.so"
+package.cpath = package.cpath .. ";@sbarlua@/lib/lua/@luaAbi@/?.so"
 
 -- Load the sketchybar-package and prepare the helper binaries
 require("helpers")

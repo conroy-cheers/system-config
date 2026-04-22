@@ -241,7 +241,7 @@ in
             # Theming
             "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
-            "workbench.colorTheme" = "Walbridge";
+            "workbench.colorTheme" = lib.mkForce "Walbridge";
             "workbench.iconTheme" = "catppuccin-mocha";
 
             # C++
@@ -315,7 +315,7 @@ in
           clipboard = {
             enable = true;
             registers = "unnamedplus";
-            providers.wl-copy.enable = true;
+            providers.wl-copy.enable = pkgs.stdenv.hostPlatform.isLinux;
           };
 
           lsp = {

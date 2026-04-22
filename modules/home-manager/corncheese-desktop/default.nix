@@ -172,7 +172,7 @@ in
         enable = true;
       };
 
-      programs.neovide = {
+      programs.neovide = mkIf pkgs.stdenv.hostPlatform.isLinux {
         enable = true;
         settings = {
           fork = false;

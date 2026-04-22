@@ -12,7 +12,7 @@
   options = { };
 
   config = {
-    home.activation = lib.mkIf pkgs.stdenv.isDarwin {
+    home.activation = lib.mkIf (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isx86_64) {
       trampolineApps =
         let
           mac-app-util = inputs.mac-app-util.packages.${pkgs.stdenv.hostPlatform.system}.default;
