@@ -30,11 +30,13 @@
           ./modules/flake/modules
           ./modules/flake/configurations
           ./modules/flake/agenix
+          ./modules/flake/checks
           ./modules/flake/hydra
           ./modules/flake/topology
           ./modules/flake/packages
           ./modules/flake/overlays
           ./modules/flake/shells
+          ./modules/flake/panda
         ];
 
         auto = {
@@ -46,6 +48,9 @@
 
           # Automatic packages, see `./modules/flake/packages/default/default.nix`
           packages.enable = true;
+
+          # Automatic checks, see `./modules/flake/checks/default.nix`
+          checks.enable = true;
 
           # Automatic overlays, see `./modules/flake/overlays/default/default.nix`
           overlays.enable = true;
