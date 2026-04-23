@@ -350,7 +350,7 @@
     };
 
     walbridge = {
-      url = "github:conroy-cheers/walbridge";
+      url = "github:conroy-cheers/walbridge/improve-dark-backgrounds";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

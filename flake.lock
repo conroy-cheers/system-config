@@ -4245,15 +4245,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1776781857,
-        "narHash": "sha256-jzs2pS6dkQkgcYX1qxvzMTt2Vdt037JFpp0IErua/N8=",
+        "lastModified": 1776985126,
+        "narHash": "sha256-c7490+mEfXVeyppyyFhiMf9bT946imT1skBCQnWjYE4=",
         "owner": "conroy-cheers",
         "repo": "walbridge",
-        "rev": "2508b336a8aaa79e5d878ad4fa34034800004369",
+        "rev": "4ffe9f609a47c6e36469af2845f7bfc770468e46",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
+        "ref": "improve-dark-backgrounds",
         "repo": "walbridge",
         "type": "github"
       }
