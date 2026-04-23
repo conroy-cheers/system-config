@@ -17,8 +17,26 @@ let
     set -euo pipefail
 
     palette_path="''${1:?usage: walbridge-apply-runtime <palette.json>}"
+    normalized_palette="$palette_path"
+    temp_palette=""
 
-    ${lib.getExe' walbridgePackage "walbridge"} apply --palette "$palette_path"
+    if ! ${lib.getExe pkgs.jq} -e 'has("wallpaper")' "$palette_path" >/dev/null; then
+      temp_palette="$(${lib.getExe' pkgs.coreutils "mktemp"})"
+      ${lib.getExe pkgs.jq} \
+        --arg wallpaper ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
+        '. + { wallpaper: $wallpaper }' \
+        "$palette_path" >"$temp_palette"
+      normalized_palette="$temp_palette"
+    fi
+
+    cleanup() {
+      if [ -n "$temp_palette" ]; then
+        rm -f "$temp_palette"
+      fi
+    }
+    trap cleanup EXIT
+
+    ${lib.getExe' walbridgePackage "walbridge"} apply --palette "$normalized_palette"
 
     hex_to_rgb() {
       local hex="''${1#\#}"
@@ -304,6 +322,15 @@ EOF
 
         wal_palette="$HOME/.cache/wal/colors.json"
         if [ -e "$wal_palette" ]; then
+          if ! ${lib.getExe pkgs.jq} -e 'has("wallpaper")' "$wal_palette" >/dev/null; then
+            tmp_palette="$(${lib.getExe' pkgs.coreutils "mktemp"})"
+            ${lib.getExe pkgs.jq} \
+              --arg wallpaper ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
+              '. + { wallpaper: $wallpaper }' \
+              "$wal_palette" >"$tmp_palette"
+            mv "$tmp_palette" "$wal_palette"
+          fi
+
           ${walbridgeApplyScript} "$wal_palette"
         fi
       ''
