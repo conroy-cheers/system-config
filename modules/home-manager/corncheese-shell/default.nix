@@ -17,37 +17,60 @@ let
         isLinux
         isDarwin
         ;
-      flakeRef =
-        if cfg.hostname != null then "${cfg.flakePath}#${cfg.hostname}" else "${cfg.flakePath}";
+      flakeRef = if cfg.hostname != null then "${cfg.flakePath}#${cfg.hostname}" else "${cfg.flakePath}";
       rebuildCommand =
         if isx86_64 && isLinux then
           ''
             if [ "$(id -u)" -eq 0 ]; then
-              exec nixos-rebuild --flake ${flakeRef} "$@"
+              exec nixos-rebuild --flake "$flake_ref" "$action" "$@"
             fi
 
-            sudo --validate
-            exec sudo nixos-rebuild --flake ${flakeRef} "$@"
+            if sudo -n true 2>/dev/null; then
+              exec sudo -n nixos-rebuild --flake "$flake_ref" "$action" "$@"
+            fi
+
+            if [[ -t 0 && -t 1 ]]; then
+              exec sudo nixos-rebuild --flake "$flake_ref" "$action" "$@"
+            fi
+
+            echo "rebuild: sudo requires a terminal on this host" >&2
+            exit 1
           ''
         else if isDarwin then
           ''
             if [ "$(id -u)" -eq 0 ]; then
-              exec darwin-rebuild --flake ${flakeRef} "$@"
+              exec darwin-rebuild --flake "$flake_ref" "$action" "$@"
             fi
 
-            exec sudo darwin-rebuild --flake ${flakeRef} "$@"
+            if sudo -n true 2>/dev/null; then
+              exec sudo -n darwin-rebuild --flake "$flake_ref" "$action" "$@"
+            fi
+
+            if [[ -t 0 && -t 1 ]]; then
+              exec sudo darwin-rebuild --flake "$flake_ref" "$action" "$@"
+            fi
+
+            echo "rebuild: sudo requires a terminal on this host" >&2
+            exit 1
           ''
         else if isAarch64 then
           ''
-            exec nix-on-droid --flake ${flakeRef} "$@"
+            exec nix-on-droid --flake "$flake_ref" "$action" "$@"
           ''
         else
           ''
-            exec home-manager --flake ${flakeRef} "$@"
+            exec home-manager --flake "$flake_ref" "$action" "$@"
           '';
     in
     pkgs.writeShellScriptBin "rebuild" ''
-      set -- "''${1:-switch}" "''${@:2}"
+      set -euo pipefail
+
+      flake_ref=${lib.escapeShellArg flakeRef}
+      action=''${1:-switch}
+      if (($# > 0)); then
+        shift
+      fi
+
       ${rebuildCommand}
     '';
 
@@ -281,17 +304,19 @@ in
         enable = true;
         package = pkgs.fish;
         interactiveShellInit = lib.mkMerge [
-          (mkIf colorshellEnabled (lib.mkAfter ''
-            set -gx STARSHIP_CONFIG ${config.xdg.configHome}/starship-walbridge.toml
-            if test -f ${config.xdg.configHome}/fish/conf.d/walbridge.fish
-                source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
-            end
-          ''))
           (mkIf cfg.direnv ''
             # Erase direnv's vendor fish hooks — direnv-instant replaces them.
             # The vendor_conf.d/direnv.fish registers these before config.fish runs.
             functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
           '')
+          (mkIf colorshellEnabled (
+            lib.mkAfter ''
+              set -gx STARSHIP_CONFIG ${config.xdg.configHome}/starship-walbridge.toml
+              if test -f ${config.xdg.configHome}/fish/conf.d/walbridge.fish
+                  source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
+              end
+            ''
+          ))
         ];
 
         shellAliases = shellAliases // {
