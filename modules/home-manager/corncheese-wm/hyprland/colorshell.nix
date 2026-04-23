@@ -83,6 +83,7 @@ in
   config = lib.mkIf (cfg.enable && colorshellEnabled) {
     home.packages = [
       walbridgePackage
+      pkgs.hyprlock
       pkgs.libsForQt5.qt5ct
       pkgs.qt6Packages.qt6ct
     ];
