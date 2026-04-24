@@ -280,18 +280,19 @@ in
       programs.fish = mkIf (builtins.elem "fish" cfg.shells) {
         enable = true;
         package = pkgs.fish;
-        interactiveShellInit = mkIf colorshellEnabled (lib.mkAfter ''
-          set -gx STARSHIP_CONFIG ${config.xdg.configHome}/starship-walbridge.toml
-          if test -f ${config.xdg.configHome}/fish/conf.d/walbridge.fish
-              source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
-          end
-        '');
-
-        interactiveShellInit = mkIf cfg.direnv ''
-          # Erase direnv's vendor fish hooks — direnv-instant replaces them.
-          # The vendor_conf.d/direnv.fish registers these before config.fish runs.
-          functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
-        '';
+        interactiveShellInit = lib.mkMerge [
+          (mkIf colorshellEnabled (lib.mkAfter ''
+            set -gx STARSHIP_CONFIG ${config.xdg.configHome}/starship-walbridge.toml
+            if test -f ${config.xdg.configHome}/fish/conf.d/walbridge.fish
+                source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
+            end
+          ''))
+          (mkIf cfg.direnv ''
+            # Erase direnv's vendor fish hooks — direnv-instant replaces them.
+            # The vendor_conf.d/direnv.fish registers these before config.fish runs.
+            functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
+          '')
+        ];
 
         shellAliases = shellAliases // {
           ls = "${pkgs.lsd}/bin/lsd";
