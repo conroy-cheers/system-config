@@ -20,6 +20,84 @@ let
 
     ${lib.getExe' walbridgePackage "walbridge"} apply --palette "$palette_path"
 
+    hex_to_rgb() {
+      local hex="''${1#\#}"
+      printf '%d;%d;%d' "0x''${hex:0:2}" "0x''${hex:2:2}" "0x''${hex:4:2}"
+    }
+
+    background="$(${lib.getExe pkgs.jq} -r '.special.background // .colors.color0' "$palette_path")"
+    foreground="$(${lib.getExe pkgs.jq} -r '.special.foreground // .colors.color7' "$palette_path")"
+    red="$(${lib.getExe pkgs.jq} -r '.colors.color1' "$palette_path")"
+    green="$(${lib.getExe pkgs.jq} -r '.colors.color2' "$palette_path")"
+    yellow="$(${lib.getExe pkgs.jq} -r '.colors.color3' "$palette_path")"
+    blue="$(${lib.getExe pkgs.jq} -r '.colors.color4' "$palette_path")"
+    magenta="$(${lib.getExe pkgs.jq} -r '.colors.color5' "$palette_path")"
+    cyan="$(${lib.getExe pkgs.jq} -r '.colors.color6' "$palette_path")"
+
+    bg_rgb="$(hex_to_rgb "$background")"
+    fg_rgb="$(hex_to_rgb "$foreground")"
+    red_rgb="$(hex_to_rgb "$red")"
+    green_rgb="$(hex_to_rgb "$green")"
+    yellow_rgb="$(hex_to_rgb "$yellow")"
+    blue_rgb="$(hex_to_rgb "$blue")"
+    magenta_rgb="$(hex_to_rgb "$magenta")"
+    cyan_rgb="$(hex_to_rgb "$cyan")"
+
+    fish_terminal_palette="$HOME/.config/fish/conf.d/walbridge-terminal-palette.fish"
+    cursor="$(${lib.getExe pkgs.jq} -r '.special.cursor // .special.foreground // .colors.color7' "$palette_path")"
+    color0="''${background#\#}"
+    color1="''${red#\#}"
+    color2="''${green#\#}"
+    color3="''${yellow#\#}"
+    color4="''${blue#\#}"
+    color5="''${magenta#\#}"
+    color6="''${cyan#\#}"
+    color7="''${foreground#\#}"
+    color8="$(${lib.getExe pkgs.jq} -r '.colors.color8 // .colors.color0' "$palette_path")"
+    color9="$(${lib.getExe pkgs.jq} -r '.colors.color9 // .colors.color1' "$palette_path")"
+    color10="$(${lib.getExe pkgs.jq} -r '.colors.color10 // .colors.color2' "$palette_path")"
+    color11="$(${lib.getExe pkgs.jq} -r '.colors.color11 // .colors.color3' "$palette_path")"
+    color12="$(${lib.getExe pkgs.jq} -r '.colors.color12 // .colors.color4' "$palette_path")"
+    color13="$(${lib.getExe pkgs.jq} -r '.colors.color13 // .colors.color5' "$palette_path")"
+    color14="$(${lib.getExe pkgs.jq} -r '.colors.color14 // .colors.color6' "$palette_path")"
+    color15="$(${lib.getExe pkgs.jq} -r '.colors.color15 // .colors.color7' "$palette_path")"
+    color8="''${color8#\#}"
+    color9="''${color9#\#}"
+    color10="''${color10#\#}"
+    color11="''${color11#\#}"
+    color12="''${color12#\#}"
+    color13="''${color13#\#}"
+    color14="''${color14#\#}"
+    color15="''${color15#\#}"
+    cursor="''${cursor#\#}"
+
+    cat >"$fish_terminal_palette" <<EOF
+function __walbridge_restore_terminal_palette --on-event fish_prompt
+    functions -e __walbridge_restore_terminal_palette
+    if test "\$TERM" != dumb
+        printf '\\e]4;0;rgb:''${color0:0:2}/''${color0:2:2}/''${color0:4:2}\\e\\\\'
+        printf '\\e]4;1;rgb:''${color1:0:2}/''${color1:2:2}/''${color1:4:2}\\e\\\\'
+        printf '\\e]4;2;rgb:''${color2:0:2}/''${color2:2:2}/''${color2:4:2}\\e\\\\'
+        printf '\\e]4;3;rgb:''${color3:0:2}/''${color3:2:2}/''${color3:4:2}\\e\\\\'
+        printf '\\e]4;4;rgb:''${color4:0:2}/''${color4:2:2}/''${color4:4:2}\\e\\\\'
+        printf '\\e]4;5;rgb:''${color5:0:2}/''${color5:2:2}/''${color5:4:2}\\e\\\\'
+        printf '\\e]4;6;rgb:''${color6:0:2}/''${color6:2:2}/''${color6:4:2}\\e\\\\'
+        printf '\\e]4;7;rgb:''${color7:0:2}/''${color7:2:2}/''${color7:4:2}\\e\\\\'
+        printf '\\e]4;8;rgb:''${color8:0:2}/''${color8:2:2}/''${color8:4:2}\\e\\\\'
+        printf '\\e]4;9;rgb:''${color9:0:2}/''${color9:2:2}/''${color9:4:2}\\e\\\\'
+        printf '\\e]4;10;rgb:''${color10:0:2}/''${color10:2:2}/''${color10:4:2}\\e\\\\'
+        printf '\\e]4;11;rgb:''${color11:0:2}/''${color11:2:2}/''${color11:4:2}\\e\\\\'
+        printf '\\e]4;12;rgb:''${color12:0:2}/''${color12:2:2}/''${color12:4:2}\\e\\\\'
+        printf '\\e]4;13;rgb:''${color13:0:2}/''${color13:2:2}/''${color13:4:2}\\e\\\\'
+        printf '\\e]4;14;rgb:''${color14:0:2}/''${color14:2:2}/''${color14:4:2}\\e\\\\'
+        printf '\\e]4;15;rgb:''${color15:0:2}/''${color15:2:2}/''${color15:4:2}\\e\\\\'
+        printf '\\e]10;rgb:''${color7:0:2}/''${color7:2:2}/''${color7:4:2}\\e\\\\'
+        printf '\\e]11;rgb:''${color0:0:2}/''${color0:2:2}/''${color0:4:2}\\e\\\\'
+        printf '\\e]12;rgb:''${cursor:0:2}/''${cursor:2:2}/''${cursor:4:2}\\e\\\\'
+    end
+end
+EOF
+
     if [ "${if terminalTuiTransparent then "1" else "0"}" = "1" ]; then
       btop_theme="$HOME/.config/btop/themes/walbridge.theme"
       if [ -f "$btop_theme" ]; then
@@ -184,6 +262,7 @@ in
         bat_theme="$HOME/.config/bat/themes/walbridge.tmTheme"
         wezterm_theme="$HOME/.config/wezterm/walbridge.lua"
         fish_theme="$HOME/.config/fish/conf.d/walbridge.fish"
+        fish_ls_colors="$HOME/.config/fish/conf.d/walbridge-ls-colors.fish"
         starship_template="$HOME/.config/starship.toml"
         starship_runtime="$HOME/.config/starship-walbridge.toml"
 
@@ -216,6 +295,8 @@ EOF
 ${walbridgeFishPlaceholder}
 EOF
         fi
+
+        rm -f "$fish_ls_colors"
 
         if [ ! -e "$starship_runtime" ] && [ -e "$starship_template" ]; then
           cp "$starship_template" "$starship_runtime"

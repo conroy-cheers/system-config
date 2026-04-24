@@ -10,7 +10,6 @@
 
   # Hyprland and ags;
   opacity = 0.9;
-  terminalOpacity = 1.0; # keep terminal background consistent with non-terminal apps.
   terminalBackgroundBlur = 0;
   terminalTuiTransparent = true;
   rounding = 15;

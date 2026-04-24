@@ -8,7 +8,8 @@
 with lib;
 let
   cfg = config.corncheese.wezterm;
-  terminalOpacity = config.corncheese.theming.themeDetails.terminalOpacity or 1.0;
+  themeDetails = config.corncheese.theming.themeDetails;
+  terminalOpacity = themeDetails.terminalOpacity or themeDetails.opacity or 1.0;
   weztermConfig = builtins.replaceStrings
     [ "__WALBRIDGE_WINDOW_BACKGROUND_OPACITY__" ]
     [ (toString terminalOpacity) ]
