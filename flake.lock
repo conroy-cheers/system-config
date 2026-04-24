@@ -471,11 +471,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1775376868,
-        "narHash": "sha256-mGEZRfRZDdV34Gcv566FiVICppiw35vw/kxl+dgz66w=",
+        "lastModified": 1777042615,
+        "narHash": "sha256-FZjdsfXb0thyjLJ5RALVJXndBHag/obhVmCY5u/LLx8=",
         "owner": "conroy-cheers",
         "repo": "corncheese-server-config",
-        "rev": "915af2334abf5ba78559f025d4e6f1e6f3b2cb94",
+        "rev": "222f64fcab96ab51a94b7e71a7d386506fd682d6",
         "type": "github"
       },
       "original": {
@@ -3000,6 +3000,20 @@
     },
     "nixpkgs_17": {
       "locked": {
+        "lastModified": 1776434932,
+        "narHash": "sha256-gyqXNMgk3sh+ogY5svd2eNLJ6oEwzbAeaoBrrxD0lKk=",
+        "rev": "c7f47036d3df2add644c46d712d14262b7d86c0c",
+        "revCount": 911245,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2511.911245%2Brev-c7f47036d3df2add644c46d712d14262b7d86c0c/019d9f2e-2f19-74b2-9677-8c9e984b1823/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/NixOS/nixpkgs/0"
+      }
+    },
+    "nixpkgs_18": {
+      "locked": {
         "lastModified": 1744536153,
         "narHash": "sha256-awS2zRgF4uTwrOKwwiJcByDzDOdo3Q1rPZbiHQg/N38=",
         "owner": "NixOS",
@@ -3508,6 +3522,7 @@
         "stylix": "stylix",
         "superfile": "superfile",
         "swww": "swww",
+        "ultramoji-4d": "ultramoji-4d",
         "vscode-server": "vscode-server",
         "walbridge": "walbridge",
         "waveforms": "waveforms",
@@ -3579,7 +3594,7 @@
     },
     "rust-overlay_4": {
       "inputs": {
-        "nixpkgs": "nixpkgs_17"
+        "nixpkgs": "nixpkgs_18"
       },
       "locked": {
         "lastModified": 1759199574,
@@ -4163,6 +4178,24 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "ultramoji-4d": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_17"
+      },
+      "locked": {
+        "lastModified": 1777042765,
+        "narHash": "sha256-APRrmC1bVpe5Or9dumuQzwkuQGNuC+nkvvBlssA39gs=",
+        "owner": "conroy-cheers",
+        "repo": "ultramoji-4d",
+        "rev": "d0aedd98fc3d9706237469af4f940276e34c3871",
+        "type": "github"
+      },
+      "original": {
+        "owner": "conroy-cheers",
+        "repo": "ultramoji-4d",
         "type": "github"
       }
     },

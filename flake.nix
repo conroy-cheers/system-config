@@ -354,6 +354,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    ultramoji-4d = {
+      url = "github:conroy-cheers/ultramoji-4d";
+    };
+
     corncheese-server = {
       url = "github:conroy-cheers/corncheese-server-config";
       inputs.nixpkgs.follows = "nixpkgs";
