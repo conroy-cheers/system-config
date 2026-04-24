@@ -9,6 +9,47 @@
 let
   cfg = config.corncheese.shell;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
+  rebuildScript =
+    let
+      inherit (pkgs.stdenv.hostPlatform)
+        isx86_64
+        isAarch64
+        isLinux
+        isDarwin
+        ;
+      flakeRef =
+        if cfg.hostname != null then "${cfg.flakePath}#${cfg.hostname}" else "${cfg.flakePath}";
+      rebuildCommand =
+        if isx86_64 && isLinux then
+          ''
+            if [ "$(id -u)" -eq 0 ]; then
+              exec nixos-rebuild --flake ${flakeRef} "$@"
+            fi
+
+            sudo --validate
+            exec sudo nixos-rebuild --flake ${flakeRef} "$@"
+          ''
+        else if isDarwin then
+          ''
+            if [ "$(id -u)" -eq 0 ]; then
+              exec darwin-rebuild --flake ${flakeRef} "$@"
+            fi
+
+            exec sudo darwin-rebuild --flake ${flakeRef} "$@"
+          ''
+        else if isAarch64 then
+          ''
+            exec nix-on-droid --flake ${flakeRef} "$@"
+          ''
+        else
+          ''
+            exec home-manager --flake ${flakeRef} "$@"
+          '';
+    in
+    pkgs.writeShellScriptBin "rebuild" ''
+      set -- "''${1:-switch}" "''${@:2}"
+      ${rebuildCommand}
+    '';
 
   inherit (lib)
     mkEnableOption
@@ -22,33 +63,7 @@ let
 
   shellAliases = {
     # cp = "${pkgs.fcp}/bin/fcp";
-    rebuild =
-      let
-        rebuild_script = pkgs.writeShellScript "rebuild" ''
-          ${
-            let
-              inherit (lib.strings) hasInfix;
-              inherit (pkgs.stdenv.hostPlatform)
-                isx86_64
-                isAarch64
-                isLinux
-                isDarwin
-                ;
-            in
-            if isx86_64 && isLinux then
-              "sudo --validate && sudo nixos-rebuild"
-            else if isDarwin then
-              "sudo darwin-rebuild"
-            else if isAarch64 then
-              "nix-on-droid"
-            else
-              "home-manager"
-          } --flake ${
-            if cfg.hostname != null then "${cfg.flakePath}#${cfg.hostname}" else "${cfg.flakePath}"
-          } ''${1:-switch} "''${@:2}" # |& nix run nixpkgs#nix-output-monitor
-        '';
-      in
-      "${rebuild_script}";
+    rebuild = "${rebuildScript}/bin/rebuild";
   };
 in
 {
@@ -130,6 +145,7 @@ in
           (optionals pkgs.stdenv.hostPlatform.isLinux [
             psmisc
           ])
+          [ rebuildScript ]
           (builtins.map (lib.flip builtins.getAttr pkgs) cfg.shells)
           (optionals cfg.starship [ starship ])
           (optionals cfg.p10k [ zsh-powerlevel10k ])
@@ -321,6 +337,7 @@ in
             // {
               ls = "${pkgs.lsd}/bin/lsd";
               mkdir = "mkdir -vp";
+              sudo = "sudo ";
             }
             // lib.optionalAttrs cfg.bat { man = "batman"; };
 
