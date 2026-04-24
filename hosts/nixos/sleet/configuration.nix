@@ -10,6 +10,10 @@
   ...
 }:
 
+let
+  ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
+  ultramojiPort = 8765;
+in
 {
   imports = [
     ./hardware-configuration.nix
@@ -77,6 +81,11 @@
 
   corncheese-server = {
     ingress.enable = true;
+    _meta.ingress.routes.ultramoji = {
+      host = "ultramoji.corncheese.org";
+      auth.mode = "public";
+      backend.url = "http://127.0.0.1:${toString ultramojiPort}";
+    };
     auth.authelia = {
       enable = true;
     };
@@ -95,6 +104,33 @@
     nixCache = {
       enable = true;
       environmentFile = config.age.secrets."corncheese.nix-cache.env".path;
+    };
+  };
+
+  systemd.services.ultramoji = {
+    description = "Ultramoji 4D web app";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+
+    serviceConfig = {
+      ExecStart = "${ultramojiPackage}/bin/ultramoji-server --bind 127.0.0.1 --port ${toString ultramojiPort}";
+      Restart = "on-failure";
+      RestartSec = "5s";
+
+      DynamicUser = true;
+      LockPersonality = true;
+      NoNewPrivileges = true;
+      PrivateDevices = true;
+      PrivateTmp = true;
+      ProtectHome = true;
+      ProtectSystem = "strict";
+      RestrictAddressFamilies = [
+        "AF_UNIX"
+        "AF_INET"
+        "AF_INET6"
+      ];
+      SystemCallArchitectures = "native";
     };
   };
 
