@@ -58,17 +58,20 @@ in
         };
 
         programs.ssh.extraConfig = ''
+          # These builders are opportunistic; keep offline timeout noise out of normal Nix builds.
           Host big-chungus-x86-64
             User ssm-user
             Port 22
             IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
             ConnectTimeout 3
+            LogLevel QUIET
 
           Host big-chungus-aarch64
             User ssm-user
             Port 22
             IdentityFile ${config.age.secrets."andromeda.conroy-build.key".path}
             ConnectTimeout 3
+            LogLevel QUIET
         '';
       }
       (lib.optionalAttrs hasDeterminateBuilders {
