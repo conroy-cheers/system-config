@@ -4186,11 +4186,11 @@
         "nixpkgs": "nixpkgs_17"
       },
       "locked": {
-        "lastModified": 1777042765,
-        "narHash": "sha256-APRrmC1bVpe5Or9dumuQzwkuQGNuC+nkvvBlssA39gs=",
+        "lastModified": 1777087744,
+        "narHash": "sha256-478LQfcrBgECX/hWtkOrhM0dGvqkYuQPF8WdSwneVS8=",
         "owner": "conroy-cheers",
         "repo": "ultramoji-4d",
-        "rev": "d0aedd98fc3d9706237469af4f940276e34c3871",
+        "rev": "d835cd8480fbe5439f6fffcbb0239fba4b0d52d4",
         "type": "github"
       },
       "original": {
