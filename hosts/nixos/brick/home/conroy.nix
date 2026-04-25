@@ -162,19 +162,6 @@
     enable = true;
   };
 
-  programs.chromium = {
-    # Keep Chromium's default GPU path, but opt this host into the WebGPU
-    # flags that emoji-web expects.
-    package = lib.mkForce (pkgs.chromium.override {
-      commandLineArgs = lib.concatStringsSep " " [
-        "--enable-unsafe-webgpu"
-        "--ignore-gpu-blocklist"
-        "--enable-features=Vulkan,UseSkiaRenderer"
-        "--use-angle=vulkan"
-      ];
-    });
-  };
-
   programs.ripgrep = {
     enable = true;
   };
