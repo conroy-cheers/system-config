@@ -254,6 +254,14 @@ in
         plex-desktop
       ];
 
+      xdg.dataFile."plex/mpv.conf" = {
+        force = true;
+        text = ''
+          ao=pulse
+          audio-channels=stereo
+        '';
+      };
+
       services.plex-mpv-shim = {
         enable = pkgs.stdenv.hostPlatform.isLinux;
       };
