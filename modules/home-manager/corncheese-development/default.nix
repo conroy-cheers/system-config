@@ -9,6 +9,8 @@
 let
   cfg = config.corncheese.development;
   themeDetails = config.corncheese.theming.themeDetails;
+  colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
+  walbridgeRuntimeThemeEnabled = pkgs.stdenv.hostPlatform.isLinux && colorshellEnabled;
 
   onePassPath =
     if pkgs.stdenv.hostPlatform.isDarwin then
@@ -241,7 +243,6 @@ in
             # Theming
             "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
             "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
-            "workbench.colorTheme" = lib.mkForce "Walbridge";
             "workbench.iconTheme" = "catppuccin-mocha";
 
             # C++
@@ -300,6 +301,9 @@ in
               "editor.formatOnSave" = true;
               "editor.defaultFormatter" = "tamasfe.even-better-toml";
             };
+          }
+          // lib.optionalAttrs walbridgeRuntimeThemeEnabled {
+            "workbench.colorTheme" = lib.mkForce "Walbridge";
           };
         };
     };
@@ -662,7 +666,7 @@ in
 
           nerd-fonts.meslo-lg
           nodejs-slim
-          tmux 
+          tmux
           claude-code-wrapped
           codex-wrapped
           oh-my-codex-wrapped
