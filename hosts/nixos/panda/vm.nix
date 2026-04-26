@@ -32,6 +32,7 @@ let
   };
 in
 {
+  panda.can.enable = true;
   panda.mockCan = true;
   panda.wifiSecretsFile = pkgs.writeText "panda-wifi.env" ''
     FLOZNET_7_PSK=york micro speckle
