@@ -22,6 +22,7 @@ let
     "bigbrain"
     "sleet"
     "alexandria"
+    "panda"
   ];
 
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension rec {
@@ -801,6 +802,11 @@ in
           hostname = "10.1.1.114";
           port = 22222;
           user = "root";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        "panda" = {
+          hostname = "panda.lan";
+          user = "conroy";
           identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         home = {
