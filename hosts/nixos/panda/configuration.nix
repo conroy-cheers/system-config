@@ -1,7 +1,6 @@
 {
   lib,
   pkgs,
-  inputs,
   ...
 }:
 
@@ -9,30 +8,16 @@
   imports = [
     ./default.nix
     ./sd-image.nix
-    "${inputs.hardware}/raspberry-pi/4"
   ];
 
   image.baseName = "panda";
 
-  console.enable = false;
+  panda.can.enable = false;
+  panda.webcam.enable = true;
 
-  hardware.raspberry-pi."4" = {
-    apply-overlays-dtmerge.enable = lib.mkForce false;
-  };
+  console.enable = true;
 
-  hardware.deviceTree = {
-    enable = true;
-    filter = lib.mkForce null;
-    overlays = [
-      {
-        name = "disable-bt";
-        filter = "bcm2711-rpi-4*.dtb";
-        dtboFile = "${pkgs.raspberrypifw}/share/raspberrypi/boot/overlays/disable-bt.dtbo";
-      }
-    ];
-  };
-
-  hardware.enableRedistributableFirmware = lib.mkForce false;
+  hardware.enableRedistributableFirmware = true;
   hardware.firmware = [
     pkgs.raspberrypiWirelessFirmware
     pkgs.wireless-regdb
@@ -40,23 +25,29 @@
 
   boot.kernelPackages = pkgs.linuxPackages_rpi4;
   boot.consoleLogLevel = 7;
-  boot.initrd.availableKernelModules = [
-    "bcm2835-sdhost"
+  # Keep the Raspberry Pi firmware-mutated DTB so config.txt overlays apply.
+  boot.loader.generic-extlinux-compatible.useGenerationDeviceTree = false;
+  boot.initrd.availableKernelModules = lib.mkForce [
+    "ext4"
     "mmc_block"
-  ];
-  boot.kernelParams = lib.mkForce [
-    "console=ttyAMA0,115200n8"
-    "earlycon=pl011,mmio32,0xfe201000"
-    "ignore_loglevel"
-    "loglevel=7"
-    "lsm=landlock,yama,bpf"
   ];
   boot.supportedFilesystems = lib.mkForce [
     "ext4"
     "vfat"
   ];
+  boot.kernelParams = lib.mkForce [
+    "console=ttyS0,115200n8"
+    "console=tty0"
+    "earlycon=pl011,mmio32,0xfe201000"
+    "ignore_loglevel"
+    "loglevel=7"
+    "lsm=landlock,yama,bpf"
+  ];
   boot.kernelModules = [
     "brcmfmac"
     "brcmutil"
+  ];
+  boot.blacklistedKernelModules = [
+    "bcm2835_v4l2"
   ];
 }

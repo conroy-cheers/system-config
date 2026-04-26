@@ -10,6 +10,7 @@ let
   printerConfigDir = "${moonrakerStateDir}/config";
   gcodeDir = "${moonrakerStateDir}/gcodes";
   logDir = "${moonrakerStateDir}/logs";
+  userPasswordSecret = ../../../secrets/master/home/conroy/user/password.age;
   printerConfigFiles = [
     "mainsail.cfg"
     "sb2040v2.cfg"
@@ -18,6 +19,12 @@ let
 in
 {
   options.panda = {
+    can.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Whether the physical Octopus CAN interface is attached and Klipper should start.";
+    };
+
     mockCan = lib.mkEnableOption "a virtual can0 device for VM smoke tests";
 
     webcam.enable = lib.mkEnableOption "the Mainsail /webcam/ endpoint";
@@ -43,12 +50,19 @@ in
         "flakes"
       ];
       auto-optimise-store = true;
+      trusted-users = [
+        "root"
+        "conroy"
+      ];
     };
 
     environment.systemPackages = with pkgs; [
       can-utils
+      camera-streamer
       git
+      libcamera
       tailscale
+      v4l-utils
     ];
 
     boot.kernelModules = [
@@ -57,6 +71,17 @@ in
       "gs_usb"
       "vcan"
     ];
+
+    age.secrets."conroy.user.password" = {
+      rekeyFile = userPasswordSecret;
+      mode = "440";
+    };
+
+    users.groups.i2c = { };
+
+    services.udev.extraRules = ''
+      SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
+    '';
 
     users.users.conroy = {
       isNormalUser = true;
@@ -71,8 +96,13 @@ in
       openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINKbNTRUenigTtrUSGKImYezWzT/KFOR7dZSpSuvsKNY"
       ];
-      hashedPassword = "!";
+      hashedPasswordFile = config.age.secrets."conroy.user.password".path;
+      shell = pkgs.fish;
     };
+
+    programs.fish.enable = true;
+
+    systemd.targets.getty.wants = [ "serial-getty@ttyS0.service" ];
 
     services.openssh = {
       enable = true;
@@ -81,6 +111,18 @@ in
         PermitRootLogin = "no";
       };
     };
+
+    security.sudo.extraRules = [
+      {
+        users = [ "conroy" ];
+        commands = [
+          {
+            command = "ALL";
+            options = [ "NOPASSWD" ];
+          }
+        ];
+      }
+    ];
 
     security.polkit.enable = true;
 
@@ -96,7 +138,7 @@ in
     services.tailscale.enable = true;
 
     services.klipper = {
-      enable = true;
+      enable = cfg.can.enable;
       mutableConfig = true;
       configDir = printerConfigDir;
       configFile = ./printer-config/printer.cfg;
@@ -131,12 +173,27 @@ in
         };
         octoprint_compat = { };
         history = { };
+        "webcam chamber" = lib.mkIf cfg.webcam.enable {
+          location = "printer";
+          icon = "mdiWebcam";
+          enabled = true;
+          service = "webrtc-camerastreamer";
+          target_fps = 30;
+          target_fps_idle = 5;
+          stream_url = "/webcam/webrtc";
+          snapshot_url = "/webcam/?action=snapshot";
+          aspect_ratio = "16:9";
+        };
         update_manager = {
           refresh_interval = 168;
           enable_system_updates = [ false ];
         };
       };
     };
+
+    systemd.services.moonraker.restartTriggers = [
+      (pkgs.writeText "moonraker-settings.json" (builtins.toJSON config.services.moonraker.settings))
+    ];
 
     services.mainsail = {
       enable = true;
@@ -154,16 +211,55 @@ in
       };
     };
 
-    services.mjpg-streamer = lib.mkIf cfg.webcam.enable {
-      enable = true;
-      inputPlugin = "input_uvc.so -d /dev/video0 -r 1280x720 -f 15";
-      outputPlugin = "output_http.so -w @www@ -n -p 8080";
+    systemd.services.camera-streamer = lib.mkIf cfg.webcam.enable {
+      description = "WebRTC camera stream for Mainsail";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+      unitConfig.ConditionPathExists = "/dev/video0";
+      serviceConfig = {
+        ExecStart = lib.concatStringsSep " " [
+          "${lib.getExe pkgs.camera-streamer}"
+          "--camera-path=/base/soc/i2c0mux/i2c@1/imx708@1a"
+          "--camera-type=libcamera"
+          "--camera-format=YUYV"
+          "--camera-width=2304"
+          "--camera-height=1296"
+          "--camera-fps=30"
+          "--camera-nbufs=2"
+          "--camera-snapshot.height=1080"
+          "--camera-video.disabled=0"
+          "--camera-video.height=720"
+          "--camera-video.options=video_bitrate=4000000"
+          "--camera-video.options=h264_profile=high"
+          "--camera-stream.height=480"
+          "--camera-options=AfMode=2"
+          "--camera-options=AfRange=2"
+          "--http-listen=127.0.0.1"
+          "--http-port=8080"
+          "--rtsp-port"
+        ];
+        DynamicUser = true;
+        SupplementaryGroups = [
+          "i2c"
+          "video"
+        ];
+        Restart = "always";
+        RestartSec = 10;
+        Nice = 10;
+        IOSchedulingClass = "idle";
+        IOSchedulingPriority = 7;
+        CPUWeight = 20;
+        MemoryMax = "300M";
+      };
     };
 
     services.nginx.virtualHosts.${config.services.mainsail.hostName} = lib.mkIf cfg.webcam.enable {
       locations."/webcam/" = {
         proxyPass = "http://127.0.0.1:8080/";
         extraConfig = ''
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
           proxy_buffering off;
         '';
       };
@@ -216,7 +312,7 @@ in
         '';
     };
 
-    systemd.services.panda-can0 = {
+    systemd.services.panda-can0 = lib.mkIf cfg.can.enable {
       description = "Configure the Octopus-backed CAN network";
       before = [ "klipper.service" ];
       requiredBy = [ "klipper.service" ];
@@ -254,7 +350,7 @@ in
       '';
     };
 
-    systemd.services.klipper = {
+    systemd.services.klipper = lib.mkIf cfg.can.enable {
       after = [ "panda-can0.service" ];
       requires = [ "panda-can0.service" ];
     };

@@ -12,6 +12,8 @@ in
     (lib.mkIf (cfg.wifiSecretsFile == null) {
       age.secrets."home.wifi.conf" = {
         rekeyFile = wifiSecret;
+        group = "wpa_supplicant";
+        mode = "440";
       };
 
       age.identityPaths = [
@@ -22,6 +24,7 @@ in
     {
       networking.useNetworkd = false;
       networking.useDHCP = false;
+      networking.interfaces.end0.useDHCP = true;
       networking.interfaces.wlan0.useDHCP = true;
 
       networking.wireless = {

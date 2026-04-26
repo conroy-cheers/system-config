@@ -1,6 +1,7 @@
 {
   lib,
   modulesPath,
+  pkgs,
   ...
 }:
 
@@ -18,11 +19,15 @@
 
     # panda parity with the current MainsailOS image
     enable_uart=1
+    uart_2ndstage=1
     dtparam=spi=on
     dtoverlay=disable-bt
-    start_x=1
-    gpu_mem=256
+    camera_auto_detect=1
     dtparam=audio=on
     EOF
+
+    install -D -m 0644 \
+      ${pkgs.linuxPackages_rpi4.kernel}/dtbs/overlays/imx708.dtbo \
+      firmware/overlays/imx708.dtbo
   '';
 }

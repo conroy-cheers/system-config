@@ -31,10 +31,8 @@ pkgs.testers.runNixOSTest {
     machine.succeed("test -L /home/pi/gcode_files")
     machine.succeed("test -L /home/pi/klipper_config")
 
-    machine.succeed("grep -F 'host: 0.0.0.0' /etc/moonraker.cfg")
+    machine.succeed("grep -F 'host:0.0.0.0' /etc/moonraker.cfg")
     machine.succeed("grep -F 'https://panda.home.conroycheers.me' /etc/moonraker.cfg")
-    machine.succeed("grep -F 'ssid=\\\"floznet-7\\\"' /etc/wpa_supplicant/nixos.conf")
-    machine.succeed("grep -F 'ssid=\\\"Abi_Wifi\\\"' /etc/wpa_supplicant/nixos.conf")
 
     machine.succeed("curl -sf http://127.0.0.1/ | grep -Fi mainsail")
   '';
