@@ -4245,16 +4245,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1776985126,
-        "narHash": "sha256-c7490+mEfXVeyppyyFhiMf9bT946imT1skBCQnWjYE4=",
+        "lastModified": 1777286345,
+        "narHash": "sha256-Et1yb7YQ33tSMClHXTqdvyrZz2nImmv3vFZEeIHglhA=",
         "owner": "conroy-cheers",
         "repo": "walbridge",
-        "rev": "4ffe9f609a47c6e36469af2845f7bfc770468e46",
+        "rev": "6aa7e29c018f483154e81baeb7e409622965371a",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
-        "ref": "improve-dark-backgrounds",
+        "ref": "feat/extract-crate",
         "repo": "walbridge",
         "type": "github"
       }

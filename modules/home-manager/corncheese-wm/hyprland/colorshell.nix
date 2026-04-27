@@ -9,7 +9,10 @@ let
   cfg = config.corncheese.wm;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   themeDetails = config.corncheese.theming.themeDetails;
-  walbridgePackage = inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  walbridgePackages = inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system};
+  walbridgePackage = walbridgePackages.default;
+  walbridgeExtractPackage = walbridgePackages.walbridge-extract;
+  walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     source = ~/.cache/wal/colors-hyprland.conf
 
@@ -83,6 +86,8 @@ in
   config = lib.mkIf (cfg.enable && colorshellEnabled) {
     home.packages = [
       walbridgePackage
+      walbridgeExtractPackage
+      walbridgeVisualizePackage
       pkgs.hyprlock
       pkgs.libsForQt5.qt5ct
       pkgs.qt6Packages.qt6ct

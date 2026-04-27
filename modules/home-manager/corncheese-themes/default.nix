@@ -11,12 +11,34 @@ let
     inherit pkgs;
   }) cfg.themeOverrides;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
-  walbridgePackage = inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  walbridgePackages = inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system};
+  walbridgePackage = walbridgePackages.default;
+  walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   terminalTuiTransparent = themeDetails.terminalTuiTransparent or false;
   walbridgeApplyScript = pkgs.writeShellScript "walbridge-apply-runtime" ''
     set -euo pipefail
 
     palette_path="''${1:?usage: walbridge-apply-runtime <palette.json>}"
+
+    # Rebuild the palette with walbridge-extract using the wallpaper
+    # referenced by the current pywal-produced palette. This replaces
+    # pywal's extraction (which picks muddy dark backgrounds out of
+    # images like our green wallpaper) with our OKLab-based extractor
+    # that filters blacklisted shades.
+    wallpaper="$(${lib.getExe pkgs.jq} -r '.wallpaper // ""' "$palette_path")"
+    if [ -z "$wallpaper" ] || [ ! -f "$wallpaper" ]; then
+      wallpaper=${lib.escapeShellArg (toString themeDetails.wallpaper)}
+    fi
+
+    if [ -f "$wallpaper" ]; then
+      rich_palette="$(${lib.getExe' pkgs.coreutils "dirname"} "$palette_path")/palette.json"
+      ${lib.getExe' walbridgeExtractPackage "walbridge-extract"} \
+        --image "$wallpaper" \
+        --colors-out "$palette_path" \
+        --palette-out "$rich_palette" || \
+        echo "walbridge-extract failed, falling back to pywal output" >&2
+    fi
+
     normalized_palette="$palette_path"
     temp_palette=""
 
