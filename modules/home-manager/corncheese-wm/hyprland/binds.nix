@@ -47,7 +47,7 @@ in
       # Application shortcuts.
       "$mod, Return, exec, ghostty"
       "$mod SHIFT, Return, exec, ghostty '--title=ghostty-floating'"
-      "$mod, F, exec, chromium --disable-features=WaylandWpColorManagerV1"
+      "$mod, F, exec, chromium"
       "$mod, T, exec, thunar"
 
       # Special workspace

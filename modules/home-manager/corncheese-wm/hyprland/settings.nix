@@ -39,7 +39,7 @@ in
           "[workspace 2 silent] ghostty --title=cava -e cava"
           "[workspace 2 silent] ${lib.getExe pkgs.plexamp}"
           "[workspace special silent] slack --ozone-platform=wayland"
-          "[workspace special silent] chromium --disable-features=WaylandWpColorManagerV1"
+          "[workspace special silent] chromium"
         ];
 
         general = {

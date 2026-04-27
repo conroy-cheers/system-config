@@ -249,23 +249,46 @@ in
         enable = pkgs.stdenv.hostPlatform.isLinux;
       };
     })
-    (lib.mkIf desktopCfg.media.enable {
-      home.packages = with pkgs; [
-        plex-desktop
-      ];
+    (lib.mkIf desktopCfg.media.enable (
+      let
+        plexMpvVideoConfig = ''
+          vo=gpu-next
+          gpu-api=vulkan
+          gpu-context=waylandvk
+          dither-depth=10
 
-      xdg.dataFile."plex/mpv.conf" = {
-        force = true;
-        text = ''
-          ao=pulse
-          audio-channels=stereo
+          target-colorspace-hint=no
+          tone-mapping=bt.2390
+          hdr-reference-white=203
+          target-peak=400
+          gamut-mapping-mode=perceptual
         '';
-      };
+      in
+      {
+        home.packages = with pkgs; [
+          plex-desktop
+        ];
 
-      services.plex-mpv-shim = {
-        enable = pkgs.stdenv.hostPlatform.isLinux;
-      };
-    })
+        xdg.configFile."plex-mpv-shim/mpv.conf" = {
+          force = true;
+          text = plexMpvVideoConfig;
+        };
+
+        xdg.dataFile."plex/mpv.conf" = {
+          force = true;
+          text = ''
+            ao=pulse
+            audio-channels=stereo
+
+            ${plexMpvVideoConfig}
+          '';
+        };
+
+        services.plex-mpv-shim = {
+          enable = pkgs.stdenv.hostPlatform.isLinux;
+        };
+      }
+    ))
     (lib.mkIf desktopCfg.mail.enable {
       age.secrets."corncheese.mail.icloud" = {
         rekeyFile = lib.repoSecret "corncheese/mail/icloud.age";
