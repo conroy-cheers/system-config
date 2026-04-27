@@ -350,7 +350,7 @@
     };
 
     walbridge = {
-      url = "github:conroy-cheers/walbridge/improve-dark-backgrounds";
+      url = "github:conroy-cheers/walbridge/feat/extract-crate";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
