@@ -3399,6 +3399,22 @@
         "type": "github"
       }
     },
+    "prusa-slicer-profiles": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1726119697,
+        "narHash": "sha256-T8Eh5Uis4cpKUcQgQ+4kcqH9N2cMl7fLrfyL2X143Cg=",
+        "owner": "mjonuschat",
+        "repo": "PrusaSlicer-Profiles",
+        "rev": "9e99da82d581adf18a10272f42673802644c9afc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mjonuschat",
+        "repo": "PrusaSlicer-Profiles",
+        "type": "github"
+      }
+    },
     "purescript-overlay": {
       "inputs": {
         "flake-compat": "flake-compat_9",
@@ -3517,6 +3533,7 @@
         "nur": "nur",
         "nvf": "nvf",
         "pkl-flake": "pkl-flake",
+        "prusa-slicer-profiles": "prusa-slicer-profiles",
         "ragenix": "ragenix",
         "spicetify-nix": "spicetify-nix",
         "stylix": "stylix",

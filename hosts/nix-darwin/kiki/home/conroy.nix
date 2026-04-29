@@ -82,6 +82,10 @@
       teams
     ];
 
+    home.file."Library/Application Support/PrusaSlicer/PrusaSlicer-Profiles" = {
+      source = inputs.prusa-slicer-profiles;
+    };
+
     programs.btop = {
       enable = true;
     };

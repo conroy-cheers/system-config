@@ -344,6 +344,11 @@
       flake = false;
     };
 
+    prusa-slicer-profiles = {
+      url = "github:mjonuschat/PrusaSlicer-Profiles";
+      flake = false;
+    };
+
     colorshell = {
       url = "github:conroy-cheers/colorshell/fix/gtk-launch";
       inputs.nixpkgs.follows = "nixpkgs";
