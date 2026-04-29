@@ -144,6 +144,16 @@ in
       configFile = ./printer-config/printer.cfg;
       user = "moonraker";
       group = "moonraker";
+      firmwares = {
+        mcu = {
+          enable = true;
+          configFile = ./firmware-configs/octopus-klipper.config;
+        };
+        SB2040v2 = {
+          enable = true;
+          configFile = ./firmware-configs/sb2040-klipper.config;
+        };
+      };
     };
 
     services.moonraker = {
@@ -230,7 +240,7 @@ in
           "--camera-video.disabled=0"
           "--camera-video.height=720"
           "--camera-video.options=video_bitrate=4000000"
-          "--camera-video.options=h264_profile=high"
+          "--camera-video.options=h264_profile=constrained_baseline"
           "--camera-stream.height=480"
           "--camera-options=AfMode=2"
           "--camera-options=AfRange=2"

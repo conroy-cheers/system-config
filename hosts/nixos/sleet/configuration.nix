@@ -81,10 +81,14 @@ in
 
   corncheese-server = {
     ingress.enable = true;
-    _meta.ingress.routes.ultramoji = {
-      host = "ultramoji.corncheese.org";
-      auth.mode = "public";
-      backend.url = "http://127.0.0.1:${toString ultramojiPort}";
+    _meta.ingress.routes = {
+      panda.backend.url = lib.mkForce "http://panda.lan";
+      moonraker.backend.url = lib.mkForce "http://panda.lan";
+      ultramoji = {
+        host = "ultramoji.corncheese.org";
+        auth.mode = "public";
+        backend.url = "http://127.0.0.1:${toString ultramojiPort}";
+      };
     };
     auth.authelia = {
       enable = true;
@@ -105,6 +109,18 @@ in
       enable = true;
       environmentFile = config.age.secrets."corncheese.nix-cache.env".path;
     };
+  };
+
+  services.authelia.instances.main.settings.session = {
+    # Mainsail holds a long-lived Moonraker websocket. Authelia does not see
+    # websocket frames as session activity, so a short idle timeout makes
+    # reconnects fail with an auth redirect the browser cannot follow.
+    inactivity = lib.mkForce "12h";
+    expiration = lib.mkForce "24h";
+    # Safari does not reliably include a Lax session cookie on WebSocket
+    # handshakes. The Moonraker websocket is same-host with Mainsail, but it is
+    # not a top-level navigation, so use an explicit cross-request cookie.
+    same_site = lib.mkForce "none";
   };
 
   systemd.services.ultramoji = {

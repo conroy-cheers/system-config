@@ -12,7 +12,7 @@
 
   image.baseName = "panda";
 
-  panda.can.enable = false;
+  panda.can.enable = true;
   panda.webcam.enable = true;
 
   console.enable = true;

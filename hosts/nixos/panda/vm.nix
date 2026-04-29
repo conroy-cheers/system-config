@@ -35,8 +35,8 @@ in
   panda.can.enable = true;
   panda.mockCan = true;
   panda.wifiSecretsFile = pkgs.writeText "panda-wifi.env" ''
-    FLOZNET_7_PSK=york micro speckle
-    ABI_WIFI_PSK=abi_humanoid
+    pass_home="york micro speckle"
+    pass_abi="abi_humanoid"
   '';
 
   networking.useDHCP = false;
