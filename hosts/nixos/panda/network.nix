@@ -1,11 +1,18 @@
 {
   lib,
   config,
+  pkgs,
   ...
 }:
 let
   cfg = config.panda;
   wifiSecret = ../../../secrets/master/home/wifi/conf.age;
+  sourceWifiSecretsFile =
+    if cfg.wifiSecretsFile == null then
+      config.age.secrets."home.wifi.conf".path
+    else
+      cfg.wifiSecretsFile;
+  supplicantWifiSecretsFile = "/run/panda-wifi/home.wifi.conf";
 in
 {
   config = lib.mkMerge [
@@ -26,20 +33,51 @@ in
       networking.useDHCP = false;
       networking.interfaces.end0.useDHCP = true;
       networking.interfaces.wlan0.useDHCP = true;
+      networking.dhcpcd.extraConfig = ''
+        interface end0
+        hostname panda-eth
+
+        interface wlan0
+        hostname panda
+      '';
 
       networking.wireless = {
         enable = true;
         interfaces = [ "wlan0" ];
         userControlled = false;
-        secretsFile =
-          if cfg.wifiSecretsFile == null then config.age.secrets."home.wifi.conf".path else cfg.wifiSecretsFile;
+        secretsFile = supplicantWifiSecretsFile;
         extraConfig = ''
           country=AU
         '';
         networks = {
-          "floznet-7".pskRaw = "ext:FLOZNET_7_PSK";
-          "Abi_Wifi".pskRaw = "ext:ABI_WIFI_PSK";
+          "floznet-7".pskRaw = "ext:pass_home";
+          "Abi_Wifi".pskRaw = "ext:pass_abi";
         };
+      };
+
+      systemd.services.panda-wifi-secrets = {
+        description = "Prepare panda Wi-Fi secrets for wpa_supplicant";
+        before = [ "wpa_supplicant-wlan0.service" ];
+        requiredBy = [ "wpa_supplicant-wlan0.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          set -eu
+          . ${lib.escapeShellArg sourceWifiSecretsFile}
+
+          ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g wpa_supplicant /run/panda-wifi
+          tmp="$(${pkgs.coreutils}/bin/mktemp /run/panda-wifi/home.wifi.conf.XXXXXX)"
+          (
+            umask 0077
+            printf 'pass_home=%s\n' "''${pass_home:?}"
+            printf 'pass_abi=%s\n' "''${pass_abi:?}"
+          ) > "$tmp"
+          ${pkgs.coreutils}/bin/chown root:wpa_supplicant "$tmp"
+          ${pkgs.coreutils}/bin/chmod 0440 "$tmp"
+          ${pkgs.coreutils}/bin/mv "$tmp" ${lib.escapeShellArg supplicantWifiSecretsFile}
+        '';
       };
 
       services.avahi = {
