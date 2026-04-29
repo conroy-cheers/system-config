@@ -8,6 +8,7 @@
 
 {
   environment.systemPackages = with pkgs; [ tailscale ];
+  homebrew.casks = [ "prusaslicer" ];
   services.tailscale.enable = true;
 
   networking.hostName = "kiki";
