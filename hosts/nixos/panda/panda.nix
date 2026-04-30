@@ -11,6 +11,9 @@ let
   gcodeDir = "${moonrakerStateDir}/gcodes";
   logDir = "${moonrakerStateDir}/logs";
   userPasswordSecret = ../../../secrets/master/home/conroy/user/password.age;
+  turnHost = "turn.home.conroycheers.me";
+  turnUser = "panda-webrtc";
+  turnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
   printerConfigFiles = [
     "mainsail.cfg"
     "sb2040v2.cfg"
@@ -81,6 +84,7 @@ in
 
     services.udev.extraRules = ''
       SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
+      ACTION=="add", SUBSYSTEM=="net", KERNEL=="can0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="panda-can0.service"
     '';
 
     users.users.conroy = {
@@ -244,6 +248,8 @@ in
           "--camera-stream.height=480"
           "--camera-options=AfMode=2"
           "--camera-options=AfRange=2"
+          "--webrtc-ice_servers=turns://${turnUser}:${turnCredential}@${turnHost}:443"
+          "--webrtc-disable_client_ice=1"
           "--http-listen=127.0.0.1"
           "--http-port=8080"
           "--rtsp-port"
@@ -335,7 +341,6 @@ in
       ];
       serviceConfig = {
         Type = "oneshot";
-        RemainAfterExit = true;
       };
       script = ''
         if [ "${lib.boolToString cfg.mockCan}" = true ]; then
