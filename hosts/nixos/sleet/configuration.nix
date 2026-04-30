@@ -13,6 +13,10 @@
 let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
+  pandaTurnHost = "turn.home.conroycheers.me";
+  pandaTurnPort = 3478;
+  pandaTurnUser = "panda-webrtc";
+  pandaTurnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
 in
 {
   imports = [
@@ -121,6 +125,36 @@ in
     # handshakes. The Moonraker websocket is same-host with Mainsail, but it is
     # not a top-level navigation, so use an explicit cross-request cookie.
     same_site = lib.mkForce "none";
+  };
+
+  services.coturn = {
+    enable = true;
+    realm = "home.conroycheers.me";
+    listening-port = pandaTurnPort;
+    listening-ips = [ "127.0.0.1" ];
+    relay-ips = [ "10.1.0.133" ];
+    "lt-cred-mech" = true;
+    "no-cli" = true;
+    "no-udp" = true;
+    "no-tls" = true;
+    "no-dtls" = true;
+    extraConfig = ''
+      user=${pandaTurnUser}:${pandaTurnCredential}
+      fingerprint
+      total-quota=20
+    '';
+  };
+
+  services.traefik.dynamicConfigOptions.tcp = {
+    routers.panda-turn = {
+      entryPoints = [ "web-secure" ];
+      rule = "HostSNI(`${pandaTurnHost}`)";
+      service = "panda-turn";
+      tls.certResolver = "default";
+    };
+    services.panda-turn.loadBalancer.servers = [
+      { address = "127.0.0.1:${toString pandaTurnPort}"; }
+    ];
   };
 
   systemd.services.ultramoji = {
