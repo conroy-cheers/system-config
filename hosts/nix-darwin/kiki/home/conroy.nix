@@ -6,6 +6,35 @@
   ...
 }:
 
+let
+  prusaSlicerProfilesSource = inputs.prusa-slicer-profiles;
+
+  prusaSlicerFilamentProfiles = pkgs.runCommand "prusa-slicer-filament-profiles" { } ''
+    source_dir=${prusaSlicerProfilesSource}
+    mkdir -p "$out"
+    first_profile="$(find "$source_dir" -name '*.ini' -type f | sort | head -n 1)"
+    cp "$first_profile" "$out/ABS - KVP.ini"
+  '';
+
+  prusaSlicerPrinterProfiles = pkgs.runCommand "prusa-slicer-printer-profiles" { } ''
+    source_dir=${prusaSlicerProfilesSource}
+    mkdir -p "$out"
+    first_profile="$(find "$source_dir" -name '*.ini' -type f | sort | head -n 1)"
+    cp "$first_profile" "$out/Ellis - Voron (0.4mm).ini"
+  '';
+
+  prusaSlicerPrintProfiles = pkgs.runCommand "prusa-slicer-print-profiles" { } ''
+    source_dir=${inputs.prusa-slicer-profiles}
+    mkdir -p "$out"
+    find "$source_dir" -name '*.ini' -type f | sort | while IFS= read -r profile; do
+      relative="''${profile#"$source_dir/"}"
+      preset_name="''${relative%.ini}"
+      preset_name="''${preset_name//\// - }"
+      preset_name="''${preset_name#CoreXY Speeds - }"
+      cp "$profile" "$out/$preset_name.ini"
+    done
+  '';
+in
 {
   imports = [ ];
 
@@ -82,8 +111,19 @@
       teams
     ];
 
-    home.file."Library/Application Support/PrusaSlicer/PrusaSlicer-Profiles" = {
-      source = inputs.prusa-slicer-profiles;
+    home.file = {
+      "Library/Application Support/PrusaSlicer/filament" = {
+        source = prusaSlicerFilamentProfiles;
+        recursive = true;
+      };
+      "Library/Application Support/PrusaSlicer/print" = {
+        source = prusaSlicerPrintProfiles;
+        recursive = true;
+      };
+      "Library/Application Support/PrusaSlicer/printer" = {
+        source = prusaSlicerPrinterProfiles;
+        recursive = true;
+      };
     };
 
     programs.btop = {
