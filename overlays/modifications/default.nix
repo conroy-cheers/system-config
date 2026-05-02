@@ -24,6 +24,33 @@ final: prev: {
     nix-output-monitor = final.nix-output-monitor;
   };
 
+  klipper-firmware = prev.klipper-firmware.overrideAttrs (oldAttrs: {
+    postPatch = (oldAttrs.postPatch or "") + ''
+      echo "${oldAttrs.version}-NixOS" > klippy/.version
+      python3 - <<'PY'
+      from pathlib import Path
+
+      path = Path("scripts/buildcommands.py")
+      text = path.read_text()
+      old = """    if not version:
+              cleanbuild = False
+              version = file_version()
+              if not version:
+                  version = "?"
+      """
+      new = """    if not version:
+              version = file_version()
+              if not version:
+                  version = "?"
+                  cleanbuild = False
+      """
+      if old not in text:
+          raise RuntimeError("Klipper buildcommands.py version fallback changed")
+      path.write_text(text.replace(old, new))
+      PY
+    '';
+  });
+
   nixVersions = prev.nixVersions // {
     monitored = final.lib.concatMapAttrs (
       version: package:

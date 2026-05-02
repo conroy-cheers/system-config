@@ -14,6 +14,121 @@ let
   turnHost = "turn.home.conroycheers.me";
   turnUser = "panda-webrtc";
   turnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
+  mainMcuUuid = "534a88092b48";
+  toolheadMcuUuid = "205939919db6";
+  mainMcuFirmware = config.services.klipper.firmwares.mcu.package;
+  toolheadMcuFirmware = config.services.klipper.firmwares.SB2040v2.package;
+  katapult = pkgs.fetchFromGitHub {
+    owner = "Arksine";
+    repo = "katapult";
+    rev = "ec59b9bb9ad6c2ec8d4dc6831fbc77f0b308e29e";
+    hash = "sha256-iQ/z1qWWopb6wG1lHLL/nxrSCBmcdW20k66rpAYpN6Y=";
+  };
+  katapultPython = pkgs.python3.withPackages (pythonPackages: [
+    pythonPackages.pyserial
+  ]);
+  katapultFlash = "${katapultPython}/bin/python ${katapult}/scripts/flash_can.py";
+  klipperFlashHelpers = ''
+    wait_for_main_katapult_serial() {
+      for _ in $(seq 1 45); do
+        for device in /dev/serial/by-id/usb-katapult_stm32f446xx_*; do
+          if [ -e "$device" ]; then
+            printf '%s\n' "$device"
+            return 0
+          fi
+        done
+        sleep 1
+      done
+
+      echo "Timed out waiting for the Octopus Katapult USB serial device." >&2
+      return 1
+    }
+
+    start_klipper_stack() {
+      systemctl restart panda-can0.service
+      systemctl start klipper.service
+    }
+
+    stop_klipper_for_flash() {
+      systemctl stop klipper.service
+      systemctl start panda-can0.service
+    }
+
+    flash_toolhead_mcu() {
+      ${katapultFlash} \
+        --interface can0 \
+        --uuid ${toolheadMcuUuid} \
+        --firmware ${toolheadMcuFirmware}/klipper.bin
+    }
+
+    flash_main_mcu() {
+      ${katapultFlash} \
+        --interface can0 \
+        --uuid ${mainMcuUuid} \
+        --request-bootloader
+
+      local serial_device
+      serial_device="$(wait_for_main_katapult_serial)"
+      ${katapultFlash} \
+        --device "$serial_device" \
+        --firmware ${mainMcuFirmware}/klipper.bin
+    }
+  '';
+  pandaFlashToolheadMcu = pkgs.writeShellApplication {
+    name = "panda-flash-toolhead-mcu";
+    runtimeInputs = with pkgs; [
+      coreutils
+      systemd
+    ];
+    text = ''
+      ${klipperFlashHelpers}
+
+      cleanup() {
+        start_klipper_stack || true
+      }
+      trap cleanup EXIT
+
+      stop_klipper_for_flash
+      flash_toolhead_mcu
+    '';
+  };
+  pandaFlashMainMcu = pkgs.writeShellApplication {
+    name = "panda-flash-main-mcu";
+    runtimeInputs = with pkgs; [
+      coreutils
+      systemd
+    ];
+    text = ''
+      ${klipperFlashHelpers}
+
+      cleanup() {
+        start_klipper_stack || true
+      }
+      trap cleanup EXIT
+
+      stop_klipper_for_flash
+      flash_main_mcu
+    '';
+  };
+  pandaFlashKlipperMcus = pkgs.writeShellApplication {
+    name = "panda-flash-klipper-mcus";
+    runtimeInputs = with pkgs; [
+      coreutils
+      systemd
+    ];
+    text = ''
+      ${klipperFlashHelpers}
+
+      cleanup() {
+        start_klipper_stack || true
+      }
+      trap cleanup EXIT
+
+      stop_klipper_for_flash
+      flash_toolhead_mcu
+      flash_main_mcu
+    '';
+  };
   printerConfigFiles = [
     "mainsail.cfg"
     "sb2040v2.cfg"
@@ -64,6 +179,9 @@ in
       camera-streamer
       git
       libcamera
+      pandaFlashKlipperMcus
+      pandaFlashMainMcu
+      pandaFlashToolheadMcu
       tailscale
       v4l-utils
     ];
@@ -228,7 +346,6 @@ in
     systemd.services.camera-streamer = lib.mkIf cfg.webcam.enable {
       description = "WebRTC camera stream for Mainsail";
       after = [ "network.target" ];
-      wantedBy = [ "multi-user.target" ];
       unitConfig.ConditionPathExists = "/dev/video0";
       serviceConfig = {
         ExecStart = lib.concatStringsSep " " [
@@ -240,14 +357,15 @@ in
           "--camera-height=1296"
           "--camera-fps=30"
           "--camera-nbufs=2"
+          "--camera-auto_focus=0"
           "--camera-snapshot.height=1080"
           "--camera-video.disabled=0"
           "--camera-video.height=720"
           "--camera-video.options=video_bitrate=4000000"
           "--camera-video.options=h264_profile=constrained_baseline"
           "--camera-stream.height=480"
-          "--camera-options=AfMode=2"
-          "--camera-options=AfRange=2"
+          "--camera-options=AfMode=0"
+          "--camera-options=LensPosition=2.5"
           "--webrtc-ice_servers=turns://${turnUser}:${turnCredential}@${turnHost}:443"
           "--webrtc-disable_client_ice=1"
           "--http-listen=127.0.0.1"
@@ -267,6 +385,12 @@ in
         CPUWeight = 20;
         MemoryMax = "300M";
       };
+    };
+
+    systemd.paths.camera-streamer = lib.mkIf cfg.webcam.enable {
+      description = "Start camera-streamer when the camera device appears";
+      wantedBy = [ "multi-user.target" ];
+      pathConfig.PathExists = "/dev/video0";
     };
 
     services.nginx.virtualHosts.${config.services.mainsail.hostName} = lib.mkIf cfg.webcam.enable {
@@ -368,6 +492,36 @@ in
     systemd.services.klipper = lib.mkIf cfg.can.enable {
       after = [ "panda-can0.service" ];
       requires = [ "panda-can0.service" ];
+    };
+
+    systemd.services.panda-flash-toolhead-mcu = lib.mkIf cfg.can.enable {
+      description = "Manually flash the panda SB2040v2 Klipper firmware";
+      after = [ "panda-can0.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${lib.getExe pandaFlashToolheadMcu}";
+        TimeoutStartSec = "5min";
+      };
+    };
+
+    systemd.services.panda-flash-main-mcu = lib.mkIf cfg.can.enable {
+      description = "Manually flash the panda Octopus Klipper firmware";
+      after = [ "panda-can0.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${lib.getExe pandaFlashMainMcu}";
+        TimeoutStartSec = "5min";
+      };
+    };
+
+    systemd.services.panda-flash-klipper-mcus = lib.mkIf cfg.can.enable {
+      description = "Manually flash all panda Klipper MCU firmwares";
+      after = [ "panda-can0.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${lib.getExe pandaFlashKlipperMcus}";
+        TimeoutStartSec = "10min";
+      };
     };
 
     system.stateVersion = "25.05";
