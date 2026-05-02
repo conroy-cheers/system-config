@@ -12,6 +12,6 @@
     autoRollback = true;
     magicRollback = true;
     tempPath = "/tmp";
-    remoteBuild = true;
+    remoteBuild = false;
   };
 }
