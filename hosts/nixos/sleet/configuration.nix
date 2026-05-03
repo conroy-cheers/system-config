@@ -245,7 +245,19 @@ in
   ### Fonts
   fonts.fontconfig.enable = false;
 
-  hardware.graphics.enable = false;
+  hardware.graphics.enable = true;
+  hardware.nvidia = {
+    # Tesla P100 is Pascal, so use the proprietary kernel module.
+    open = false;
+    modesetting.enable = true;
+    package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
+  };
+
+  services.plex.accelerationDevices = [ "*" ];
+  users.users.plex.extraGroups = [
+    "render"
+    "video"
+  ];
   # environment.sessionVariables = {
   #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";
   #   "XDG_SESSION_TYPE" = "wayland";
@@ -270,7 +282,7 @@ in
   ### Wayland specific
   services.xserver = {
     enable = false; # disable xserver
-    # videoDrivers = [ "amdgpu" ];
+    videoDrivers = [ "nvidia" ];
   };
 
   # services.displayManager = {
