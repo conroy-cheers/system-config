@@ -3540,6 +3540,7 @@
         "superfile": "superfile",
         "swww": "swww",
         "ultramoji-4d": "ultramoji-4d",
+        "vllm-src": "vllm-src",
         "vscode-server": "vscode-server",
         "walbridge": "walbridge",
         "waveforms": "waveforms",
@@ -4231,6 +4232,23 @@
       "original": {
         "owner": "numtide",
         "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "vllm-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777814044,
+        "narHash": "sha256-SpJLo7ykJdttA6VyPxyGHDwaJ4X74tNKBxkjiDGGbRk=",
+        "owner": "conroy-cheers",
+        "repo": "vllm",
+        "rev": "f3568ad911d608cb4266f1e85223fa029534216b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "conroy-cheers",
+        "ref": "conroy/p100-v0.20.0",
+        "repo": "vllm",
         "type": "github"
       }
     },

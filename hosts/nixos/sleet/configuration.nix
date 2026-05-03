@@ -13,6 +13,11 @@
 let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
+  vllmPackage = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.vllm-p100;
+  vllmModel = "cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit";
+  vllmServedModelName = "gemma4-26b";
+  vllmPort = 8000;
+  vllmLlGuidancePath = "${pkgs.python3Packages.llguidance}/${pkgs.python3.sitePackages}";
   pandaTurnHost = "turn.home.conroycheers.me";
   pandaTurnPort = 3478;
   pandaTurnUser = "panda-webrtc";
@@ -69,6 +74,12 @@ in
     wm.enable = false;
   };
 
+  programs.ccache = {
+    enable = true;
+    cacheDir = "/nix/var/cache/ccache";
+  };
+  nix.settings.extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
+
   age.secrets."corncheese.nix-cache.env" = {
     rekeyFile = lib.repoSecret "corncheese/nix-cache/env.age";
   };
@@ -92,6 +103,11 @@ in
         host = "ultramoji.corncheese.org";
         auth.mode = "public";
         backend.url = "http://127.0.0.1:${toString ultramojiPort}";
+      };
+      vllm = {
+        host = "vllm.corncheese.org";
+        auth.mode = "forwardAuth";
+        backend.url = "http://127.0.0.1:${toString vllmPort}";
       };
     };
     auth.authelia = {
@@ -258,6 +274,80 @@ in
     "render"
     "video"
   ];
+
+  users.groups.vllm = { };
+  users.users.vllm = {
+    isSystemUser = true;
+    group = "vllm";
+    extraGroups = [
+      "render"
+      "video"
+    ];
+  };
+
+  systemd.services.vllm-gemma4 = {
+    description = "vLLM Gemma4 26B API server";
+    wantedBy = [ "multi-user.target" ];
+    after = [
+      "network-online.target"
+      "nvidia-persistenced.service"
+    ];
+    wants = [ "network-online.target" ];
+
+    environment = {
+      CUDA_VISIBLE_DEVICES = "0,1";
+      HF_HOME = "/var/lib/vllm/huggingface";
+      HOME = "/var/lib/vllm";
+      PYTHONPATH = vllmLlGuidancePath;
+      VLLM_MOE_USE_DEEP_GEMM = "0";
+      VLLM_USE_DEEP_GEMM = "0";
+    };
+
+    serviceConfig = {
+      User = "vllm";
+      Group = "vllm";
+      StateDirectory = "vllm";
+      WorkingDirectory = "/var/lib/vllm";
+      EnvironmentFile = "-/var/lib/vllm/huggingface/token.env";
+      ExecStart = lib.escapeShellArgs [
+        "${vllmPackage}/bin/vllm"
+        "serve"
+        vllmModel
+        "--served-model-name"
+        vllmServedModelName
+        "--host"
+        "127.0.0.1"
+        "--port"
+        (toString vllmPort)
+        "--tensor-parallel-size"
+        "2"
+        "--distributed-executor-backend"
+        "mp"
+        "--attention-backend"
+        "TRITON_ATTN"
+        "--dtype"
+        "float16"
+        "--max-model-len"
+        "4096"
+        "--max-num-batched-tokens"
+        "4096"
+        "--gpu-memory-utilization"
+        "0.88"
+        "--enforce-eager"
+        "--enable-auto-tool-choice"
+        "--tool-call-parser"
+        "gemma4"
+        "--reasoning-parser"
+        "gemma4"
+        "--chat-template"
+        "${inputs.vllm-src}/examples/tool_chat_template_gemma4.jinja"
+        "--limit-mm-per-prompt"
+        ''{"image": 0, "audio": 0, "video": 0}''
+      ];
+      Restart = "on-failure";
+      RestartSec = "10s";
+    };
+  };
   # environment.sessionVariables = {
   #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";
   #   "XDG_SESSION_TYPE" = "wayland";

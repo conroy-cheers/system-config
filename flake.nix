@@ -70,6 +70,12 @@
             # Apps (`nix run`)
             apps = import ./apps { inherit pkgs; };
 
+            packages.vllm-p100 = pkgs.withCuda.callPackage ./packages/vllm-p100 {
+              vllmSrc = inputs.vllm-src;
+              python3Packages = pkgs.withCuda.python3Packages;
+              cudaPackages = pkgs.withCuda.cudaPackages;
+            };
+
             # Formatter (`nix fmt`)
             formatter = pkgs.nixfmt-tree;
           };
@@ -89,6 +95,11 @@
     # Nixpkgs
     nixpkgs = {
       url = "github:nixos/nixpkgs/nixos-unstable";
+    };
+
+    vllm-src = {
+      url = "github:conroy-cheers/vllm/conroy/p100-v0.20.0";
+      flake = false;
     };
 
     determinate = {
