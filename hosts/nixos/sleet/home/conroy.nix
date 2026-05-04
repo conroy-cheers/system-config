@@ -16,6 +16,23 @@
   };
 
   corncheese = {
+    development = {
+      enable = true;
+      electronics.enable = false;
+      mechanical.enable = false;
+      audio.enable = false;
+      jetbrains = {
+        enable = false;
+      };
+      rust.enable = false;
+      vscode.enable = false;
+      ssh.enable = false;
+      ssh.onePassword = false;
+    };
+    theming = {
+      enable = true;
+      theme = "catppuccin";
+    };
     shell = {
       enable = true;
       starship = true;
