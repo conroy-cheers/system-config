@@ -62,6 +62,12 @@ in
   ### Set your time zone.
   time.timeZone = "Australia/Melbourne";
 
+  programs.git = {
+    enable = true;
+    package = pkgs.gitFull;
+    config.credential.helper = "libsecret";
+  };
+
   corncheese = {
     development = {
       enable = true;
