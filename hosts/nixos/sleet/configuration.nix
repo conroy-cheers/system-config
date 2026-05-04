@@ -18,6 +18,7 @@ let
   vllmServedModelName = "gemma4-26b";
   vllmPort = 8000;
   vllmLlGuidancePath = "${pkgs.python3Packages.llguidance}/${pkgs.python3.sitePackages}";
+  openWebuiPort = 8180;
   pandaTurnHost = "turn.home.conroycheers.me";
   pandaTurnPort = 3478;
   pandaTurnUser = "panda-webrtc";
@@ -108,6 +109,11 @@ in
         host = "vllm.corncheese.org";
         auth.mode = "forwardAuth";
         backend.url = "http://127.0.0.1:${toString vllmPort}";
+      };
+      openwebui = {
+        host = "openwebui.corncheese.org";
+        auth.mode = "forwardAuth";
+        backend.url = "http://127.0.0.1:${toString openWebuiPort}";
       };
     };
     auth.authelia = {
@@ -274,6 +280,26 @@ in
     "render"
     "video"
   ];
+
+  services.open-webui = {
+    enable = true;
+    host = "127.0.0.1";
+    port = openWebuiPort;
+    environment = {
+      ENABLE_OLLAMA_API = "False";
+      ENABLE_LOGIN_FORM = "False";
+      ENABLE_PASSWORD_CHANGE_FORM = "False";
+      ENABLE_PERSISTENT_CONFIG = "False";
+      WEBUI_URL = "https://openwebui.corncheese.org";
+      CORS_ALLOW_ORIGIN = "https://openwebui.corncheese.org";
+      OPENAI_API_BASE_URL = "http://127.0.0.1:${toString vllmPort}/v1";
+      OPENAI_API_KEY = "local-vllm";
+      DEFAULT_MODELS = vllmServedModelName;
+      WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
+      WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
+      WEBUI_AUTH_TRUSTED_GROUPS_HEADER = "Remote-Groups";
+    };
+  };
 
   users.groups.vllm = { };
   users.users.vllm = {
