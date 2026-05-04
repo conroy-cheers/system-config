@@ -183,6 +183,7 @@ in
       # Direnv
       programs.direnv-instant = {
         enable = true;
+        enableFishIntegration = false;
         settings.inline_viewer = true;
         settings.mux_delay = 0.5;
       };
@@ -308,6 +309,12 @@ in
             # Erase direnv's vendor fish hooks — direnv-instant replaces them.
             # The vendor_conf.d/direnv.fish registers these before config.fish runs.
             functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
+
+            if set -q ZELLIJ; or test -n "$SSH_TTY$SSH_CONNECTION"
+                ${lib.getExe pkgs.direnv} hook fish | source
+            else
+                direnv-instant hook fish | source
+            end
           '')
           (mkIf colorshellEnabled (
             lib.mkAfter ''
