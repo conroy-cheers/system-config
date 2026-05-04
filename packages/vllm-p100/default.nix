@@ -274,7 +274,11 @@ base.overridePythonAttrs (oldAttrs: {
   # 0.20 and is irrelevant for this CUDA-only build.
   patches = builtins.filter (patch: !(lib.hasInfix "drop-rocm-extra-reqs" (toString patch))) (
     oldAttrs.patches or [ ]
-  );
+  ) ++ [
+    ./vllm-intermediate-tensors-get.patch
+    ./vllm-disable-moe-marlin-before-turing.patch
+    ./vllm-gemma4-pp-intermediates.patch
+  ];
 
   postPatch =
     builtins.replaceStrings

@@ -334,6 +334,7 @@ in
       VLLM_MOE_USE_DEEP_GEMM = "0";
       VLLM_USE_DEEP_GEMM = "0";
     };
+    path = [ pkgs.cudaPackages.cuda_nvcc ];
 
     serviceConfig = {
       User = "vllm";
@@ -365,7 +366,6 @@ in
         "4096"
         "--gpu-memory-utilization"
         "0.88"
-        "--enforce-eager"
         "--enable-auto-tool-choice"
         "--tool-call-parser"
         "gemma4"

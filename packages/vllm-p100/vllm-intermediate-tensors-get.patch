@@ -1,0 +1,14 @@
+diff --git a/vllm/sequence.py b/vllm/sequence.py
+index 691e2142cf..21e485d30b 100644
+--- a/vllm/sequence.py
++++ b/vllm/sequence.py
+@@ -45,6 +45,9 @@ class IntermediateTensors:
+     def __setitem__(self, key: str, value: torch.Tensor):
+         self.tensors[key] = value
+ 
++    def get(self, key: str, default: torch.Tensor | None = None):
++        return self.tensors.get(key, default)
++
+     def items(self):
+         return self.tensors.items()
+ 
