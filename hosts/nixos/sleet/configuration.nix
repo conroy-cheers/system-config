@@ -360,6 +360,8 @@ in
         "TRITON_ATTN"
         "--dtype"
         "float16"
+        "--generation-config"
+        "vllm"
         "--max-model-len"
         "4096"
         "--max-num-batched-tokens"
