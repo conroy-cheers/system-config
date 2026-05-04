@@ -376,7 +376,7 @@ in
         "--chat-template"
         "${inputs.vllm-src}/examples/tool_chat_template_gemma4.jinja"
         "--limit-mm-per-prompt"
-        ''{"image": 0, "audio": 0, "video": 0}''
+        ''{"image": 1, "audio": 1, "video": 0}''
       ];
       Restart = "on-failure";
       RestartSec = "10s";

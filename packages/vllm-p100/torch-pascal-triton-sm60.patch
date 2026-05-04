@@ -1,0 +1,52 @@
+diff --git a/torch/_dynamo/device_interface.py b/torch/_dynamo/device_interface.py
+index 4d0b8b9e90..d73a2d2f6c 100644
+--- a/torch/_dynamo/device_interface.py
++++ b/torch/_dynamo/device_interface.py
+@@ -270,7 +270,7 @@ class CudaInterface(DeviceInterface):
+     def is_triton_capable(device: torch.types.Device = None) -> bool:
+         return (
+             torch.version.hip is not None
+-            or torch.cuda.get_device_properties(device).major >= 7
++            or torch.cuda.get_device_properties(device).major >= 6
+         )
+ 
+     @staticmethod
+diff --git a/torch/_inductor/exc.py b/torch/_inductor/exc.py
+index 6948a49a4e..11d124ad01 100644
+--- a/torch/_inductor/exc.py
++++ b/torch/_inductor/exc.py
+@@ -144,7 +144,7 @@ class GPUTooOldForTriton(ShortenTraceback):
+     ) -> None:
+         super().__init__(
+             f"Found {device_props.name} which is too old to be supported by the triton GPU compiler, "
+-            "which is used as the backend. Triton only supports devices of CUDA Capability >= 7.0, "
++            "which is used as the backend. Triton only supports devices of CUDA Capability >= 6.0, "
+             f"but your device is of CUDA capability {device_props.major}.{device_props.minor}",
+             first_useful_frame=first_useful_frame,
+         )
+diff --git a/torch/_inductor/scheduler.py b/torch/_inductor/scheduler.py
+index f809ed15c2..ae881a84f7 100644
+--- a/torch/_inductor/scheduler.py
++++ b/torch/_inductor/scheduler.py
+@@ -5901,7 +5901,7 @@ class Scheduler:
+         if not has_triton():
+             if (
+                 device.type == "cuda"
+-                and (device_props := torch.cuda.get_device_properties(device)).major < 7
++                and (device_props := torch.cuda.get_device_properties(device)).major < 6
+             ):
+                 raise GPUTooOldForTriton(device_props, inspect.currentframe())
+             elif is_gpu(device.type) and not device.type == "mps":
+diff --git a/torch/utils/_triton.py b/torch/utils/_triton.py
+index 1b280501d9..93a6384a5b 100644
+--- a/torch/utils/_triton.py
++++ b/torch/utils/_triton.py
+@@ -157,7 +157,7 @@ def has_triton() -> bool:
+     from torch._dynamo.device_interface import get_interface_for_device
+ 
+     def cuda_extra_check(device_interface: Any) -> bool:
+-        return device_interface.Worker.get_device_properties().major >= 7
++        return device_interface.Worker.get_device_properties().major >= 6
+ 
+     def cpu_extra_check(device_interface: Any) -> bool:
+         import triton.backends

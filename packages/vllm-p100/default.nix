@@ -1,6 +1,5 @@
 {
   lib,
-  stdenvNoCC,
   ccache,
   python3Packages,
   cudaPackages,
@@ -26,8 +25,6 @@ let
     "opentelemetry-semantic-conventions-ai"
     "quack-kernels"
     "tilelang"
-    "torchaudio"
-    "torchvision"
     "vllm-flash-attn"
     "xformers"
   ];
@@ -57,6 +54,7 @@ let
       (oldAttrs: {
         # vLLM serving does not need MAGMA-backed torch.linalg CUDA routines, and
         # retaining MAGMA adds a large extra CUDA build surface for Pascal.
+        patches = (oldAttrs.patches or [ ]) ++ [ ./torch-pascal-triton-sm60.patch ];
         buildInputs = builtins.filter (package: !(isMagmaPackage package)) (oldAttrs.buildInputs or [ ]);
         env = (oldAttrs.env or { }) // {
           USE_MAGMA = "0";
@@ -81,6 +79,12 @@ let
     in
     if name == "safetensors" then
       safetensorsPascal
+    else if name == "torchaudio" then
+      torchaudioPascal
+    else if name == "torchvision" then
+      torchvisionPascal
+    else if name == "torchcodec" then
+      torchcodecPascal
     else if name == "transformers" then
       transformersPascal
     else
@@ -96,6 +100,53 @@ let
     propagatedBuildInputs = replaceModelStackDependencies (oldAttrs.propagatedBuildInputs or [ ]);
     nativeCheckInputs = replaceModelStackDependencies (oldAttrs.nativeCheckInputs or [ ]);
   });
+  torchvisionPascal =
+    (python3Packages.torchvision.override {
+      torch = torchPascal;
+    }).overridePythonAttrs
+      (oldAttrs: {
+        dependencies = replaceTorchTritonDependencies (oldAttrs.dependencies or [ ]);
+        propagatedBuildInputs = replaceTorchTritonDependencies (oldAttrs.propagatedBuildInputs or [ ]);
+        nativeCheckInputs = replaceTorchTritonDependencies (oldAttrs.nativeCheckInputs or [ ]);
+        env = (oldAttrs.env or { }) // {
+          FORCE_CUDA = "1";
+          TORCH_CUDA_ARCH_LIST = "6.0";
+        };
+      });
+  torchcodecPascal =
+    (python3Packages.torchcodec.override {
+      torch = torchPascal;
+      torchvision = torchvisionPascal;
+      cudaPackages = cudaPackagesPascal;
+    }).overridePythonAttrs
+      (oldAttrs: {
+        dependencies = replaceTorchTritonDependencies (oldAttrs.dependencies or [ ]);
+        build-system = replaceTorchTritonDependencies (oldAttrs.build-system or [ ]);
+        # The upstream torchcodec test suite is large and codec/device-matrix
+        # oriented. Keep this override focused on producing the runtime library.
+        nativeCheckInputs = [ ];
+        doCheck = false;
+        env = (oldAttrs.env or { }) // {
+          TORCH_CUDA_ARCH_LIST = "6.0";
+        };
+      });
+  torchaudioPascal =
+    (python3Packages.torchaudio.override {
+      torch = torchPascal;
+      torchcodec = torchcodecPascal;
+      cudaPackages = cudaPackagesPascal;
+    }).overridePythonAttrs
+      (oldAttrs: {
+        dependencies = replaceModelStackDependencies (oldAttrs.dependencies or [ ]);
+        propagatedBuildInputs = replaceModelStackDependencies (oldAttrs.propagatedBuildInputs or [ ]);
+        # The upstream torchaudio test suite is not part of the vLLM runtime
+        # contract, and pulls in a broad audio package test surface.
+        nativeCheckInputs = [ ];
+        doCheck = false;
+        env = (oldAttrs.env or { }) // {
+          TORCH_CUDA_ARCH_LIST = "6.0";
+        };
+      });
   einopsWithoutTorchChecks = python3Packages.einops.overridePythonAttrs (oldAttrs: {
     # einops only needs torch for its own upstream test matrix. vLLM already
     # brings the Pascal torch into the runtime closure.
@@ -152,110 +203,6 @@ let
     else
       replaceModelStackDependency package;
   vllmDependencies = deps: builtins.map replaceVllmDependency (builtins.filter keepDependency deps);
-  torchPascalSitecustomize = stdenvNoCC.mkDerivation {
-    pname = "torch-pascal-sitecustomize";
-    version = "0.1.0";
-    dontUnpack = true;
-    installPhase = ''
-      runHook preInstall
-      mkdir -p "$out/${sitePackages}"
-      cat > "$out/${sitePackages}/sitecustomize.py" <<'PY'
-      import builtins
-      import functools
-
-
-      _patched = False
-      _patching = False
-      _real_import = builtins.__import__
-
-
-      def _patch_p100_triton_support():
-          global _patched, _patching
-          if _patched:
-              return True
-          if _patching:
-              return False
-
-          _patching = True
-          try:
-              torch = _real_import("torch")
-              torch_triton = _real_import("torch.utils._triton", fromlist=[""])
-              device_interface = _real_import(
-                  "torch._dynamo.device_interface", fromlist=["CudaInterface"]
-              )
-              CudaInterface = device_interface.CudaInterface
-          except Exception:
-              return False
-          finally:
-              _patching = False
-
-          @functools.cache
-          def _p100_has_triton():
-              if not torch_triton.has_triton_package():
-                  return False
-
-              from torch._inductor.config import triton_disable_device_detection
-
-              if triton_disable_device_detection:
-                  return False
-
-              from torch._dynamo.device_interface import get_interface_for_device
-
-              def cuda_extra_check(device_interface):
-                  return device_interface.Worker.get_device_properties().major >= 6
-
-              def cpu_extra_check(device_interface):
-                  import triton.backends
-
-                  return "cpu" in triton.backends.backends
-
-              def _return_true(device_interface):
-                  return True
-
-              triton_supported_devices = {
-                  "cuda": cuda_extra_check,
-                  "xpu": _return_true,
-                  "cpu": cpu_extra_check,
-                  "mtia": _return_true,
-              }
-
-              def is_device_compatible(device):
-                  return (
-                      device in triton_supported_devices
-                      and triton_supported_devices[device](get_interface_for_device(device))
-                  )
-
-              return any(is_device_compatible(device) for device in triton_supported_devices)
-
-          def _p100_is_triton_capable(device=None):
-              return (
-                  torch.version.hip is not None
-                  or torch.cuda.get_device_properties(device).major >= 6
-              )
-
-          torch_triton.has_triton = _p100_has_triton
-          CudaInterface.is_triton_capable = staticmethod(_p100_is_triton_capable)
-          _patched = True
-          return True
-
-
-      def _p100_import(name, globals=None, locals=None, fromlist=(), level=0):
-          module = _real_import(name, globals, locals, fromlist, level)
-          if not _patched and name in {
-              "torch.utils._triton",
-              "torch._dynamo.device_interface",
-              "torch._inductor.scheduler",
-          }:
-              _patch_p100_triton_support()
-          return module
-
-
-      if not _patch_p100_triton_support():
-          builtins.__import__ = _p100_import
-      PY
-      runHook postInstall
-    '';
-  };
   base = python3Packages.vllm.override {
     cudaSupport = true;
     cudaPackages = cudaPackagesPascal;
@@ -268,20 +215,22 @@ base.overridePythonAttrs (oldAttrs: {
   version = "0.20.0+p100";
   src = vllmSrc;
 
-  # Keep the Nix support patches from nixpkgs' vLLM package, but use the local
-  # vLLM source tree for Pascal support patches while iterating. The ROCm
-  # requirements patch from nixpkgs' 0.19 package no longer applies to vLLM
-  # 0.20 and is irrelevant for this CUDA-only build.
-  patches = builtins.filter (patch: !(lib.hasInfix "drop-rocm-extra-reqs" (toString patch))) (
-    oldAttrs.patches or [ ]
-  ) ++ [
-    ./vllm-intermediate-tensors-get.patch
-    ./vllm-disable-moe-marlin-before-turing.patch
-    ./vllm-gemma4-pp-intermediates.patch
-  ];
+  # Preserve nixpkgs' vLLM packaging patches and add the small CUDA/Pascal
+  # compatibility patches needed by this 0.20.0 source. The ROCm requirements
+  # patch from nixpkgs' 0.19 package no longer applies to vLLM 0.20 and is
+  # irrelevant for this CUDA-only build.
+  patches =
+    builtins.filter (patch: !(lib.hasInfix "drop-rocm-extra-reqs" (toString patch))) (
+      oldAttrs.patches or [ ]
+    )
+    ++ [
+      ./vllm-intermediate-tensors-get.patch
+      ./vllm-disable-moe-marlin-before-turing.patch
+      ./vllm-gemma4-pp-intermediates.patch
+    ];
 
   postPatch =
-    builtins.replaceStrings
+    (builtins.replaceStrings
       [
         ''
           substituteInPlace pyproject.toml \
@@ -297,7 +246,11 @@ base.overridePythonAttrs (oldAttrs: {
             --replace-fail "setuptools>=77.0.3,<81.0.0" "setuptools"
         ''
       ]
-      (oldAttrs.postPatch or "");
+      (oldAttrs.postPatch or "")
+    )
+    + ''
+      find . \( -name '*.orig' -o -name '*.rej' \) -delete
+    '';
 
   dependencies = vllmDependencies (oldAttrs.dependencies or [ ]);
   propagatedBuildInputs = vllmDependencies (oldAttrs.propagatedBuildInputs or [ ]);
@@ -338,7 +291,7 @@ base.overridePythonAttrs (oldAttrs: {
     "--prefix"
     "PYTHONPATH"
     ":"
-    "${torchPascalSitecustomize}/${sitePackages}:${tritonPascal}/${sitePackages}"
+    "${tritonPascal}/${sitePackages}"
     "--set"
     "VLLM_NCCL_SO_PATH"
     "${ncclPascal}/lib/libnccl.so"
