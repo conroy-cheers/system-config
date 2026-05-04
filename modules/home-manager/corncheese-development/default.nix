@@ -737,7 +737,7 @@ in
 
     programs.fish.interactiveShellInit = lib.mkIf cfg.ssh.zellij.enable (
       lib.mkAfter ''
-        if test -n "$SSH_TTY$SSH_CONNECTION"; and test -z "$ZELLIJ"; and test -z "$SSH_ORIGINAL_COMMAND"; and test -t 0; and test -t 1
+        if test -n "$SSH_TTY$SSH_CONNECTION"; and test -z "$ZELLIJ"; and test -z "$SSH_ORIGINAL_COMMAND"; and test "$TERM" != dumb; and test -t 0; and test -t 1
             exec ${lib.getExe pkgs.zellij} attach --create ${lib.escapeShellArg cfg.ssh.zellij.sessionName}
         end
       ''
@@ -745,7 +745,7 @@ in
 
     programs.zsh.initContent = lib.mkIf cfg.ssh.zellij.enable (
       lib.mkAfter ''
-        if [[ -o interactive && -n "''${SSH_TTY:-}''${SSH_CONNECTION:-}" && -z "''${ZELLIJ:-}" && -z "''${SSH_ORIGINAL_COMMAND:-}" && -t 0 && -t 1 ]]; then
+        if [[ -o interactive && -n "''${SSH_TTY:-}''${SSH_CONNECTION:-}" && -z "''${ZELLIJ:-}" && -z "''${SSH_ORIGINAL_COMMAND:-}" && "''${TERM:-}" != dumb && -t 0 && -t 1 ]]; then
           exec ${lib.getExe pkgs.zellij} attach --create ${lib.escapeShellArg cfg.ssh.zellij.sessionName}
         fi
       ''
@@ -753,7 +753,7 @@ in
 
     programs.bash.initExtra = lib.mkIf cfg.ssh.zellij.enable (
       lib.mkAfter ''
-        if [[ $- == *i* && -n "''${SSH_TTY:-}''${SSH_CONNECTION:-}" && -z "''${ZELLIJ:-}" && -z "''${SSH_ORIGINAL_COMMAND:-}" && -t 0 && -t 1 ]]; then
+        if [[ $- == *i* && -n "''${SSH_TTY:-}''${SSH_CONNECTION:-}" && -z "''${ZELLIJ:-}" && -z "''${SSH_ORIGINAL_COMMAND:-}" && "''${TERM:-}" != dumb && -t 0 && -t 1 ]]; then
           exec ${lib.getExe pkgs.zellij} attach --create ${lib.escapeShellArg cfg.ssh.zellij.sessionName}
         fi
       ''

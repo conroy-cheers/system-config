@@ -80,6 +80,17 @@ let
     ];
   };
 
+  textSettings = baseSettings // {
+    logo = {
+      source = if pkgs.stdenv.hostPlatform.isDarwin then "Apple_small" else "NixOS_small";
+      padding = {
+        left = 2;
+        top = 1;
+        right = 1;
+      };
+    };
+  };
+
   localConfig = pkgs.writeText "fastfetch-local.jsonc" (
     builtins.toJSON (
       baseSettings
@@ -102,6 +113,8 @@ let
     )
   );
 
+  textConfig = pkgs.writeText "fastfetch-text.jsonc" (builtins.toJSON textSettings);
+
   fastfetchSmart = pkgs.symlinkJoin {
     name = "fastfetch-smart";
     paths = [ pkgs.fastfetch ];
@@ -110,7 +123,19 @@ let
       rm -f $out/bin/fastfetch
       makeWrapper ${lib.getExe pkgs.fastfetch} $out/bin/fastfetch \
         --run '
-          if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
+          fastfetch_supports_kitty_images=0
+          case "''${TERM:-}:''${TERM_PROGRAM:-}" in
+            xterm-kitty:* | *:kitty | *:WezTerm | *:wezterm | *:ghostty | *:Ghostty)
+              fastfetch_supports_kitty_images=1
+              ;;
+          esac
+          if [ -n "''${KITTY_WINDOW_ID:-}" ] || [ -n "''${WEZTERM_EXECUTABLE:-}" ] || [ -n "''${GHOSTTY_RESOURCES_DIR:-}" ]; then
+            fastfetch_supports_kitty_images=1
+          fi
+
+          if [ -n "''${ZELLIJ:-}" ] || [ "''${TERM:-}" = dumb ] || [ "$fastfetch_supports_kitty_images" != 1 ]; then
+            set -- --config ${textConfig} "$@"
+          elif [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
             set -- --config ${sshConfig} "$@"
           else
             set -- --config ${localConfig} "$@"
