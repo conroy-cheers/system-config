@@ -1,0 +1,53 @@
+diff --git a/vllm/model_executor/models/gemma4.py b/vllm/model_executor/models/gemma4.py
+index 7d3a4f8174..fbd879747a 100644
+--- a/vllm/model_executor/models/gemma4.py
++++ b/vllm/model_executor/models/gemma4.py
+@@ -1661,5 +1661,48 @@ class Gemma4ForCausalLM(
+                 # No transpose needed: checkpoint orientation already
+                 # matches FusedMoE's expected layout.
++                if "moe.gate_up_proj_" in name and weight.dim() == 3:
++                    suffix = name.rsplit("gate_up_proj_", 1)[1]
++                    suffix_map = {
++                        "packed": "weight_packed",
++                        "scale": "weight_scale",
++                    }
++                    if suffix in suffix_map:
++                        num_experts = weight.size(0)
++                        intermediate_size = weight.size(1) // 2
++                        for expert_id in range(num_experts):
++                            gate_weight = weight[expert_id, :intermediate_size, :]
++                            up_weight = weight[expert_id, intermediate_size:, :]
++                            base = name.replace(
++                                "moe.", f"moe.experts.{expert_id}."
++                            )
++                            yield base.replace(
++                                f"gate_up_proj_{suffix}",
++                                f"gate_proj.{suffix_map[suffix]}",
++                            ), gate_weight
++                            yield base.replace(
++                                f"gate_up_proj_{suffix}",
++                                f"up_proj.{suffix_map[suffix]}",
++                            ), up_weight
++                        continue
++
++                if "moe.down_proj_" in name and weight.dim() == 3:
++                    suffix = name.rsplit("down_proj_", 1)[1]
++                    suffix_map = {
++                        "packed": "weight_packed",
++                        "scale": "weight_scale",
++                    }
++                    if suffix in suffix_map:
++                        num_experts = weight.size(0)
++                        for expert_id in range(num_experts):
++                            expert_name = name.replace(
++                                "moe.", f"moe.experts.{expert_id}."
++                            )
++                            yield expert_name.replace(
++                                f"down_proj_{suffix}",
++                                f"down_proj.{suffix_map[suffix]}",
++                            ), weight[expert_id]
++                        continue
++
+                 if "moe.gate_up_proj" in name and weight.dim() == 3:
+                     num_experts = weight.size(0)
+                     intermediate_size = weight.size(1) // 2

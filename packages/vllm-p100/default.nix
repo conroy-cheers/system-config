@@ -257,6 +257,7 @@ base.overridePythonAttrs (oldAttrs: {
       ./vllm-bitsandbytes-pascal.patch
       ./vllm-gemma4-pp-intermediates.patch
       ./vllm-gemma4-audio-projection-dtype.patch
+      ./vllm-gemma4-fused-quantized-experts.patch
       ./vllm-fp8-e5m2-disable-query-quant.patch
       ./vllm-triton-decode-gqa-block-h.patch
     ];

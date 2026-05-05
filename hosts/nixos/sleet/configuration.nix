@@ -14,8 +14,8 @@ let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
   vllmPackage = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.vllm-p100;
-  vllmModel = "ciocan/gemma-4-E4B-it-W4A16";
-  vllmServedModelName = "gemma4-e4b";
+  vllmModel = "lcu0312/gemma-4-26B-A4B-it-AWQ-4bit";
+  vllmServedModelName = "gemma4-26b-a4b";
   vllmPort = 8000;
   vllmGemma4Bench16k = pkgs.writeShellApplication {
     name = "bench-vllm-gemma4-16k";
@@ -378,7 +378,7 @@ in
   };
 
   systemd.services.vllm-gemma4 = {
-    description = "vLLM Gemma4 E4B API server";
+    description = "vLLM Gemma4 26B A4B API server";
     wantedBy = [ "multi-user.target" ];
     after = [
       "network-online.target"
@@ -437,7 +437,7 @@ in
         "--chat-template"
         "${inputs.vllm-src}/examples/tool_chat_template_gemma4.jinja"
         "--default-chat-template-kwargs"
-        ''{"enable_thinking": true}''
+        ''{"enable_thinking": false}''
         "--limit-mm-per-prompt"
         ''{"image": 1, "audio": 1, "video": 0}''
       ];
