@@ -10,13 +10,11 @@ let
   sitePackages = python3Packages.python.sitePackages;
   optionalCudaDependenciesToDrop = [
     "apache-tvm-ffi"
-    "bitsandbytes"
     "cupy"
     "fastsafetensors"
     "flashinfer"
     "flashinfer-cubin"
     "flashinfer-python"
-    "llguidance"
     "mistral-common"
     "mistral_common"
     "nvidia-cudnn-frontend"
@@ -181,6 +179,28 @@ let
     propagatedBuildInputs = replaceModelStackDependencies (oldAttrs.propagatedBuildInputs or [ ]);
     nativeCheckInputs = replaceModelStackDependencies (oldAttrs.nativeCheckInputs or [ ]);
   });
+  llguidancePascal = python3Packages.llguidance.overridePythonAttrs (oldAttrs: {
+    dependencies = replaceModelStackDependencies (oldAttrs.dependencies or [ ]);
+    propagatedBuildInputs = replaceModelStackDependencies (oldAttrs.propagatedBuildInputs or [ ]);
+    nativeCheckInputs = replaceModelStackDependencies (oldAttrs.nativeCheckInputs or [ ]);
+  });
+  bitsandbytesPascal =
+    (python3Packages.bitsandbytes.override {
+      cudaSupport = true;
+      cudaPackages = cudaPackagesPascal;
+      torch = torchPascal;
+    }).overridePythonAttrs
+      (oldAttrs: {
+        dependencies = replaceModelStackDependencies (oldAttrs.dependencies or [ ]);
+        buildInputs = replaceModelStackDependencies (oldAttrs.buildInputs or [ ]);
+        nativeCheckInputs = replaceModelStackDependencies (oldAttrs.nativeCheckInputs or [ ]);
+        cmakeFlags = (oldAttrs.cmakeFlags or [ ]) ++ [
+          (lib.cmakeFeature "COMPUTE_CAPABILITY" "60")
+        ];
+        env = (oldAttrs.env or { }) // {
+          CUDAARCHS = "60";
+        };
+      });
   replaceVllmDependency =
     package:
     let
@@ -198,11 +218,19 @@ let
       safetensorsPascal
     else if name == "transformers" then
       transformersPascal
+    else if name == "bitsandbytes" then
+      bitsandbytesPascal
+    else if name == "llguidance" then
+      llguidancePascal
     else if name == "xgrammar" then
       xgrammarPascal
     else
       replaceModelStackDependency package;
   vllmDependencies = deps: builtins.map replaceVllmDependency (builtins.filter keepDependency deps);
+  audioRuntimeDependencies = with python3Packages; [
+    av
+    soundfile
+  ];
   base = python3Packages.vllm.override {
     cudaSupport = true;
     cudaPackages = cudaPackagesPascal;
@@ -226,7 +254,9 @@ base.overridePythonAttrs (oldAttrs: {
     ++ [
       ./vllm-intermediate-tensors-get.patch
       ./vllm-disable-moe-marlin-before-turing.patch
+      ./vllm-bitsandbytes-pascal.patch
       ./vllm-gemma4-pp-intermediates.patch
+      ./vllm-gemma4-audio-projection-dtype.patch
     ];
 
   postPatch =
@@ -252,8 +282,8 @@ base.overridePythonAttrs (oldAttrs: {
       find . \( -name '*.orig' -o -name '*.rej' \) -delete
     '';
 
-  dependencies = vllmDependencies (oldAttrs.dependencies or [ ]);
-  propagatedBuildInputs = vllmDependencies (oldAttrs.propagatedBuildInputs or [ ]);
+  dependencies = vllmDependencies (oldAttrs.dependencies or [ ]) ++ audioRuntimeDependencies;
+  propagatedBuildInputs = vllmDependencies (oldAttrs.propagatedBuildInputs or [ ]) ++ audioRuntimeDependencies;
   nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ ccache ];
   pythonRemoveDeps = (oldAttrs.pythonRemoveDeps or [ ]) ++ optionalCudaDependenciesToDrop;
 
@@ -288,6 +318,10 @@ base.overridePythonAttrs (oldAttrs: {
   };
 
   makeWrapperArgs = (oldAttrs.makeWrapperArgs or [ ]) ++ [
+    "--prefix"
+    "PATH"
+    ":"
+    (lib.makeBinPath [ cudaPackagesPascal.cuda_nvcc ])
     "--prefix"
     "PYTHONPATH"
     ":"

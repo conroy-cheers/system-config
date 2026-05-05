@@ -1,0 +1,13 @@
+diff --git a/vllm/model_executor/layers/quantization/bitsandbytes.py b/vllm/model_executor/layers/quantization/bitsandbytes.py
+index f658952b7..693a86f45 100644
+--- a/vllm/model_executor/layers/quantization/bitsandbytes.py
++++ b/vllm/model_executor/layers/quantization/bitsandbytes.py
+@@ -101,7 +101,7 @@ class BitsAndBytesConfig(QuantizationConfig):
+ 
+     @classmethod
+     def get_min_capability(cls) -> int:
+-        return 70
++        return 60
+ 
+     @staticmethod
+     def get_config_filenames() -> list[str]:

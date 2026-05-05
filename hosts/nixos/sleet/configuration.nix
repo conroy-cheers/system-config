@@ -14,10 +14,9 @@ let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
   vllmPackage = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.vllm-p100;
-  vllmModel = "cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit";
-  vllmServedModelName = "gemma4-26b";
+  vllmModel = "google/gemma-4-E4B-it";
+  vllmServedModelName = "gemma4-e4b";
   vllmPort = 8000;
-  vllmLlGuidancePath = "${pkgs.python3Packages.llguidance}/${pkgs.python3.sitePackages}";
   openWebuiPort = 8180;
   pandaTurnHost = "turn.home.conroycheers.me";
   pandaTurnPort = 3478;
@@ -318,7 +317,7 @@ in
   };
 
   systemd.services.vllm-gemma4 = {
-    description = "vLLM Gemma4 26B API server";
+    description = "vLLM Gemma4 E4B API server";
     wantedBy = [ "multi-user.target" ];
     after = [
       "network-online.target"
@@ -330,7 +329,6 @@ in
       CUDA_VISIBLE_DEVICES = "0,1";
       HF_HOME = "/var/lib/vllm/huggingface";
       HOME = "/var/lib/vllm";
-      PYTHONPATH = vllmLlGuidancePath;
       VLLM_MOE_USE_DEEP_GEMM = "0";
       VLLM_USE_DEEP_GEMM = "0";
     };

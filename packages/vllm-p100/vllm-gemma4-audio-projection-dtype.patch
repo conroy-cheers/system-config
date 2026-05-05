@@ -1,0 +1,17 @@
+diff --git a/vllm/model_executor/models/gemma4_mm.py b/vllm/model_executor/models/gemma4_mm.py
+index 106f04d62e..d1e2b7f7c 100644
+--- a/vllm/model_executor/models/gemma4_mm.py
++++ b/vllm/model_executor/models/gemma4_mm.py
+@@ -1215,8 +1215,10 @@ class Gemma4ForConditionalGeneration(
+             audio_encodings = audio_outputs.last_hidden_state
+             audio_mask = audio_outputs.attention_mask
+ 
+-        # Project into LM embedding space.
+-        audio_features = self.embed_audio(inputs_embeds=audio_encodings)
++        # Project into LM embedding space. Match the projection dtype because
++        # the audio tower may emit bf16 while the LM is fp16 on pre-bf16 GPUs.
++        target_dtype = self.embed_audio.embedding_projection.weight.dtype
++        audio_features = self.embed_audio(inputs_embeds=audio_encodings.to(target_dtype))
+ 
+         # Strip padding per-batch element: only keep real (non-padding)
+         # tokens. audio_mask is True for valid positions (HF convention).
