@@ -379,6 +379,8 @@ in
         "gemma4"
         "--chat-template"
         "${inputs.vllm-src}/examples/tool_chat_template_gemma4.jinja"
+        "--default-chat-template-kwargs"
+        ''{"enable_thinking": true}''
         "--limit-mm-per-prompt"
         ''{"image": 1, "audio": 1, "video": 0}''
       ];
