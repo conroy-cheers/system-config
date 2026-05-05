@@ -17,6 +17,11 @@ let
   vllmModel = "google/gemma-4-E4B-it";
   vllmServedModelName = "gemma4-e4b";
   vllmPort = 8000;
+  openWebuiPackage = pkgs.open-webui.overridePythonAttrs (oldAttrs: {
+    patches = (oldAttrs.patches or [ ]) ++ [
+      ./open-webui-vllm-reasoning-field.patch
+    ];
+  });
   openWebuiPort = 8180;
   pandaTurnHost = "turn.home.conroycheers.me";
   pandaTurnPort = 3478;
@@ -288,6 +293,7 @@ in
 
   services.open-webui = {
     enable = true;
+    package = openWebuiPackage;
     host = "127.0.0.1";
     port = openWebuiPort;
     environment = {

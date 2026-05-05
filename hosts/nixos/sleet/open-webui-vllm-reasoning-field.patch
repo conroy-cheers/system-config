@@ -1,0 +1,107 @@
+diff --git a/backend/open_webui/utils/middleware.py b/backend/open_webui/utils/middleware.py
+index 79f11a320..d6fb5ab5d 100644
+--- a/backend/open_webui/utils/middleware.py
++++ b/backend/open_webui/utils/middleware.py
+@@ -2910,8 +2910,11 @@ async def chat_completed_handler(request: Request, form_data: dict, response: dic
+                     if len(res.get('choices', [])) == 1:
+                         response_message = res.get('choices', [])[0].get('message', {})
+
+-                        follow_ups_string = response_message.get('content') or response_message.get(
+-                            'reasoning_content', ''
++                        follow_ups_string = (
++                            response_message.get('content')
++                            or response_message.get('reasoning_content')
++                            or response_message.get('reasoning')
++                            or response_message.get('thinking', '')
+                         )
+                     else:
+                         follow_ups_string = ''
+@@ -2970,6 +2973,12 @@ async def chat_completed_handler(request: Request, form_data: dict, response: dic
+                                     or response_message.get(
+                                         'reasoning_content',
+                                     )
++                                    or response_message.get(
++                                        'reasoning',
++                                    )
++                                    or response_message.get(
++                                        'thinking',
++                                    )
+                                     or message.get('content', user_message)
+                                 )
+                             else:
+@@ -3021,8 +3030,11 @@ async def chat_completed_handler(request: Request, form_data: dict, response: dic
+                         if len(res.get('choices', [])) == 1:
+                             response_message = res.get('choices', [])[0].get('message', {})
+
+-                            tags_string = response_message.get('content') or response_message.get(
+-                                'reasoning_content', ''
++                            tags_string = (
++                                response_message.get('content')
++                                or response_message.get('reasoning_content')
++                                or response_message.get('reasoning')
++                                or response_message.get('thinking', '')
+                             )
+                         else:
+                             tags_string = ''
+@@ -3091,10 +3103,18 @@ async def non_streaming_chat_response_handler(response, ctx):
+                 )
+
+             choices = response_data.get('choices', [])
+-            if choices and choices[0].get('message', {}).get('content'):
+-                content = response_data['choices'][0]['message']['content']
++            response_message = choices[0].get('message', {}) if choices else {}
++            content = response_message.get('content')
++            reasoning_content = (
++                response_message.get('reasoning_content')
++                or response_message.get('reasoning')
++                or response_message.get('thinking')
++            )
++
++            if choices and (content or reasoning_content):
++                content = content or ''
+
+-                if content:
++                if content or reasoning_content:
+                     await event_emitter(
+                         {
+                             'type': 'chat:completion',
+@@ -3108,7 +3128,29 @@ async def non_streaming_chat_response_handler(response, ctx):
+                     # otherwise generate from response content
+                     response_output = response_data.get('output')
+                     if not response_output:
+-                        response_output = [
++                        response_output = []
++                        if reasoning_content:
++                            response_output.append(
++                                {
++                                    'type': 'reasoning',
++                                    'id': output_id('r'),
++                                    'status': 'completed',
++                                    'start_tag': '<think>',
++                                    'end_tag': '</think>',
++                                    'attributes': {'type': 'reasoning_content'},
++                                    'content': [
++                                        {
++                                            'type': 'output_text',
++                                            'text': reasoning_content,
++                                        }
++                                    ],
++                                    'summary': None,
++                                    'started_at': time.time(),
++                                    'ended_at': time.time(),
++                                    'duration': 0,
++                                }
++                            )
++                        response_output.append(
+                             {
+                                 'type': 'message',
+                                 'id': output_id('msg'),
+@@ -3116,7 +3158,7 @@ async def non_streaming_chat_response_handler(response, ctx):
+                                 'role': 'assistant',
+                                 'content': [{'type': 'output_text', 'text': content}],
+                             }
+-                        ]
++                        )
+
+                     await event_emitter(
+                         {
