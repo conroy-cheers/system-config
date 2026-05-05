@@ -1,0 +1,16 @@
+diff --git a/vllm/v1/attention/ops/triton_decode_attention.py b/vllm/v1/attention/ops/triton_decode_attention.py
+index 3a4b5c6d7..9d8c7b6a5 100644
+--- a/vllm/v1/attention/ops/triton_decode_attention.py
++++ b/vllm/v1/attention/ops/triton_decode_attention.py
+@@ -481,7 +481,10 @@ def _decode_grouped_att_m_fwd(
+     batch, head_num = q.shape[0], q.shape[1]
+     kv_group_num = q.shape[1] // k_buffer.shape[-2]
+ 
+-    BLOCK_H = 16
++    # Size the head tile to the actual GQA group. The kernel masks out invalid
++    # heads, but a fixed 16-way tile still allocates 16 x BLOCK_DV accumulators.
++    # Gemma4 E4B uses a group size of 4, so this materially reduces register use.
++    BLOCK_H = min(16, triton.next_power_of_2(kv_group_num))
+     NUM_KV_SPLITS = num_kv_splits
+     grid = (
+         batch,

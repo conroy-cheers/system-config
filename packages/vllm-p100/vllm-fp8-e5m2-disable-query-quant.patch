@@ -1,0 +1,55 @@
+diff --git a/vllm/model_executor/layers/attention/attention.py b/vllm/model_executor/layers/attention/attention.py
+index 2c7a3a3aa..f9e4d8c86 100644
+--- a/vllm/model_executor/layers/attention/attention.py
++++ b/vllm/model_executor/layers/attention/attention.py
+@@ -397,6 +397,7 @@ class Attention(nn.Module):
+             and (
+                 self.kv_cache_dtype.startswith("fp8") or self.kv_cache_dtype == "nvfp4"
+             )
++            and self.kv_cache_dtype != "fp8_e5m2"
+             and not self.kv_cache_dtype.endswith("per_token_head")
+         ):
+             is_per_head = (
+diff --git a/vllm/v1/attention/ops/triton_reshape_and_cache_flash.py b/vllm/v1/attention/ops/triton_reshape_and_cache_flash.py
+index 1fb8501aa..821d81453 100644
+--- a/vllm/v1/attention/ops/triton_reshape_and_cache_flash.py
++++ b/vllm/v1/attention/ops/triton_reshape_and_cache_flash.py
+@@ -353,7 +353,9 @@ def triton_reshape_and_cache_flash(
+         f"unsupported kv_cache_dtype (str), got {kv_cache_dtype}."
+     )
+     kv_cache_torch_dtype = (
+-        current_platform.fp8_dtype()
++        torch.float8_e5m2
++        if kv_cache_dtype == "fp8_e5m2"
++        else current_platform.fp8_dtype()
+         if is_quantized_kv_cache(kv_cache_dtype)
+         else key_cache.dtype
+     )
+@@ -532,7 +534,9 @@ def triton_reshape_and_cache_flash_diffkv(
+         f"unsupported kv_cache_dtype (str), got {kv_cache_dtype}."
+     )
+     kv_cache_torch_dtype = (
+-        current_platform.fp8_dtype()
++        torch.float8_e5m2
++        if kv_cache_dtype == "fp8_e5m2"
++        else current_platform.fp8_dtype()
+         if is_quantized_kv_cache(kv_cache_dtype)
+         else kv_cache.dtype
+     )
+diff --git a/vllm/v1/attention/backends/triton_attn.py b/vllm/v1/attention/backends/triton_attn.py
+index 2f39d85bf..341dbde3e 100644
+--- a/vllm/v1/attention/backends/triton_attn.py
++++ b/vllm/v1/attention/backends/triton_attn.py
+@@ -487,7 +487,11 @@ class TritonAttentionImpl(AttentionImpl):
+         self.num_queries_per_kv = self.num_heads // self.num_kv_heads
+ 
+         self.attn_type = attn_type
+-        self.fp8_dtype = current_platform.fp8_dtype()
++        self.fp8_dtype = (
++            torch.float8_e5m2
++            if kv_cache_dtype == "fp8_e5m2"
++            else current_platform.fp8_dtype()
++        )
+ 
+         self.sinks = sinks
+         if sinks is not None:

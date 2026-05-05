@@ -14,9 +14,64 @@ let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
   vllmPackage = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.vllm-p100;
-  vllmModel = "google/gemma-4-E4B-it";
+  vllmModel = "ciocan/gemma-4-E4B-it-W4A16";
   vllmServedModelName = "gemma4-e4b";
   vllmPort = 8000;
+  vllmGemma4Bench16k = pkgs.writeShellApplication {
+    name = "bench-vllm-gemma4-16k";
+    runtimeInputs = [
+      vllmPackage
+      pkgs.curl
+      pkgs.gawk
+    ];
+    text = ''
+      : "''${VLLM_BASE_URL:=http://127.0.0.1:${toString vllmPort}}"
+      : "''${VLLM_MODEL:=${vllmServedModelName}}"
+      : "''${VLLM_TOKENIZER:=${vllmModel}}"
+      : "''${VLLM_INPUT_TOKENS:=15360}"
+      : "''${VLLM_OUTPUT_TOKENS:=512}"
+      : "''${VLLM_NUM_PROMPTS:=1}"
+      : "''${VLLM_TEMPERATURE:=0}"
+
+      curl -fsS "''${VLLM_BASE_URL}/health" >/dev/null
+
+      result="$(mktemp)"
+      trap 'rm -f "$result"' EXIT
+
+      vllm bench serve \
+        --backend openai-chat \
+        --base-url "$VLLM_BASE_URL" \
+        --endpoint /v1/chat/completions \
+        --model "$VLLM_MODEL" \
+        --served-model-name "$VLLM_MODEL" \
+        --tokenizer "$VLLM_TOKENIZER" \
+        --dataset-name random \
+        --random-input-len "$VLLM_INPUT_TOKENS" \
+        --random-output-len "$VLLM_OUTPUT_TOKENS" \
+        --random-range-ratio 0.0 \
+        --num-prompts "$VLLM_NUM_PROMPTS" \
+        --request-rate 1 \
+        --max-concurrency 1 \
+        --temperature "$VLLM_TEMPERATURE" \
+        --ignore-eos 2>&1 | tee "$result"
+
+      tpot_ms="$(
+        awk -F: '/Mean TPOT/ {
+          value = $2
+          gsub(/^[ \t]+|[ \t]+$/, "", value)
+          print value
+        }' "$result" | tail -n1
+      )"
+
+      if [[ -n "$tpot_ms" ]]; then
+        awk -v tpot="$tpot_ms" 'BEGIN {
+          if (tpot > 0) {
+            printf "Decode throughput from Mean TPOT: %.2f tok/s\n", 1000.0 / tpot
+          }
+        }'
+      fi
+    '';
+  };
   openWebuiPackage = pkgs.open-webui.overridePythonAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [
       ./open-webui-vllm-reasoning-field.patch
@@ -367,9 +422,11 @@ in
         "--generation-config"
         "vllm"
         "--max-model-len"
-        "4096"
+        "16384"
         "--max-num-batched-tokens"
         "4096"
+        "--block-size"
+        "32"
         "--gpu-memory-utilization"
         "0.88"
         "--enable-auto-tool-choice"
@@ -482,6 +539,7 @@ in
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     xdg-utils
+    vllmGemma4Bench16k
     wget
   ];
 
