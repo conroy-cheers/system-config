@@ -91,6 +91,7 @@ let
     patches = (oldAttrs.patches or [ ]) ++ [
       ./open-webui-vllm-reasoning-field.patch
       ./open-webui-default-model-config-env.patch
+      ./open-webui-default-feature-ids.patch
     ];
   });
   openWebuiPort = 8180;

@@ -1,0 +1,21 @@
+diff --git a/backend/open_webui/utils/middleware.py b/backend/open_webui/utils/middleware.py
+index 79f11a320..0d2e3c6f1 100644
+--- a/backend/open_webui/utils/middleware.py
++++ b/backend/open_webui/utils/middleware.py
+@@ -2321,4 +2321,15 @@ async def process_chat_payload(request, form_data, metadata, user, model):
+-    features = form_data.pop('features', None) or {}
++    request_features = form_data.pop('features', None) or {}
++    default_feature_ids = model.get('info', {}).get('meta', {}).get('defaultFeatureIds') or []
++
++    # Model defaults should behave like the frontend toggles were enabled, but
++    # explicit request values still win so a chat can disable a default feature.
++    features = {
++        feature_id: True
++        for feature_id in default_feature_ids
++        if isinstance(feature_id, str) and feature_id
++    }
++    features.update(request_features)
++
+     extra_params['__features__'] = features
+     if features:
+         if 'voice' in features and features['voice']:
