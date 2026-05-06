@@ -29,6 +29,9 @@ let
     };
     defaultFeatureIds = [ "web_search" ];
   };
+  openWebuiDefaultModelParams = {
+    function_calling = "native";
+  };
   vllmGemma4Bench16k = pkgs.writeShellApplication {
     name = "bench-vllm-gemma4-16k";
     runtimeInputs = [
@@ -398,6 +401,7 @@ in
       OPENAI_API_KEY = "local-vllm";
       DEFAULT_MODELS = vllmServedModelName;
       DEFAULT_MODEL_METADATA = builtins.toJSON openWebuiDefaultModelMetadata;
+      DEFAULT_MODEL_PARAMS = builtins.toJSON openWebuiDefaultModelParams;
       WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
       WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
       WEBUI_AUTH_TRUSTED_GROUPS_HEADER = "Remote-Groups";
