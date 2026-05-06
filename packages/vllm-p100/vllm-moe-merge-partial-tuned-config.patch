@@ -1,0 +1,21 @@
+diff --git a/vllm/model_executor/layers/fused_moe/fused_moe.py b/vllm/model_executor/layers/fused_moe/fused_moe.py
+index d9e6e9281..f3fd6f88b 100644
+--- a/vllm/model_executor/layers/fused_moe/fused_moe.py
++++ b/vllm/model_executor/layers/fused_moe/fused_moe.py
+@@ -1347,7 +1347,14 @@ def try_get_optimal_moe_config(
+         if configs:
+             # If an optimal configuration map has been found, look up the
+-            # optimal config
+-            config = configs[min(configs.keys(), key=lambda x: abs(x - M))]
++            # optimal config and layer it over the default. This lets tuned
++            # files specify only the parameters that differ from the runtime
++            # defaults, which is useful for WNA16 kernels that fill block
++            # parameters later based on the selected CUDA/Triton path.
++            default_config = get_default_config(
++                M, E, N, w1_shape[2], top_k, dtype, block_shape
++            )
++            tuned_config = configs[min(configs.keys(), key=lambda x: abs(x - M))]
++            config = default_config | tuned_config
+         else:
+             # Else use the default config
+             config = get_default_config(M, E, N, w1_shape[2], top_k, dtype, block_shape)
