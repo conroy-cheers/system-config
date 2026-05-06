@@ -376,7 +376,9 @@ in
       ENABLE_WEB_SEARCH = "True";
       WEB_SEARCH_ENGINE = "searxng";
       SEARXNG_QUERY_URL = "http://127.0.0.1:8888/search?q=<query>";
-      WEB_SEARCH_RESULT_COUNT = "5";
+      WEB_SEARCH_RESULT_COUNT = "3";
+      BYPASS_WEB_SEARCH_WEB_LOADER = "True";
+      BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL = "True";
       WEBUI_URL = "https://openwebui.corncheese.org";
       CORS_ALLOW_ORIGIN = "https://openwebui.corncheese.org";
       OPENAI_API_BASE_URL = "http://127.0.0.1:${toString vllmPort}/v1";
