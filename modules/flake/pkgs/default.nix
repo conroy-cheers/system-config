@@ -90,6 +90,13 @@
             allowUnfree = true;
             cudaSupport = true;
           };
+          withCuda60 = mkPkgs {
+            allowUnfree = true;
+            allowUnsupportedSystem = true;
+            cudaSupport = true;
+            cudaCapabilities = [ "6.0" ];
+            cudaForwardCompat = false;
+          };
           withRocm = mkPkgs {
             allowUnfree = true;
             rocmSupport = true;

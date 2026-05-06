@@ -1,0 +1,56 @@
+diff --git a/csrc/moe/moe_wna16.cu b/csrc/moe/moe_wna16.cu
+index 47d142acf..9330146d7 100644
+--- a/csrc/moe/moe_wna16.cu
++++ b/csrc/moe/moe_wna16.cu
+@@ -10,6 +10,40 @@
+ 
+ #define DIVIDE(x, size) (((x) + (size) - 1) / (size))
+ 
++template <typename scalar_t>
++__device__ __forceinline__ void atomic_add_scalar(scalar_t* address,
++                                                  scalar_t value) {
++  atomicAdd(address, value);
++}
++
++template <>
++__device__ __forceinline__ void atomic_add_scalar<half>(half* address,
++                                                        half value) {
++#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 700
++  auto* base = reinterpret_cast<unsigned int*>(
++      reinterpret_cast<uintptr_t>(address) & ~uintptr_t{0x3});
++  const bool high_half = (reinterpret_cast<uintptr_t>(address) & 0x2) != 0;
++
++  unsigned int old = *base;
++  unsigned int assumed;
++  do {
++    assumed = old;
++    const unsigned short old_bits =
++        high_half ? static_cast<unsigned short>(assumed >> 16)
++                  : static_cast<unsigned short>(assumed & 0xffff);
++    const half old_value = __ushort_as_half(old_bits);
++    const half new_value = __hadd(old_value, value);
++    const unsigned int new_bits = __half_as_ushort(new_value);
++    const unsigned int desired =
++        high_half ? ((assumed & 0x0000ffff) | (new_bits << 16))
++                  : ((assumed & 0xffff0000) | new_bits);
++    old = atomicCAS(base, assumed, desired);
++  } while (old != assumed);
++#else
++  atomicAdd(address, value);
++#endif
++}
++
+ template <typename scalar_t, int bit, int GROUPS>
+ __global__ void moe_wna16_gemm_kernel(
+     const scalar_t* __restrict__ input, scalar_t* __restrict__ output,
+@@ -213,8 +247,8 @@ __global__ void moe_wna16_gemm_kernel(
+       if (mul_topk_weight) {
+         res[m] *= topk_weights[token_index];
+       }
+-      atomicAdd(&output[token_index * size_n + offset_n],
+-                Dtype::float2num(res[m]));
++      atomic_add_scalar(&output[token_index * size_n + offset_n],
++                        Dtype::float2num(res[m]));
+     }
+ 
+ #if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ < 800

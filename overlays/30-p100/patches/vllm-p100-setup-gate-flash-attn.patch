@@ -1,0 +1,56 @@
+diff --git a/setup.py b/setup.py
+index 710fa388a..f936db36d 100644
+--- a/setup.py
++++ b/setup.py
+@@ -824,6 +824,33 @@ def _is_cuda() -> bool:
+     return VLLM_TARGET_DEVICE == "cuda" and has_cuda and not _is_tpu()
+ 
+ 
++def _get_requested_cuda_arches() -> list[tuple[int, int]]:
++    arches: list[tuple[int, int]] = []
++    for env_name in (
++        "TORCH_CUDA_ARCH_LIST",
++        "CMAKE_CUDA_ARCHITECTURES",
++        "CUDAARCHS",
++    ):
++        for raw_arch in os.getenv(env_name, "").replace(",", ";").split(";"):
++            arch = raw_arch.strip().removesuffix("+PTX")
++            if not arch:
++                continue
++            if "." in arch:
++                major, minor = arch.split(".", 1)
++            elif len(arch) >= 2 and arch.isdigit():
++                major, minor = arch[:-1], arch[-1]
++            else:
++                continue
++            if major.isdigit() and minor.isdigit():
++                arches.append((int(major), int(minor)))
++    return arches
++
++
++def _has_requested_cuda_arch_at_least(major: int, minor: int) -> bool:
++    arches = _get_requested_cuda_arches()
++    return not arches or any(arch >= (major, minor) for arch in arches)
++
++
+ def _is_hip() -> bool:
+     return (
+         VLLM_TARGET_DEVICE == "cuda" or VLLM_TARGET_DEVICE == "rocm"
+@@ -996,7 +1023,7 @@ if _is_hip():
+     ext_modules.append(CMakeExtension(name="vllm._rocm_C"))
+ 
+-if _is_cuda():
+-    ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
++if _is_cuda() and _has_requested_cuda_arch_at_least(7, 5):
++    ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
+     if envs.VLLM_USE_PRECOMPILED or (
+         CUDA_HOME and get_nvcc_cuda_version() >= Version("12.3")
+     ):
+@@ -1008,6 +1035,7 @@ if _is_cuda():
+     ext_modules.append(
+         CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa4_cutedsl_C", optional=True)
+     )
++if _is_cuda():
+     if envs.VLLM_USE_PRECOMPILED or (
+         CUDA_HOME and get_nvcc_cuda_version() >= Version("12.9")
+     ):

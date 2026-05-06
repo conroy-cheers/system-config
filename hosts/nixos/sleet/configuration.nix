@@ -13,7 +13,7 @@
 let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
-  vllmPackage = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.vllm-p100;
+  vllmPackage = pkgs.python3Packages.vllm;
   vllmModel = "lcu0312/gemma-4-26B-A4B-it-AWQ-4bit";
   vllmServedModelName = "gemma4-26b-a4b";
   vllmPort = 8000;
@@ -609,7 +609,7 @@ in
         "--reasoning-parser"
         "gemma4"
         "--chat-template"
-        "${inputs.vllm-src}/examples/tool_chat_template_gemma4.jinja"
+        "${vllmPackage.src}/examples/tool_chat_template_gemma4.jinja"
         "--default-chat-template-kwargs"
         ''{"enable_thinking": false}''
         "--limit-mm-per-prompt"

@@ -1,0 +1,12 @@
+diff --git a/requirements/cuda.txt b/requirements/cuda.txt
+index 22477dc82..84fe34730 100644
+--- a/requirements/cuda.txt
++++ b/requirements/cuda.txt
+@@ -20,7 +20,3 @@ nvidia-cudnn-frontend>=1.13.0,<1.19.0
+ 
+ # Required for faster safetensors model loading
+ fastsafetensors >= 0.2.2
+-
+-# QuACK and Cutlass DSL for FA4 (cute-DSL implementation)
+-nvidia-cutlass-dsl>=4.4.2
+-quack-kernels>=0.3.3

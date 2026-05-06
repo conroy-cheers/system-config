@@ -1,0 +1,50 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6d6dcf3bc..2256ca93b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -97,12 +97,12 @@ if(DEFINED CMAKE_CUDA_COMPILER_VERSION AND
+    # starting from CUDA 12.9 and Blackwell (10.0), we use family-specific targets (10.0f, 12.0f, etc)
+    # to support the whole generation without specifying all sub-architectures
+    # see: https://developer.nvidia.com/blog/nvidia-blackwell-and-nvidia-cuda-12-9-introduce-family-specific-architecture-features/
+-  set(CUDA_SUPPORTED_ARCHS "7.5;8.0;8.6;8.7;8.9;9.0;10.0;11.0;12.0")
++  set(CUDA_SUPPORTED_ARCHS "6.0;6.1;7.5;8.0;8.6;8.7;8.9;9.0;10.0;11.0;12.0")
+ elseif(DEFINED CMAKE_CUDA_COMPILER_VERSION AND
+    CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.8)
+-  set(CUDA_SUPPORTED_ARCHS "7.5;8.0;8.6;8.7;8.9;9.0;10.0;10.1;10.3;12.0;12.1")
++  set(CUDA_SUPPORTED_ARCHS "6.0;6.1;7.5;8.0;8.6;8.7;8.9;9.0;10.0;10.1;10.3;12.0;12.1")
+ else()
+-  set(CUDA_SUPPORTED_ARCHS "7.0;7.5;8.0;8.6;8.7;8.9;9.0")
++  set(CUDA_SUPPORTED_ARCHS "6.0;6.1;7.0;7.5;8.0;8.6;8.7;8.9;9.0")
+ endif()
+ 
+ #
+@@ -1246,10 +1246,27 @@ endif()
+ 
+ # For CUDA we also build and ship some external projects.
+ if (VLLM_GPU_LANG STREQUAL "CUDA")
+-    include(cmake/external_projects/deepgemm.cmake)
++    cuda_archs_loose_intersection(VLLM_DEEPGEMM_ARCHS
++      "9.0a;10.0f;10.0a"
++      "${CUDA_ARCHS}")
++    if(VLLM_DEEPGEMM_ARCHS)
++      include(cmake/external_projects/deepgemm.cmake)
++    else()
++      message(STATUS "Not building DeepGEMM as no compatible archs found"
++                     " in CUDA target architectures")
++      add_custom_target(_deep_gemm_C)
++    endif()
+     include(cmake/external_projects/flashmla.cmake)
+     include(cmake/external_projects/qutlass.cmake)
+ 
+     # vllm-flash-attn should be last as it overwrites some CMake functions
+-    include(cmake/external_projects/vllm_flash_attn.cmake)
++    cuda_archs_loose_intersection(VLLM_FLASH_ATTN_ARCHS
++      "7.5;8.0;8.6;8.9;9.0;9.0a;10.0;10.0a;10.3;12.0;12.1"
++      "${CUDA_ARCHS}")
++    if(VLLM_FLASH_ATTN_ARCHS)
++      include(cmake/external_projects/vllm_flash_attn.cmake)
++    else()
++      message(STATUS "Not building vllm-flash-attn as no compatible archs found"
++                     " in CUDA target architectures")
++    endif()
+ endif ()
