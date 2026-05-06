@@ -32,6 +32,14 @@ let
   openWebuiDefaultModelParams = {
     function_calling = "native";
   };
+  openWebuiDefaultSystemPrompt = ''
+    Runtime context:
+    - Current date: {{CURRENT_DATE}}
+    - Current time: {{CURRENT_TIME}}
+    - Current weekday: {{CURRENT_WEEKDAY}}
+
+    Use this runtime context for date-relative questions. Answer in the user's language. If the user's language is ambiguous, answer in English.
+  '';
   vllmGemma4Bench16k = pkgs.writeShellApplication {
     name = "bench-vllm-gemma4-16k";
     runtimeInputs = [
@@ -92,6 +100,7 @@ let
       ./open-webui-vllm-reasoning-field.patch
       ./open-webui-default-model-config-env.patch
       ./open-webui-default-feature-ids.patch
+      ./open-webui-default-system-prompt-env.patch
     ];
   });
   openWebuiPort = 8180;
@@ -403,6 +412,7 @@ in
       DEFAULT_MODELS = vllmServedModelName;
       DEFAULT_MODEL_METADATA = builtins.toJSON openWebuiDefaultModelMetadata;
       DEFAULT_MODEL_PARAMS = builtins.toJSON openWebuiDefaultModelParams;
+      DEFAULT_SYSTEM_PROMPT = openWebuiDefaultSystemPrompt;
       WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
       WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
       WEBUI_AUTH_TRUSTED_GROUPS_HEADER = "Remote-Groups";

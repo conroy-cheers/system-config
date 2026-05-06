@@ -1,0 +1,33 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index 8d5cb52bb..965bf900a 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -1216,0 +1217,6 @@ DEFAULT_PROMPT_SUGGESTIONS = PersistentConfig(
++DEFAULT_SYSTEM_PROMPT = PersistentConfig(
++    'DEFAULT_SYSTEM_PROMPT',
++    'ui.default_system_prompt',
++    os.environ.get('DEFAULT_SYSTEM_PROMPT', ''),
++)
++
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index 9fde6de58..3695fa5b8 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -396,0 +397 @@ from open_webui.config import (
++    DEFAULT_SYSTEM_PROMPT,
+@@ -852,0 +854 @@ app.state.config.DEFAULT_PROMPT_SUGGESTIONS = DEFAULT_PROMPT_SUGGESTIONS
++app.state.config.DEFAULT_SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
+diff --git a/backend/open_webui/utils/middleware.py b/backend/open_webui/utils/middleware.py
+index 79f11a320..d1e1bbe92 100644
+--- a/backend/open_webui/utils/middleware.py
++++ b/backend/open_webui/utils/middleware.py
+@@ -2183,0 +2184,9 @@ async def process_chat_payload(request, form_data, metadata, user, model):
++    default_system_prompt = getattr(request.app.state.config, 'DEFAULT_SYSTEM_PROMPT', '')
++    if default_system_prompt:
++        try:
++            form_data = apply_system_prompt_to_body(
++                default_system_prompt, form_data, metadata, user
++            )
++        except Exception:
++            pass
++
