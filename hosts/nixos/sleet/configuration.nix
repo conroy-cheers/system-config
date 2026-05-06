@@ -384,6 +384,18 @@ in
       OPENAI_API_BASE_URL = "http://127.0.0.1:${toString vllmPort}/v1";
       OPENAI_API_KEY = "local-vllm";
       DEFAULT_MODELS = vllmServedModelName;
+      DEFAULT_MODEL_METADATA = builtins.toJSON {
+        capabilities = {
+          web_search = true;
+          builtin_tools = true;
+          citations = true;
+          status_updates = true;
+          file_context = true;
+          file_upload = true;
+          vision = true;
+        };
+        defaultFeatureIds = [ "web_search" ];
+      };
       WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
       WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
       WEBUI_AUTH_TRUSTED_GROUPS_HEADER = "Remote-Groups";
