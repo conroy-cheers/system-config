@@ -347,6 +347,22 @@ in
     "video"
   ];
 
+  services.searx = {
+    enable = true;
+    settings = {
+      use_default_settings = true;
+      server = {
+        bind_address = "127.0.0.1";
+        port = 8888;
+        secret_key = "local-openwebui-searxng";
+      };
+      search.formats = [
+        "html"
+        "json"
+      ];
+    };
+  };
+
   services.open-webui = {
     enable = true;
     package = openWebuiPackage;
@@ -357,6 +373,10 @@ in
       ENABLE_LOGIN_FORM = "False";
       ENABLE_PASSWORD_CHANGE_FORM = "False";
       ENABLE_PERSISTENT_CONFIG = "False";
+      ENABLE_WEB_SEARCH = "True";
+      WEB_SEARCH_ENGINE = "searxng";
+      SEARXNG_QUERY_URL = "http://127.0.0.1:8888/search?q=<query>";
+      WEB_SEARCH_RESULT_COUNT = "5";
       WEBUI_URL = "https://openwebui.corncheese.org";
       CORS_ALLOW_ORIGIN = "https://openwebui.corncheese.org";
       OPENAI_API_BASE_URL = "http://127.0.0.1:${toString vllmPort}/v1";
