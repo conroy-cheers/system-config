@@ -26,6 +26,7 @@ let
     "vllm-flash-attn"
     "xformers"
   ];
+  expectedNixpkgsVllmBaseVersion = "0.16.0";
   isCmakeFlagFor = name: flag: lib.hasPrefix "-D${name}=" flag || lib.hasPrefix "-D${name}:" flag;
   packageName = package: package.pname or (lib.getName package);
   keepDependency = package: !(builtins.elem (packageName package) optionalCudaDependenciesToDrop);
@@ -238,6 +239,8 @@ let
     torch = torchPascal;
   };
 in
+assert lib.assertMsg (python3Packages.vllm.version == expectedNixpkgsVllmBaseVersion)
+  "vllm-p100 inherits nixpkgs vLLM packaging internals; review packages/vllm-p100/default.nix before changing the base from ${expectedNixpkgsVllmBaseVersion} to ${python3Packages.vllm.version}.";
 base.overridePythonAttrs (oldAttrs: {
   pname = "vllm-p100";
   version = "0.20.0+p100";
@@ -264,28 +267,36 @@ base.overridePythonAttrs (oldAttrs: {
       ./vllm-triton-decode-gqa-block-h.patch
     ];
 
-  postPatch =
-    (builtins.replaceStrings
-      [
-        ''
-          substituteInPlace pyproject.toml \
-            --replace-fail "torch ==" "torch >=" \
-            --replace-fail "setuptools>=77.0.3,<81.0.0" "setuptools" \
-            --replace-fail "grpcio-tools==1.78.0" "grpcio"
-        ''
-      ]
-      [
-        ''
-          substituteInPlace pyproject.toml \
-            --replace-fail "torch ==" "torch >=" \
-            --replace-fail "setuptools>=77.0.3,<81.0.0" "setuptools"
-        ''
-      ]
-      (oldAttrs.postPatch or "")
-    )
-    + ''
-      find . \( -name '*.orig' -o -name '*.rej' \) -delete
-    '';
+  # Keep this local instead of rewriting oldAttrs.postPatch: this package is
+  # intentionally based on the nixpkgs vLLM 0.16 packaging scaffold while
+  # building the pinned 0.20.0 fork, so inherited patch script drift should be
+  # reviewed explicitly.
+  postPatch = ''
+    # Remove vendored pynvml entirely.
+    rm vllm/third_party/pynvml.py
+    substituteInPlace tests/utils.py \
+      --replace-fail \
+        "from vllm.third_party.pynvml import" \
+        "from pynvml import"
+    substituteInPlace vllm/utils/import_utils.py \
+      --replace-fail \
+        "import vllm.third_party.pynvml as pynvml" \
+        "import pynvml"
+
+    # pythonRelaxDeps does not cover build-system.
+    substituteInPlace pyproject.toml \
+      --replace-fail "torch ==" "torch >=" \
+      --replace-fail "setuptools>=77.0.3,<81.0.0" "setuptools"
+
+    # Ignore the python version check because it hard-codes minor versions and
+    # lags behind `ray`'s python interpreter support.
+    substituteInPlace CMakeLists.txt \
+      --replace-fail \
+        'set(PYTHON_SUPPORTED_VERSIONS' \
+        'set(PYTHON_SUPPORTED_VERSIONS "3.13"'
+
+    find . \( -name '*.orig' -o -name '*.rej' \) -delete
+  '';
 
   dependencies = vllmDependencies (oldAttrs.dependencies or [ ]) ++ audioRuntimeDependencies;
   propagatedBuildInputs = vllmDependencies (oldAttrs.propagatedBuildInputs or [ ]) ++ audioRuntimeDependencies;

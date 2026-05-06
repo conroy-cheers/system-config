@@ -17,6 +17,11 @@ let
   vllmModel = "lcu0312/gemma-4-26B-A4B-it-AWQ-4bit";
   vllmServedModelName = "gemma4-26b-a4b";
   vllmPort = 8000;
+  vllmMmLimits = {
+    image = 1;
+    audio = 0;
+    video = 0;
+  };
   openWebuiDefaultModelMetadata = {
     capabilities = {
       web_search = true;
@@ -31,6 +36,11 @@ let
   };
   openWebuiDefaultModelParams = {
     function_calling = "native";
+    custom_params = {
+      chat_template_kwargs = {
+        enable_thinking = true;
+      };
+    };
   };
   openWebuiDefaultSystemPrompt = ''
     Runtime context:
@@ -95,10 +105,121 @@ let
       fi
     '';
   };
+  vllmGemma4Smoke = pkgs.writeShellApplication {
+    name = "smoke-vllm-gemma4";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.curl
+      pkgs.imagemagick
+      pkgs.jq
+      pkgs.sox
+    ];
+    text = ''
+      : "''${VLLM_BASE_URL:=http://127.0.0.1:${toString vllmPort}}"
+      : "''${VLLM_MODEL:=${vllmServedModelName}}"
+
+      request() {
+        local name="$1"
+        local payload="$2"
+        local response
+
+        response="$(mktemp)"
+        curl -fsS "''${VLLM_BASE_URL}/v1/chat/completions" \
+          -H 'content-type: application/json' \
+          -d "$payload" > "$response"
+
+        jq -e '.choices[0].message.content | type == "string" and length > 0' "$response" >/dev/null
+        printf '%s: ok\n' "$name"
+        rm -f "$response"
+      }
+
+      curl -fsS "''${VLLM_BASE_URL}/health" >/dev/null
+
+      request text "$(
+        jq -cn --arg model "$VLLM_MODEL" '{
+          model: $model,
+          messages: [{role: "user", content: "Reply with exactly: ok"}],
+          max_tokens: 64,
+          temperature: 0
+        }'
+      )"
+
+      thinking_response="$(mktemp)"
+      curl -fsS "''${VLLM_BASE_URL}/v1/chat/completions" \
+        -H 'content-type: application/json' \
+        -d "$(
+          jq -cn --arg model "$VLLM_MODEL" '{
+            model: $model,
+            messages: [{role: "user", content: "Give one short fun fact about Rome."}],
+            max_tokens: 1024,
+            temperature: 0,
+            chat_template_kwargs: {enable_thinking: true}
+          }'
+        )" > "$thinking_response"
+      jq -e '
+        (.choices[0].message.content | type == "string" and length > 0)
+        and (
+          ((.choices[0].message.reasoning_content // .choices[0].message.reasoning // .choices[0].message.thinking // "") | type == "string")
+        )
+      ' "$thinking_response" >/dev/null
+      rm -f "$thinking_response"
+      printf 'thinking: ok\n'
+
+      tmpdir="$(mktemp -d)"
+      trap 'rm -rf "$tmpdir"' EXIT
+
+      magick -size 32x32 xc:red "$tmpdir/red.png"
+      image_b64="$(base64 -w0 "$tmpdir/red.png")"
+      request image "$(
+        jq -cn --arg model "$VLLM_MODEL" --arg image "data:image/png;base64,$image_b64" '{
+          model: $model,
+          messages: [{
+            role: "user",
+            content: [
+              {type: "text", text: "What is the dominant color in this image? Answer with one word."},
+              {type: "image_url", image_url: {url: $image}}
+            ]
+          }],
+          max_tokens: 64,
+          temperature: 0
+        }'
+      )"
+
+      sox -n -r 16000 -c 1 "$tmpdir/tone.wav" synth 0.25 sine 440 vol 0.2
+      audio_b64="$(base64 -w0 "$tmpdir/tone.wav")"
+      audio_response="$(mktemp)"
+      audio_status="$(
+        curl -sS -o "$audio_response" -w '%{http_code}' "''${VLLM_BASE_URL}/v1/chat/completions" \
+          -H 'content-type: application/json' \
+          -d "$(
+        jq -cn --arg model "$VLLM_MODEL" --arg audio "data:audio/wav;base64,$audio_b64" '{
+          model: $model,
+          messages: [{
+            role: "user",
+            content: [
+              {type: "text", text: "Briefly describe this audio."},
+              {type: "audio_url", audio_url: {url: $audio}}
+            ]
+          }],
+          max_tokens: 96,
+          temperature: 0
+        }'
+          )"
+      )"
+      if [ "$audio_status" != 400 ]; then
+        cat "$audio_response"
+        exit 1
+      fi
+      jq -e '.error.message | type == "string" and test("audio"; "i")' "$audio_response" >/dev/null
+      rm -f "$audio_response"
+      printf 'audio-disabled: ok\n'
+    '';
+  };
   openWebuiPackage = pkgs.open-webui.overridePythonAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [
       ./open-webui-vllm-reasoning-field.patch
       ./open-webui-default-model-config-env.patch
+      ./open-webui-default-model-params.patch
       ./open-webui-default-feature-ids.patch
       ./open-webui-default-system-prompt-env.patch
     ];
@@ -490,9 +611,9 @@ in
         "--chat-template"
         "${inputs.vllm-src}/examples/tool_chat_template_gemma4.jinja"
         "--default-chat-template-kwargs"
-        ''{"enable_thinking": true}''
+        ''{"enable_thinking": false}''
         "--limit-mm-per-prompt"
-        ''{"image": 1, "audio": 1, "video": 0}''
+        (builtins.toJSON vllmMmLimits)
       ];
       Restart = "on-failure";
       RestartSec = "10s";
@@ -593,6 +714,7 @@ in
   environment.systemPackages = with pkgs; [
     xdg-utils
     vllmGemma4Bench16k
+    vllmGemma4Smoke
     wget
   ];
 

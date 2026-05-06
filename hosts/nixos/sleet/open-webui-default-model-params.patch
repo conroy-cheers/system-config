@@ -1,0 +1,74 @@
+diff --git a/backend/open_webui/main.py b/backend/open_webui/main.py
+index 9fde6de58..2bfe7de4d 100644
+--- a/backend/open_webui/main.py
++++ b/backend/open_webui/main.py
+@@ -1,4 +1,5 @@
+ import asyncio
++import copy
+ import inspect
+ import json
+ import logging
+@@ -99,6 +100,7 @@ from open_webui.models.functions import Functions
+ from open_webui.models.models import Models
+ from open_webui.models.users import UserModel, Users
+ from open_webui.models.chats import Chats
++from open_webui.utils.misc import deep_update
+ 
+ from open_webui.config import (
+     # Ollama
+@@ -1680,6 +1681,9 @@ async def chat_completion(
+             **default_model_params,
+             **(model_info.params.model_dump() if model_info and model_info.params else {}),
+         }
++        if model_info_params:
++            request_params = form_data.get('params') or {}
++            form_data['params'] = deep_update(copy.deepcopy(model_info_params), request_params)
+ 
+         # Check base model existence for custom models
+         if model_info and model_info.base_model_id:
+diff --git a/backend/open_webui/utils/chat.py b/backend/open_webui/utils/chat.py
+index b38d4a0b3..0ad9942e 100644
+--- a/backend/open_webui/utils/chat.py
++++ b/backend/open_webui/utils/chat.py
+@@ -1,3 +1,4 @@
++import copy
+ import time
+ import logging
+ import sys
+@@ -37,7 +38,10 @@ from open_webui.models.functions import Functions
+ from open_webui.models.models import Models
+ 
+ from open_webui.utils.models import get_all_models, check_model_access
+-from open_webui.utils.payload import convert_payload_openai_to_ollama
++from open_webui.utils.payload import (
++    apply_model_params_to_body_openai,
++    convert_payload_openai_to_ollama,
++)
+ from open_webui.utils.response import (
+     convert_response_ollama_to_openai,
+     convert_streaming_response_ollama_to_openai,
+@@ -292,6 +296,25 @@ async def generate_chat_completion(
+                 return convert_response_ollama_to_openai(response)
+         else:
++            default_model_params = getattr(request.app.state.config, 'DEFAULT_MODEL_PARAMS', None) or {}
++            if default_model_params:
++                request_form_data = copy.deepcopy(form_data)
++                form_data = apply_model_params_to_body_openai(copy.deepcopy(default_model_params), form_data)
++
++                # Defaults are applied at the final provider handoff so middleware
++                # cannot drop provider-specific fields such as vLLM's
++                # `chat_template_kwargs`. Caller-provided top-level fields still
++                # win over declarative defaults.
++                form_data = {
++                    **form_data,
++                    **request_form_data,
++                }
++
++                custom_params = default_model_params.get('custom_params', {})
++                chat_template_kwargs = custom_params.get('chat_template_kwargs')
++                if isinstance(chat_template_kwargs, dict) and not isinstance(form_data.get('chat_template_kwargs'), dict):
++                    form_data['chat_template_kwargs'] = copy.deepcopy(chat_template_kwargs)
++
+             return await generate_openai_chat_completion(
+                 request=request,
+                 form_data=form_data,
