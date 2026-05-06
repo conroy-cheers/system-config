@@ -10,6 +10,8 @@
 
   networking.extraHosts = ''
     127.0.0.1 sleet.local
+    10.1.1.120 snow.lan infra-traefik.lan
+    10.1.0.203 mqtt.lan
   '';
 
   age.secrets."home.wifi.conf" = {

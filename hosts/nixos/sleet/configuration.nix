@@ -90,6 +90,7 @@ in
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix
+    ./home-assistant.nix
     inputs.corncheese-server.nixosModules.corncheese-server
   ];
 

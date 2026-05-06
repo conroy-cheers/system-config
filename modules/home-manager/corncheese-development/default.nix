@@ -817,6 +817,18 @@ in
           identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
           identitiesOnly = true;
         };
+        "snow" = {
+          hostname = "10.1.1.120";
+          user = "conroy";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          identitiesOnly = true;
+        };
+        "snow-bastion" = {
+          hostname = "corncheese.org";
+          user = "conroy";
+          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          identitiesOnly = true;
+        };
         "pve" = {
           hostname = "10.1.1.3";
           user = "root";
