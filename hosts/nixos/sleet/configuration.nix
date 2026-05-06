@@ -17,6 +17,18 @@ let
   vllmModel = "lcu0312/gemma-4-26B-A4B-it-AWQ-4bit";
   vllmServedModelName = "gemma4-26b-a4b";
   vllmPort = 8000;
+  openWebuiDefaultModelMetadata = {
+    capabilities = {
+      web_search = true;
+      builtin_tools = true;
+      citations = true;
+      status_updates = true;
+      file_context = true;
+      file_upload = true;
+      vision = true;
+    };
+    defaultFeatureIds = [ "web_search" ];
+  };
   vllmGemma4Bench16k = pkgs.writeShellApplication {
     name = "bench-vllm-gemma4-16k";
     runtimeInputs = [
@@ -75,6 +87,7 @@ let
   openWebuiPackage = pkgs.open-webui.overridePythonAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [
       ./open-webui-vllm-reasoning-field.patch
+      ./open-webui-default-model-config-env.patch
     ];
   });
   openWebuiPort = 8180;
@@ -384,18 +397,7 @@ in
       OPENAI_API_BASE_URL = "http://127.0.0.1:${toString vllmPort}/v1";
       OPENAI_API_KEY = "local-vllm";
       DEFAULT_MODELS = vllmServedModelName;
-      DEFAULT_MODEL_METADATA = builtins.toJSON {
-        capabilities = {
-          web_search = true;
-          builtin_tools = true;
-          citations = true;
-          status_updates = true;
-          file_context = true;
-          file_upload = true;
-          vision = true;
-        };
-        defaultFeatureIds = [ "web_search" ];
-      };
+      DEFAULT_MODEL_METADATA = builtins.toJSON openWebuiDefaultModelMetadata;
       WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
       WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
       WEBUI_AUTH_TRUSTED_GROUPS_HEADER = "Remote-Groups";

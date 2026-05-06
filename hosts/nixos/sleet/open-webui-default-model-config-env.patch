@@ -1,0 +1,18 @@
+diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
+index 8d5cb52bb..5e53a735c 100644
+--- a/backend/open_webui/config.py
++++ b/backend/open_webui/config.py
+@@ -1223,5 +1223,5 @@
+ DEFAULT_MODEL_METADATA = PersistentConfig(
+     'DEFAULT_MODEL_METADATA',
+     'models.default_metadata',
+-    {},
++    json.loads(os.environ.get('DEFAULT_MODEL_METADATA', '{}')),
+ )
+@@ -1229,5 +1229,5 @@
+ DEFAULT_MODEL_PARAMS = PersistentConfig(
+     'DEFAULT_MODEL_PARAMS',
+     'models.default_params',
+-    {},
++    json.loads(os.environ.get('DEFAULT_MODEL_PARAMS', '{}')),
+ )
