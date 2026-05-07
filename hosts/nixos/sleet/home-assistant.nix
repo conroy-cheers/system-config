@@ -44,6 +44,13 @@ in
 
       frontend.themes = "!include_dir_merge_named themes";
 
+      panel_iframe.zigbee2mqtt = {
+        title = "Zigbee2MQTT";
+        icon = "mdi:zigbee";
+        url = "https://zigbee.home.conroycheers.me";
+        require_admin = true;
+      };
+
       tts = [
         { platform = "google_translate"; }
       ];
@@ -94,6 +101,25 @@ in
     };
   };
 
+  # The HAOS migration imported Zigbee2MQTT's runtime data here, including the
+  # existing coordinator, MQTT, device, and group configuration. Run Z2M against
+  # that data directory so Home Assistant keeps seeing the same MQTT devices.
+  systemd.services.zigbee2mqtt = {
+    description = "Zigbee2MQTT";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    environment.ZIGBEE2MQTT_DATA = "/var/lib/hass/zigbee2mqtt";
+    serviceConfig = {
+      User = "hass";
+      Group = "hass";
+      WorkingDirectory = "/var/lib/hass/zigbee2mqtt";
+      ExecStart = lib.getExe pkgs.zigbee2mqtt;
+      Restart = "on-failure";
+      RestartSec = "10s";
+    };
+  };
+
   # Keep the old HAOS LAN address alive on sleet during and after cutover so
   # homeassistant.lan and integrations that pinned the old IP keep working.
   systemd.services.home-assistant-legacy-address = {
@@ -110,7 +136,10 @@ in
   };
 
   systemd.services.home-assistant = {
-    wants = [ "home-assistant-legacy-address.service" ];
+    wants = [
+      "home-assistant-legacy-address.service"
+      "zigbee2mqtt.service"
+    ];
     after = [ "home-assistant-legacy-address.service" ];
   };
 }

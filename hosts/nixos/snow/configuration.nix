@@ -153,6 +153,11 @@ in
             service = "home-assistant";
             middlewares = auth;
           };
+          zigbee2mqtt = mkRouter {
+            rule = "Host(`zigbee.home.conroycheers.me`)";
+            service = "zigbee2mqtt";
+            middlewares = auth;
+          };
           matrix = mkRouter {
             rule = "Host(`matrix.corncheese.org`) || Host(`sygnal.corncheese.org`) || Host(`dimension.corncheese.org`) || Host(`element.corncheese.org`) || Host(`goneb.corncheese.org`) || Host(`stats.corncheese.org`) || Host(`jitsi.corncheese.org`) || Host(`wsproxy.corncheese.org`)";
             service = "matrix";
@@ -310,6 +315,7 @@ in
           authentik = mkService "http://${beluga}:9000";
           authelia = mkService "http://${sleet}:9091";
           home-assistant = mkService "http://${sleet}:8123";
+          zigbee2mqtt = mkService "http://${sleet}:8099";
           matrix = mkService "http://matrix.lan:81";
           matrix-federation = mkService "http://matrix.lan:8449";
           matrix-well-known = mkService "http://matrix.lan:81";
