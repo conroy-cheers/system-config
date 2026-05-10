@@ -14,6 +14,7 @@ in
     fonts = {
       packages = with pkgs; [
         themeDetails.fontPkg
+        adwaita-fonts
         noto-fonts-cjk-sans
         noto-fonts-cjk-serif
       ];
