@@ -61,29 +61,6 @@ let
     '';
   };
 
-  oh-my-codex-wrapped = pkgs.symlinkJoin {
-    name = "omx-wrapped";
-    paths = [ inputs.llm-agents.packages.${meta.system}.oh-my-codex ];
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-    postBuild = ''
-      wrapProgram $out/bin/omx \
-        --prefix PATH : ${
-          lib.makeBinPath [
-            pkgs.ripgrep
-            pkgs.fd
-            pkgs.gnused
-            pkgs.gawk
-            pkgs.jq
-            pkgs.curl
-            pkgs.wget2
-            pkgs.gnutar
-            pkgs.unzip
-            pkgs.just
-          ]
-        }
-    '';
-  };
-
   claude-code-wrapped = pkgs.symlinkJoin {
     name = "claude-code-wrapped";
     paths = [ inputs.llm-agents.packages.${meta.system}.claude-code ];
@@ -682,7 +659,6 @@ in
           tmux
           claude-code-wrapped
           codex-wrapped
-          oh-my-codex-wrapped
 
           hoppscotch
         ]
