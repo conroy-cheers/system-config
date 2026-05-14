@@ -8,7 +8,12 @@
 
 let
   cfg = config.corncheese.wm;
-  inherit (lib) mkEnableOption mkIf mkOption types;
+  inherit (lib)
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    ;
 
   hypr-pkgs = inputs.hyprland.inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
 in
@@ -59,8 +64,7 @@ in
         fonts.fontconfig.enable = true;
 
         programs = {
-          chromium.extraOpts.BrowserThemeColor =
-            lib.mkForce config.lib.stylix.colors.withHashtag.base0D;
+          chromium.extraOpts.BrowserThemeColor = lib.mkForce config.lib.stylix.colors.withHashtag.base0D;
 
           hyprland = {
             enable = true;

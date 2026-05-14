@@ -16,134 +16,134 @@ let
   walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   terminalTuiTransparent = themeDetails.terminalTuiTransparent or false;
   walbridgeApplyScript = pkgs.writeShellScript "walbridge-apply-runtime" ''
-    set -euo pipefail
+        set -euo pipefail
 
-    palette_path="''${1:?usage: walbridge-apply-runtime <palette.json>}"
+        palette_path="''${1:?usage: walbridge-apply-runtime <palette.json>}"
 
-    # Rebuild the palette with walbridge-extract using the wallpaper
-    # referenced by the current pywal-produced palette. This replaces
-    # pywal's extraction (which picks muddy dark backgrounds out of
-    # images like our green wallpaper) with our OKLab-based extractor
-    # that filters blacklisted shades.
-    wallpaper="$(${lib.getExe pkgs.jq} -r '.wallpaper // ""' "$palette_path")"
-    if [ -z "$wallpaper" ] || [ ! -f "$wallpaper" ]; then
-      wallpaper=${lib.escapeShellArg (toString themeDetails.wallpaper)}
-    fi
+        # Rebuild the palette with walbridge-extract using the wallpaper
+        # referenced by the current pywal-produced palette. This replaces
+        # pywal's extraction (which picks muddy dark backgrounds out of
+        # images like our green wallpaper) with our OKLab-based extractor
+        # that filters blacklisted shades.
+        wallpaper="$(${lib.getExe pkgs.jq} -r '.wallpaper // ""' "$palette_path")"
+        if [ -z "$wallpaper" ] || [ ! -f "$wallpaper" ]; then
+          wallpaper=${lib.escapeShellArg (toString themeDetails.wallpaper)}
+        fi
 
-    if [ -f "$wallpaper" ]; then
-      rich_palette="$(${lib.getExe' pkgs.coreutils "dirname"} "$palette_path")/palette.json"
-      ${lib.getExe' walbridgeExtractPackage "walbridge-extract"} \
-        --image "$wallpaper" \
-        --colors-out "$palette_path" \
-        --palette-out "$rich_palette" || \
-        echo "walbridge-extract failed, falling back to pywal output" >&2
-    fi
+        if [ -f "$wallpaper" ]; then
+          rich_palette="$(${lib.getExe' pkgs.coreutils "dirname"} "$palette_path")/palette.json"
+          ${lib.getExe' walbridgeExtractPackage "walbridge-extract"} \
+            --image "$wallpaper" \
+            --colors-out "$palette_path" \
+            --palette-out "$rich_palette" || \
+            echo "walbridge-extract failed, falling back to pywal output" >&2
+        fi
 
-    normalized_palette="$palette_path"
-    temp_palette=""
+        normalized_palette="$palette_path"
+        temp_palette=""
 
-    if ! ${lib.getExe pkgs.jq} -e 'has("wallpaper")' "$palette_path" >/dev/null; then
-      temp_palette="$(${lib.getExe' pkgs.coreutils "mktemp"})"
-      ${lib.getExe pkgs.jq} \
-        --arg wallpaper ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
-        '. + { wallpaper: $wallpaper }' \
-        "$palette_path" >"$temp_palette"
-      normalized_palette="$temp_palette"
-    fi
+        if ! ${lib.getExe pkgs.jq} -e 'has("wallpaper")' "$palette_path" >/dev/null; then
+          temp_palette="$(${lib.getExe' pkgs.coreutils "mktemp"})"
+          ${lib.getExe pkgs.jq} \
+            --arg wallpaper ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
+            '. + { wallpaper: $wallpaper }' \
+            "$palette_path" >"$temp_palette"
+          normalized_palette="$temp_palette"
+        fi
 
-    cleanup() {
-      if [ -n "$temp_palette" ]; then
-        rm -f "$temp_palette"
-      fi
-    }
-    trap cleanup EXIT
+        cleanup() {
+          if [ -n "$temp_palette" ]; then
+            rm -f "$temp_palette"
+          fi
+        }
+        trap cleanup EXIT
 
-    ${lib.getExe' walbridgePackage "walbridge"} apply --palette "$normalized_palette"
+        ${lib.getExe' walbridgePackage "walbridge"} apply --palette "$normalized_palette"
 
-    hex_to_rgb() {
-      local hex="''${1#\#}"
-      printf '%d;%d;%d' "0x''${hex:0:2}" "0x''${hex:2:2}" "0x''${hex:4:2}"
-    }
+        hex_to_rgb() {
+          local hex="''${1#\#}"
+          printf '%d;%d;%d' "0x''${hex:0:2}" "0x''${hex:2:2}" "0x''${hex:4:2}"
+        }
 
-    background="$(${lib.getExe pkgs.jq} -r '.special.background // .colors.color0' "$palette_path")"
-    foreground="$(${lib.getExe pkgs.jq} -r '.special.foreground // .colors.color7' "$palette_path")"
-    red="$(${lib.getExe pkgs.jq} -r '.colors.color1' "$palette_path")"
-    green="$(${lib.getExe pkgs.jq} -r '.colors.color2' "$palette_path")"
-    yellow="$(${lib.getExe pkgs.jq} -r '.colors.color3' "$palette_path")"
-    blue="$(${lib.getExe pkgs.jq} -r '.colors.color4' "$palette_path")"
-    magenta="$(${lib.getExe pkgs.jq} -r '.colors.color5' "$palette_path")"
-    cyan="$(${lib.getExe pkgs.jq} -r '.colors.color6' "$palette_path")"
+        background="$(${lib.getExe pkgs.jq} -r '.special.background // .colors.color0' "$palette_path")"
+        foreground="$(${lib.getExe pkgs.jq} -r '.special.foreground // .colors.color7' "$palette_path")"
+        red="$(${lib.getExe pkgs.jq} -r '.colors.color1' "$palette_path")"
+        green="$(${lib.getExe pkgs.jq} -r '.colors.color2' "$palette_path")"
+        yellow="$(${lib.getExe pkgs.jq} -r '.colors.color3' "$palette_path")"
+        blue="$(${lib.getExe pkgs.jq} -r '.colors.color4' "$palette_path")"
+        magenta="$(${lib.getExe pkgs.jq} -r '.colors.color5' "$palette_path")"
+        cyan="$(${lib.getExe pkgs.jq} -r '.colors.color6' "$palette_path")"
 
-    bg_rgb="$(hex_to_rgb "$background")"
-    fg_rgb="$(hex_to_rgb "$foreground")"
-    red_rgb="$(hex_to_rgb "$red")"
-    green_rgb="$(hex_to_rgb "$green")"
-    yellow_rgb="$(hex_to_rgb "$yellow")"
-    blue_rgb="$(hex_to_rgb "$blue")"
-    magenta_rgb="$(hex_to_rgb "$magenta")"
-    cyan_rgb="$(hex_to_rgb "$cyan")"
+        bg_rgb="$(hex_to_rgb "$background")"
+        fg_rgb="$(hex_to_rgb "$foreground")"
+        red_rgb="$(hex_to_rgb "$red")"
+        green_rgb="$(hex_to_rgb "$green")"
+        yellow_rgb="$(hex_to_rgb "$yellow")"
+        blue_rgb="$(hex_to_rgb "$blue")"
+        magenta_rgb="$(hex_to_rgb "$magenta")"
+        cyan_rgb="$(hex_to_rgb "$cyan")"
 
-    fish_terminal_palette="$HOME/.config/fish/conf.d/walbridge-terminal-palette.fish"
-    cursor="$(${lib.getExe pkgs.jq} -r '.special.cursor // .special.foreground // .colors.color7' "$palette_path")"
-    color0="''${background#\#}"
-    color1="''${red#\#}"
-    color2="''${green#\#}"
-    color3="''${yellow#\#}"
-    color4="''${blue#\#}"
-    color5="''${magenta#\#}"
-    color6="''${cyan#\#}"
-    color7="''${foreground#\#}"
-    color8="$(${lib.getExe pkgs.jq} -r '.colors.color8 // .colors.color0' "$palette_path")"
-    color9="$(${lib.getExe pkgs.jq} -r '.colors.color9 // .colors.color1' "$palette_path")"
-    color10="$(${lib.getExe pkgs.jq} -r '.colors.color10 // .colors.color2' "$palette_path")"
-    color11="$(${lib.getExe pkgs.jq} -r '.colors.color11 // .colors.color3' "$palette_path")"
-    color12="$(${lib.getExe pkgs.jq} -r '.colors.color12 // .colors.color4' "$palette_path")"
-    color13="$(${lib.getExe pkgs.jq} -r '.colors.color13 // .colors.color5' "$palette_path")"
-    color14="$(${lib.getExe pkgs.jq} -r '.colors.color14 // .colors.color6' "$palette_path")"
-    color15="$(${lib.getExe pkgs.jq} -r '.colors.color15 // .colors.color7' "$palette_path")"
-    color8="''${color8#\#}"
-    color9="''${color9#\#}"
-    color10="''${color10#\#}"
-    color11="''${color11#\#}"
-    color12="''${color12#\#}"
-    color13="''${color13#\#}"
-    color14="''${color14#\#}"
-    color15="''${color15#\#}"
-    cursor="''${cursor#\#}"
+        fish_terminal_palette="$HOME/.config/fish/conf.d/walbridge-terminal-palette.fish"
+        cursor="$(${lib.getExe pkgs.jq} -r '.special.cursor // .special.foreground // .colors.color7' "$palette_path")"
+        color0="''${background#\#}"
+        color1="''${red#\#}"
+        color2="''${green#\#}"
+        color3="''${yellow#\#}"
+        color4="''${blue#\#}"
+        color5="''${magenta#\#}"
+        color6="''${cyan#\#}"
+        color7="''${foreground#\#}"
+        color8="$(${lib.getExe pkgs.jq} -r '.colors.color8 // .colors.color0' "$palette_path")"
+        color9="$(${lib.getExe pkgs.jq} -r '.colors.color9 // .colors.color1' "$palette_path")"
+        color10="$(${lib.getExe pkgs.jq} -r '.colors.color10 // .colors.color2' "$palette_path")"
+        color11="$(${lib.getExe pkgs.jq} -r '.colors.color11 // .colors.color3' "$palette_path")"
+        color12="$(${lib.getExe pkgs.jq} -r '.colors.color12 // .colors.color4' "$palette_path")"
+        color13="$(${lib.getExe pkgs.jq} -r '.colors.color13 // .colors.color5' "$palette_path")"
+        color14="$(${lib.getExe pkgs.jq} -r '.colors.color14 // .colors.color6' "$palette_path")"
+        color15="$(${lib.getExe pkgs.jq} -r '.colors.color15 // .colors.color7' "$palette_path")"
+        color8="''${color8#\#}"
+        color9="''${color9#\#}"
+        color10="''${color10#\#}"
+        color11="''${color11#\#}"
+        color12="''${color12#\#}"
+        color13="''${color13#\#}"
+        color14="''${color14#\#}"
+        color15="''${color15#\#}"
+        cursor="''${cursor#\#}"
 
-    cat >"$fish_terminal_palette" <<EOF
-function __walbridge_restore_terminal_palette --on-event fish_prompt
-    functions -e __walbridge_restore_terminal_palette
-    if test "\$TERM" != dumb
-        printf '\\e]4;0;rgb:''${color0:0:2}/''${color0:2:2}/''${color0:4:2}\\e\\\\'
-        printf '\\e]4;1;rgb:''${color1:0:2}/''${color1:2:2}/''${color1:4:2}\\e\\\\'
-        printf '\\e]4;2;rgb:''${color2:0:2}/''${color2:2:2}/''${color2:4:2}\\e\\\\'
-        printf '\\e]4;3;rgb:''${color3:0:2}/''${color3:2:2}/''${color3:4:2}\\e\\\\'
-        printf '\\e]4;4;rgb:''${color4:0:2}/''${color4:2:2}/''${color4:4:2}\\e\\\\'
-        printf '\\e]4;5;rgb:''${color5:0:2}/''${color5:2:2}/''${color5:4:2}\\e\\\\'
-        printf '\\e]4;6;rgb:''${color6:0:2}/''${color6:2:2}/''${color6:4:2}\\e\\\\'
-        printf '\\e]4;7;rgb:''${color7:0:2}/''${color7:2:2}/''${color7:4:2}\\e\\\\'
-        printf '\\e]4;8;rgb:''${color8:0:2}/''${color8:2:2}/''${color8:4:2}\\e\\\\'
-        printf '\\e]4;9;rgb:''${color9:0:2}/''${color9:2:2}/''${color9:4:2}\\e\\\\'
-        printf '\\e]4;10;rgb:''${color10:0:2}/''${color10:2:2}/''${color10:4:2}\\e\\\\'
-        printf '\\e]4;11;rgb:''${color11:0:2}/''${color11:2:2}/''${color11:4:2}\\e\\\\'
-        printf '\\e]4;12;rgb:''${color12:0:2}/''${color12:2:2}/''${color12:4:2}\\e\\\\'
-        printf '\\e]4;13;rgb:''${color13:0:2}/''${color13:2:2}/''${color13:4:2}\\e\\\\'
-        printf '\\e]4;14;rgb:''${color14:0:2}/''${color14:2:2}/''${color14:4:2}\\e\\\\'
-        printf '\\e]4;15;rgb:''${color15:0:2}/''${color15:2:2}/''${color15:4:2}\\e\\\\'
-        printf '\\e]10;rgb:''${color7:0:2}/''${color7:2:2}/''${color7:4:2}\\e\\\\'
-        printf '\\e]11;rgb:''${color0:0:2}/''${color0:2:2}/''${color0:4:2}\\e\\\\'
-        printf '\\e]12;rgb:''${cursor:0:2}/''${cursor:2:2}/''${cursor:4:2}\\e\\\\'
+        cat >"$fish_terminal_palette" <<EOF
+    function __walbridge_restore_terminal_palette --on-event fish_prompt
+        functions -e __walbridge_restore_terminal_palette
+        if test "\$TERM" != dumb
+            printf '\\e]4;0;rgb:''${color0:0:2}/''${color0:2:2}/''${color0:4:2}\\e\\\\'
+            printf '\\e]4;1;rgb:''${color1:0:2}/''${color1:2:2}/''${color1:4:2}\\e\\\\'
+            printf '\\e]4;2;rgb:''${color2:0:2}/''${color2:2:2}/''${color2:4:2}\\e\\\\'
+            printf '\\e]4;3;rgb:''${color3:0:2}/''${color3:2:2}/''${color3:4:2}\\e\\\\'
+            printf '\\e]4;4;rgb:''${color4:0:2}/''${color4:2:2}/''${color4:4:2}\\e\\\\'
+            printf '\\e]4;5;rgb:''${color5:0:2}/''${color5:2:2}/''${color5:4:2}\\e\\\\'
+            printf '\\e]4;6;rgb:''${color6:0:2}/''${color6:2:2}/''${color6:4:2}\\e\\\\'
+            printf '\\e]4;7;rgb:''${color7:0:2}/''${color7:2:2}/''${color7:4:2}\\e\\\\'
+            printf '\\e]4;8;rgb:''${color8:0:2}/''${color8:2:2}/''${color8:4:2}\\e\\\\'
+            printf '\\e]4;9;rgb:''${color9:0:2}/''${color9:2:2}/''${color9:4:2}\\e\\\\'
+            printf '\\e]4;10;rgb:''${color10:0:2}/''${color10:2:2}/''${color10:4:2}\\e\\\\'
+            printf '\\e]4;11;rgb:''${color11:0:2}/''${color11:2:2}/''${color11:4:2}\\e\\\\'
+            printf '\\e]4;12;rgb:''${color12:0:2}/''${color12:2:2}/''${color12:4:2}\\e\\\\'
+            printf '\\e]4;13;rgb:''${color13:0:2}/''${color13:2:2}/''${color13:4:2}\\e\\\\'
+            printf '\\e]4;14;rgb:''${color14:0:2}/''${color14:2:2}/''${color14:4:2}\\e\\\\'
+            printf '\\e]4;15;rgb:''${color15:0:2}/''${color15:2:2}/''${color15:4:2}\\e\\\\'
+            printf '\\e]10;rgb:''${color7:0:2}/''${color7:2:2}/''${color7:4:2}\\e\\\\'
+            printf '\\e]11;rgb:''${color0:0:2}/''${color0:2:2}/''${color0:4:2}\\e\\\\'
+            printf '\\e]12;rgb:''${cursor:0:2}/''${cursor:2:2}/''${cursor:4:2}\\e\\\\'
+        end
     end
-end
-EOF
+    EOF
 
-    if [ "${if terminalTuiTransparent then "1" else "0"}" = "1" ]; then
-      btop_theme="$HOME/.config/btop/themes/walbridge.theme"
-      if [ -f "$btop_theme" ]; then
-        ${lib.getExe pkgs.gnused} -i 's|^theme\[main_bg\]=.*$|theme[main_bg]=""|' "$btop_theme"
-      fi
-    fi
+        if [ "${if terminalTuiTransparent then "1" else "0"}" = "1" ]; then
+          btop_theme="$HOME/.config/btop/themes/walbridge.theme"
+          if [ -f "$btop_theme" ]; then
+            ${lib.getExe pkgs.gnused} -i 's|^theme\[main_bg\]=.*$|theme[main_bg]=""|' "$btop_theme"
+          fi
+        fi
   '';
   walbridgeGhosttyPlaceholder = ''
     background = 11111b
@@ -298,63 +298,63 @@ in
 
     home.activation.ensureWalbridgeThemePlaceholders = lib.mkIf colorshellEnabled (
       lib.hm.dag.entryBefore [ "batCache" "onFilesChange" ] ''
-        ghostty_theme="$HOME/.config/ghostty/themes/walbridge"
-        bat_theme="$HOME/.config/bat/themes/walbridge.tmTheme"
-        wezterm_theme="$HOME/.config/wezterm/walbridge.lua"
-        fish_theme="$HOME/.config/fish/conf.d/walbridge.fish"
-        fish_ls_colors="$HOME/.config/fish/conf.d/walbridge-ls-colors.fish"
-        starship_template="$HOME/.config/starship.toml"
-        starship_runtime="$HOME/.config/starship-walbridge.toml"
+                ghostty_theme="$HOME/.config/ghostty/themes/walbridge"
+                bat_theme="$HOME/.config/bat/themes/walbridge.tmTheme"
+                wezterm_theme="$HOME/.config/wezterm/walbridge.lua"
+                fish_theme="$HOME/.config/fish/conf.d/walbridge.fish"
+                fish_ls_colors="$HOME/.config/fish/conf.d/walbridge-ls-colors.fish"
+                starship_template="$HOME/.config/starship.toml"
+                starship_runtime="$HOME/.config/starship-walbridge.toml"
 
-        mkdir -p \
-          "$(dirname "$ghostty_theme")" \
-          "$(dirname "$bat_theme")" \
-          "$(dirname "$wezterm_theme")" \
-          "$(dirname "$fish_theme")"
+                mkdir -p \
+                  "$(dirname "$ghostty_theme")" \
+                  "$(dirname "$bat_theme")" \
+                  "$(dirname "$wezterm_theme")" \
+                  "$(dirname "$fish_theme")"
 
-        if [ ! -e "$ghostty_theme" ]; then
-          cat >"$ghostty_theme" <<'EOF'
-${walbridgeGhosttyPlaceholder}
-EOF
-        fi
+                if [ ! -e "$ghostty_theme" ]; then
+                  cat >"$ghostty_theme" <<'EOF'
+        ${walbridgeGhosttyPlaceholder}
+        EOF
+                fi
 
-        if [ ! -e "$bat_theme" ]; then
-          cat >"$bat_theme" <<'EOF'
-${walbridgeBatPlaceholder}
-EOF
-        fi
+                if [ ! -e "$bat_theme" ]; then
+                  cat >"$bat_theme" <<'EOF'
+        ${walbridgeBatPlaceholder}
+        EOF
+                fi
 
-        if [ ! -e "$wezterm_theme" ]; then
-          cat >"$wezterm_theme" <<'EOF'
-${walbridgeWeztermPlaceholder}
-EOF
-        fi
+                if [ ! -e "$wezterm_theme" ]; then
+                  cat >"$wezterm_theme" <<'EOF'
+        ${walbridgeWeztermPlaceholder}
+        EOF
+                fi
 
-        if [ ! -e "$fish_theme" ]; then
-          cat >"$fish_theme" <<'EOF'
-${walbridgeFishPlaceholder}
-EOF
-        fi
+                if [ ! -e "$fish_theme" ]; then
+                  cat >"$fish_theme" <<'EOF'
+        ${walbridgeFishPlaceholder}
+        EOF
+                fi
 
-        rm -f "$fish_ls_colors"
+                rm -f "$fish_ls_colors"
 
-        if [ ! -e "$starship_runtime" ] && [ -e "$starship_template" ]; then
-          cp "$starship_template" "$starship_runtime"
-        fi
+                if [ ! -e "$starship_runtime" ] && [ -e "$starship_template" ]; then
+                  cp "$starship_template" "$starship_runtime"
+                fi
 
-        wal_palette="$HOME/.cache/wal/colors.json"
-        if [ -e "$wal_palette" ]; then
-          if ! ${lib.getExe pkgs.jq} -e 'has("wallpaper")' "$wal_palette" >/dev/null; then
-            tmp_palette="$(${lib.getExe' pkgs.coreutils "mktemp"})"
-            ${lib.getExe pkgs.jq} \
-              --arg wallpaper ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
-              '. + { wallpaper: $wallpaper }' \
-              "$wal_palette" >"$tmp_palette"
-            mv "$tmp_palette" "$wal_palette"
-          fi
+                wal_palette="$HOME/.cache/wal/colors.json"
+                if [ -e "$wal_palette" ]; then
+                  if ! ${lib.getExe pkgs.jq} -e 'has("wallpaper")' "$wal_palette" >/dev/null; then
+                    tmp_palette="$(${lib.getExe' pkgs.coreutils "mktemp"})"
+                    ${lib.getExe pkgs.jq} \
+                      --arg wallpaper ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
+                      '. + { wallpaper: $wallpaper }' \
+                      "$wal_palette" >"$tmp_palette"
+                    mv "$tmp_palette" "$wal_palette"
+                  fi
 
-          ${walbridgeApplyScript} "$wal_palette"
-        fi
+                  ${walbridgeApplyScript} "$wal_palette"
+                fi
       ''
     );
   };

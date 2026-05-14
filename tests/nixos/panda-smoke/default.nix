@@ -5,9 +5,11 @@ in
 pkgs.testers.runNixOSTest {
   name = "panda-smoke";
 
-  nodes.machine = { ... }: {
-    imports = vmSystem.modules;
-  };
+  nodes.machine =
+    { ... }:
+    {
+      imports = vmSystem.modules;
+    };
 
   testScript = ''
     start_all()
