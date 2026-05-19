@@ -105,6 +105,11 @@
     # Bench power supply
     pydp100
 
+    # ffplay-based UVC capture preview without playback UI
+    vidcapture-preview
+    # one-shot frame dump from a UVC capture device
+    vidcapture-snapshot
+
     ## Wine
     # winetricks (all versions)
     winetricks
