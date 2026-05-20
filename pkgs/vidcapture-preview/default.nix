@@ -1,7 +1,6 @@
 {
-  coreutils,
-  ffmpeg-full,
   lib,
+  mpv,
   writeShellApplication,
 }:
 
@@ -12,91 +11,68 @@ writeShellApplication {
     set -euo pipefail
 
     usage() {
-      while IFS= read -r line; do
-        printf '%s\n' "$line"
-      done <<HELP
-    Usage:
-      vidcapture-preview [-d DEVICE] [-f FORMAT] [-s WxH] [-r FPS] [-R] [-- FFPLAY_ARGS...]
-
-    Options:
-      -d DEVICE   V4L2 device path (default: /dev/video0)
-      -f FORMAT   Pixel format: mjpeg or yuyv422 (default: mjpeg)
-      -s WxH      Frame size (default: 1920x1080)
-      -r FPS      Framerate (default: 60)
-      -R          Skip the USB re-authorize before opening the device
-      -h          Show this help
-
-    The USB capture device is re-authorized via sudo before each run, since the
-    UGREEN UVC card otherwise hangs across consecutive opens. Pass -R to skip.
-
-    Anything after "--" is forwarded to ffplay.
-    HELP
+      printf '%s\n' \
+        "Usage:" \
+        "  vidcapture-preview [-u URL] [-- PLAYER_ARGS...]" \
+        "" \
+        "Options:" \
+        "  -u URL      MJPEG stream URL (default: \$VIDCAPTURE_STREAM_URL or" \
+        "              http://127.0.0.1:39272/stream)" \
+        "  -h          Show this help" \
+        "" \
+        "Compatibility options from older preview commands (-d, -f, -s, -r, -m," \
+        "              -a, and -R) are accepted but ignored. The background service owns" \
+        "the physical capture device and fans its MJPEG stream out to any number" \
+        "of clients." \
+        "" \
+        "Anything after \"--\" is forwarded to the selected player."
     }
 
-    reset_usb() {
-      local dev=$1
-      local name iface_path usb_path authorized
-      name=$(${lib.getExe' coreutils "basename"} "$dev")
-      iface_path=$(${lib.getExe' coreutils "readlink"} -f "/sys/class/video4linux/$name/device")
-      usb_path=$(${lib.getExe' coreutils "dirname"} "$iface_path")
-      authorized="$usb_path/authorized"
-      [[ -e "$authorized" ]] || { printf 'vidcapture-preview: cannot find USB authorized at %s\n' "$authorized" >&2; return 1; }
-      printf 0 | /run/wrappers/bin/sudo ${lib.getExe' coreutils "tee"} "$authorized" >/dev/null
-      sleep 1
-      printf 1 | /run/wrappers/bin/sudo ${lib.getExe' coreutils "tee"} "$authorized" >/dev/null
-      # wait for /dev/videoN to reappear, then settle
-      local _
-      for _ in 1 2 3 4 5 6 7 8 9 10; do
-        [[ -e "$dev" ]] && break
-        sleep 0.5
-      done
-      sleep 2
-    }
+    url=''${VIDCAPTURE_STREAM_URL:-http://127.0.0.1:39272/stream}
 
-    device=/dev/video0
-    format=mjpeg
-    size=1920x1080
-    fps=60
-    reset=1
-
-    while getopts ":d:f:s:r:Rh" opt; do
+    while getopts ":u:s:m:a:d:f:r:Rh" opt; do
       case "$opt" in
-        d) device=$OPTARG ;;
-        f) format=$OPTARG ;;
-        s) size=$OPTARG ;;
-        r) fps=$OPTARG ;;
-        R) reset=0 ;;
+        u) url=$OPTARG ;;
+        s | m | a | d | f | r | R) ;;
         h) usage; exit 0 ;;
         \?) usage >&2; exit 2 ;;
       esac
     done
     shift $((OPTIND - 1))
 
-    [[ -e "$device" ]] || { printf 'vidcapture-preview: %s does not exist\n' "$device" >&2; exit 1; }
-
-    if [[ "$reset" == 1 ]]; then
-      reset_usb "$device"
-    fi
-
-    exec ${lib.getExe' ffmpeg-full "ffplay"} \
-      -hide_banner \
-      -loglevel warning \
-      -f v4l2 \
-      -input_format "$format" \
-      -video_size "$size" \
-      -framerate "$fps" \
-      -fflags nobuffer \
-      -flags low_delay \
-      -framedrop \
-      -infbuf \
-      -window_title "vidcapture-preview $device $format $size@$fps" \
-      -i "$device" \
+    exec ${lib.getExe mpv} \
+      --no-config \
+      --force-window=yes \
+      --title="vidcapture-preview" \
+      --border=no \
+      --profile=low-latency \
+      --untimed \
+      --framedrop=vo \
+      --cache=no \
+      --cache-pause=no \
+      --demuxer-cache-wait=no \
+      --demuxer-max-bytes=1MiB \
+      --demuxer-max-back-bytes=0 \
+      --demuxer-lavf-o=fflags=+nobuffer \
+      --demuxer-lavf-o-add=avioflags=direct \
+      --no-audio \
+      --osc=no \
+      --osd-level=0 \
+      --cursor-autohide=always \
+      --input-default-bindings=no \
+      --input-builtin-bindings=no \
+      --input-builtin-dragging=no \
+      --demuxer-lavf-format=mpjpeg \
+      --hwdec=vaapi \
+      --hwdec-codecs=mjpeg \
+      --vo=dmabuf-wayland \
+      "$url" \
       "$@"
   '';
 
   derivationArgs = {
     meta = {
-      description = "Live ffplay preview of a V4L2 capture device with no playback UI";
+      description = "Live VAAPI MJPEG preview from the vidcapture keepalive service";
       mainProgram = "vidcapture-preview";
       license = lib.licenses.mit;
       platforms = lib.platforms.linux;

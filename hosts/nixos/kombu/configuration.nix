@@ -247,6 +247,37 @@
     rpi-debug-probe-udev-rules
     alientek-dp100-udev-rules
   ];
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="video4linux", ATTR{name}=="UGREEN 15389: UGREEN 15389", ATTR{index}=="0", ATTRS{idVendor}=="2b89", ATTRS{idProduct}=="5389", TAG+="systemd", ENV{SYSTEMD_WANTS}+="vidcapture-keepalive@%k.service", SYMLINK+="vidcapture-ugreen"
+  '';
+
+  systemd.services."vidcapture-keepalive@" = {
+    description = "UGREEN capture-card keepalive and MJPEG fanout for /dev/%i";
+    bindsTo = [ "dev-%i.device" ];
+    after = [ "dev-%i.device" ];
+    serviceConfig = {
+      ExecStart = lib.escapeShellArgs [
+        (lib.getExe pkgs.ustreamer)
+        "--device"
+        "/dev/%i"
+        "--format"
+        "MJPEG"
+        "--encoder"
+        "HW"
+        "--resolution"
+        "1920x1080"
+        "--host"
+        "127.0.0.1"
+        "--port"
+        "39272"
+        "--tcp-nodelay"
+        "--log-level"
+        "1"
+      ];
+      Restart = "always";
+      RestartSec = "1s";
+    };
+  };
 
   ### Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
