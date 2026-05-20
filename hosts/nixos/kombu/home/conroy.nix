@@ -153,7 +153,7 @@
     withPython3 = true;
     withRuby = true;
   };
-  xdg.configFile."nvim/init.lua".enable = false;
+  xdg.configFile."nvim/init.lua".enable = lib.mkForce false;
 
   home.file = {
     ".config/nvim" = {

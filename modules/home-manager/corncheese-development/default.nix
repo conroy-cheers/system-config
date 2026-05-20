@@ -8,7 +8,8 @@
 }:
 let
   cfg = config.corncheese.development;
-  themeDetails = config.corncheese.theming.themeDetails;
+  themeDetails =
+    if config.corncheese.theming.enable then config.corncheese.theming.themeDetails else { };
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   walbridgeRuntimeThemeEnabled = pkgs.stdenv.hostPlatform.isLinux && colorshellEnabled;
 
@@ -534,7 +535,6 @@ in
           notes = {
             neorg.enable = false;
             orgmode.enable = false;
-            mind-nvim.enable = false;
             todo-comments.enable = true;
           };
 

@@ -108,10 +108,6 @@ final: prev: {
     withVencord = true;
   };
 
-  plexamp = final.callPackage ./plexamp-package.nix {
-    plexamp = prev.plexamp;
-  };
-
   prismlauncher = prev.prismlauncher.overrideAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [ ./offline-mode-prism-launcher.diff ];
   });

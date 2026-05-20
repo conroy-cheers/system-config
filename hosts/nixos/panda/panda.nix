@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
@@ -16,6 +17,7 @@ let
   turnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
   mainMcuUuid = "534a88092b48";
   toolheadMcuUuid = "205939919db6";
+  cameraStreamer = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.camera-streamer;
   mainMcuFirmware = config.services.klipper.firmwares.mcu.package;
   toolheadMcuFirmware = config.services.klipper.firmwares.SB2040v2.package;
   katapult = pkgs.fetchFromGitHub {
@@ -176,7 +178,7 @@ in
 
     environment.systemPackages = with pkgs; [
       can-utils
-      camera-streamer
+      cameraStreamer
       git
       libcamera
       pandaFlashKlipperMcus
@@ -349,7 +351,7 @@ in
       unitConfig.ConditionPathExists = "/dev/video0";
       serviceConfig = {
         ExecStart = lib.concatStringsSep " " [
-          "${lib.getExe pkgs.camera-streamer}"
+          "${lib.getExe cameraStreamer}"
           "--camera-path=/base/soc/i2c0mux/i2c@1/imx708@1a"
           "--camera-type=libcamera"
           "--camera-format=YUYV"

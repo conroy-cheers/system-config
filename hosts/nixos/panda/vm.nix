@@ -14,6 +14,7 @@ let
 
   klipperStub = pkgs.symlinkJoin {
     name = "klipper-stub";
+    inherit (pkgs.klipper) version;
     paths = [ pkgs.klipper ];
     postBuild = ''
       ln -sf ${klipperStubBin}/bin/klippy $out/bin/klippy
@@ -21,6 +22,7 @@ let
     passthru = pkgs.klipper.passthru // {
       src = pkgs.klipper.src;
     };
+    meta = pkgs.klipper.meta;
   };
 
   moonrakerStub = pkgs.writeShellApplication {
