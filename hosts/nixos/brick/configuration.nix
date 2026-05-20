@@ -190,13 +190,14 @@ in
 
   hardware = {
     graphics.enable = true;
+    i2c.enable = true;
     amdgpu = {
       opencl.enable = true;
     };
   };
 
   services.hardware = {
-    openrgb.enable = false; # https://gitlab.com/CalcProgrammer1/OpenRGB/-/issues/4888
+    openrgb.enable = true;
   };
 
   ### Wayland specific
