@@ -99,9 +99,6 @@
     usbutils # lsusb
     # (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
 
-    ## Windows
-    lutris
-
     # Bench power supply
     pydp100
 

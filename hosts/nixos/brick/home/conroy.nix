@@ -134,9 +134,6 @@
     usbutils # lsusb
     # (uutils-coreutils.override { prefix = ""; }) # coreutils in rust
 
-    ## Windows
-    lutris
-
     ## Wine
     # winetricks (all versions)
     winetricks
