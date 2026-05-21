@@ -1,0 +1,9 @@
+[Unit]
+Description=UGREEN capture-card keepalive and MJPEG fanout for /dev/%I
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+ExecStart=@out@/bin/vidcapture-keepalive /dev/%I
+Restart=always
+RestartSec=1s

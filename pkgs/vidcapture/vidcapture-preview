@@ -1,0 +1,61 @@
+#!@bash@
+set -euo pipefail
+
+usage() {
+  printf '%s\n' \
+    "Usage:" \
+    "  vidcapture-preview [-u URL] [-- PLAYER_ARGS...]" \
+    "" \
+    "Options:" \
+    "  -u URL      MJPEG stream URL (default: \$VIDCAPTURE_STREAM_URL or" \
+    "              http://127.0.0.1:39272/stream)" \
+    "  -h          Show this help" \
+    "" \
+    "Compatibility options from older preview commands (-d, -f, -s, -r, -m," \
+    "              -a, and -R) are accepted but ignored. The background service owns" \
+    "the physical capture device and fans its MJPEG stream out to any number" \
+    "of clients." \
+    "" \
+    "Anything after \"--\" is forwarded to the selected player."
+}
+
+url=${VIDCAPTURE_STREAM_URL:-http://127.0.0.1:39272/stream}
+
+while getopts ":u:s:m:a:d:f:r:Rh" opt; do
+  case "$opt" in
+    u) url=$OPTARG ;;
+    s | m | a | d | f | r | R) ;;
+    h) usage; exit 0 ;;
+    \?) usage >&2; exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+exec @mpv@ \
+  --no-config \
+  --force-window=yes \
+  --title="vidcapture-preview" \
+  --border=no \
+  --profile=low-latency \
+  --untimed \
+  --framedrop=vo \
+  --cache=no \
+  --cache-pause=no \
+  --demuxer-cache-wait=no \
+  --demuxer-max-bytes=1MiB \
+  --demuxer-max-back-bytes=0 \
+  --demuxer-lavf-o=fflags=+nobuffer \
+  --demuxer-lavf-o-add=avioflags=direct \
+  --no-audio \
+  --osc=no \
+  --osd-level=0 \
+  --cursor-autohide=always \
+  --input-default-bindings=no \
+  --input-builtin-bindings=no \
+  --input-builtin-dragging=no \
+  --demuxer-lavf-format=mpjpeg \
+  --hwdec=vaapi \
+  --hwdec-codecs=mjpeg \
+  --vo=dmabuf-wayland \
+  "$url" \
+  "$@"

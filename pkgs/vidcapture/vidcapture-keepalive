@@ -1,0 +1,29 @@
+#!@bash@
+set -euo pipefail
+
+usage() {
+  printf '%s\n' \
+    "Usage:" \
+    "  vidcapture-keepalive DEVICE" \
+    "" \
+    "Runs ustreamer against the capture-card device and exposes a local MJPEG" \
+    "fanout endpoint for preview and snapshot clients."
+}
+
+if [[ $# -ne 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+    exit 0
+  fi
+  exit 2
+fi
+
+exec @ustreamer@ \
+  --device "$1" \
+  --format MJPEG \
+  --encoder HW \
+  --resolution 1920x1080 \
+  --host 127.0.0.1 \
+  --port 39272 \
+  --tcp-nodelay \
+  --log-level 1
