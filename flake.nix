@@ -15,7 +15,6 @@
           "i686-linux"
           "x86_64-linux"
           "aarch64-darwin"
-          "x86_64-darwin"
         ];
 
         # BUG: infinite recursion
@@ -246,7 +245,6 @@
     zls-overlay = {
       url = "github:zigtools/zls";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.zig-overlay.follows = "zig-overlay";
     };
 
     wired = {
@@ -287,7 +285,7 @@
 
     vscode-server = {
       url = "github:nix-community/nixos-vscode-server";
-      inputs.nixpkgs.follows = "nixpkgs";
+      flake = false;
     };
 
     nix-vscode-extensions = {

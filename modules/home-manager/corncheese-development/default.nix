@@ -116,7 +116,7 @@ let
 in
 {
   imports = [
-    inputs.vscode-server.homeModules.default
+    "${inputs.vscode-server}/modules/vscode-server/home.nix"
     inputs.nvf.homeManagerModules.default
   ];
 
@@ -326,7 +326,7 @@ in
             lspSignature.enable = false; # conflicts with blink in maximal
             otter-nvim.enable = true;
             nvim-docs-view.enable = true;
-            harper-ls.enable = true;
+            presets.harper.enable = true;
 
             servers.nixd.settings.nixd = {
               nixpkgs.expr = "import (builtins.getFlake \"/home/conroy/.config/system-config\").inputs.nixpkgs { }";
@@ -369,7 +369,7 @@ in
             sql.enable = true;
             java.enable = false;
             kotlin.enable = false;
-            ts.enable = true;
+            typescript.enable = true;
             go.enable = false;
             lua.enable = true;
             zig.enable = false;
@@ -408,7 +408,6 @@ in
             make.enable = false;
             qml.enable = false;
             jinja.enable = false;
-            tailwind.enable = false;
             svelte.enable = false;
             tera.enable = false;
 
@@ -786,67 +785,67 @@ in
       enable = true;
       enableDefaultConfig = false;
 
-      matchBlocks = {
+      settings = {
         "beluga" = {
-          hostname = "corncheese.org";
-          user = "conroycheers";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-          identitiesOnly = true;
+          HostName = "corncheese.org";
+          User = "conroycheers";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          IdentitiesOnly = true;
         };
         "snow" = {
-          hostname = "10.1.1.120";
-          user = "conroy";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-          identitiesOnly = true;
+          HostName = "10.1.1.120";
+          User = "conroy";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          IdentitiesOnly = true;
         };
         "snow-bastion" = {
-          hostname = "corncheese.org";
-          user = "conroy";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-          identitiesOnly = true;
+          HostName = "corncheese.org";
+          User = "conroy";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          IdentitiesOnly = true;
         };
         "pve" = {
-          hostname = "10.1.1.3";
-          user = "root";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          HostName = "10.1.1.3";
+          User = "root";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         "bigbrain" = {
-          hostname = "bigbrain.lan";
-          user = "conroy";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          HostName = "bigbrain.lan";
+          User = "conroy";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         "sleet" = {
-          hostname = "sleet.lan";
-          user = "conroy";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          HostName = "sleet.lan";
+          User = "conroy";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         "alexandria" = {
-          hostname = "10.1.1.30";
-          user = "root";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          HostName = "10.1.1.30";
+          User = "root";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         "haos" = {
-          hostname = "10.1.1.114";
-          port = 22222;
-          user = "root";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          HostName = "10.1.1.114";
+          Port = 22222;
+          User = "root";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         "panda" = {
-          hostname = "panda.lan";
-          user = "conroy";
-          identityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          HostName = "panda.lan";
+          User = "conroy";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         home = {
-          host = lib.concatStringsSep " " homeJumpHosts;
-          proxyJump = "beluga";
-          identitiesOnly = true;
+          header = "Host ${lib.concatStringsSep " " homeJumpHosts}";
+          ProxyJump = "beluga";
+          IdentitiesOnly = true;
         };
         "*" = {
-          forwardAgent = false;
-          addKeysToAgent = "no";
-          compression = false;
-          identityAgent = onePassPath;
-          hashKnownHosts = true;
+          ForwardAgent = false;
+          AddKeysToAgent = "no";
+          Compression = false;
+          IdentityAgent = onePassPath;
+          HashKnownHosts = true;
         };
       };
     };

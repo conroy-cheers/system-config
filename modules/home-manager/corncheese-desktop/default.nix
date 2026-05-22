@@ -200,6 +200,7 @@ in
 
       programs.firefox = mkIf desktopCfg.firefox.enable {
         enable = true;
+        configPath = ".mozilla/firefox";
         profiles.default = {
           id = 0;
           isDefault = true;

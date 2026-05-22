@@ -12,7 +12,7 @@ in
 {
   imports = [
     ./virtualisation.nix
-    inputs.vscode-server.nixosModules.default
+    "${inputs.vscode-server}/modules/vscode-server"
     # Determinate
     inputs.determinate.nixosModules.default
   ];

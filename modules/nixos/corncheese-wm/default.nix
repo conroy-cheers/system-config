@@ -15,7 +15,9 @@ let
     types
     ;
 
-  hypr-pkgs = inputs.hyprland.inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+  hypr-pkgs = import inputs.hyprland.inputs.nixpkgs {
+    system = pkgs.stdenv.hostPlatform.system;
+  };
 in
 {
   imports = [

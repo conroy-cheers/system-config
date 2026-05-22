@@ -81,8 +81,7 @@
       let
         # NOTE: evaluate packages in isolation, which allows
         #       merging them back into the global `pkgs` later
-        # NOTE: also faster than `import nixpkgs { inherit system; }`
-        pkgsPure = inputs.nixpkgs.legacyPackages.${system};
+        pkgsPure = import inputs.nixpkgs { inherit system; };
         packages = lib.pipe config.auto.packages.result [
           (lib.filterAttrs (
             name:

@@ -142,53 +142,51 @@ in
 
     programs.ssh = {
       enable = true;
-      matchBlocks =
+      settings =
         (lib.concatMapAttrs (name: hostname: {
-          "${name}".hostname = hostname;
-          "${name}-root".hostname = hostname;
+          "${name}".HostName = hostname;
+          "${name}-root".HostName = hostname;
         }) abiAliases)
         // {
           abi-dev = {
-            host = (lib.concatStringsSep " " (abiHosts ++ abiHostGlobs));
-            user = abiUser;
+            header = "Host ${lib.concatStringsSep " " (abiHosts ++ abiHostGlobs)}";
+            User = abiUser;
           };
           abi-dev-abi = {
-            match = "host ${lib.concatStringsSep "," (abiHosts ++ abiHostGlobs)} user ${abiUser}";
-            extraOptions = {
-              PubkeyAuthentication = "no";
-            };
+            header = "Match host ${lib.concatStringsSep "," (abiHosts ++ abiHostGlobs)} user ${abiUser}";
+            PubkeyAuthentication = "no";
           };
           abi-dev-root = {
-            match = "host ${lib.concatStringsSep "," abiHostGlobs} user root";
-            identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
+            header = "Match host ${lib.concatStringsSep "," abiHostGlobs} user root";
+            IdentityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
           };
           abi-dev-root-alias = {
-            host = (lib.concatStringsSep " " abiRootHosts);
-            user = "root";
-            identityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
+            header = "Host ${lib.concatStringsSep " " abiRootHosts}";
+            User = "root";
+            IdentityFile = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519.pub";
           };
 
           "hydraq" = {
-            hostname = "hq.dromeda.com.au";
-            user = "nixremote";
-            port = 8367;
-            identityFile = "${config.home.homeDirectory}/.ssh/andromeda_build.id_ed25519.pub";
+            HostName = "hq.dromeda.com.au";
+            User = "nixremote";
+            Port = 8367;
+            IdentityFile = "${config.home.homeDirectory}/.ssh/andromeda_build.id_ed25519.pub";
           };
           "hydra-master" = {
-            hostname = "hydra.dromeda.com.au";
-            user = "root";
-            port = 22;
-            identityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
+            HostName = "hydra.dromeda.com.au";
+            User = "root";
+            Port = 22;
+            IdentityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
           };
           "*" = {
-            forwardAgent = false;
-            hashKnownHosts = true;
+            ForwardAgent = false;
+            HashKnownHosts = true;
           };
 
           "kombu" = {
-            hostname = "10.11.5.126";
-            proxyJump = "root@babi-1-dev";
-            identityFile = "${config.home.homeDirectory}/.ssh/conroy_work.id_ed25519.pub";
+            HostName = "10.11.5.126";
+            ProxyJump = "root@babi-1-dev";
+            IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_work.id_ed25519.pub";
           };
         };
     };

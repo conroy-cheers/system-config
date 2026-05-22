@@ -11,7 +11,7 @@ in
   perSystem =
     { system, ... }:
     let
-      pkgsPure = inputs.nixpkgs.legacyPackages.${system};
+      pkgsPure = import inputs.nixpkgs { inherit system; };
       extractImage = pkgsPure.callPackage "${inputs.self}/pkgs/extract-image" { };
     in
     lib.mkMerge [

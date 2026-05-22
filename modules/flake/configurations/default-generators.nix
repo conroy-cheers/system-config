@@ -48,7 +48,7 @@ let
     {
       imports = [
         inputs.ragenix."${config.lib.kebabToCamel host-type}Modules".default
-        inputs.agenix-rekey.nixosModules.default
+        (import "${inputs.agenix-rekey}/modules/agenix-rekey.nix" inputs.nixpkgs)
         (lib.optionalAttrs (meta.pubkey != null) {
           age.rekey.hostPubkey = meta.pubkey;
         })

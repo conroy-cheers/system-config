@@ -9,7 +9,7 @@
 {
   imports = [
     ../lib
-    inputs.agenix-rekey.flakeModules.default
+    "${inputs.agenix-rekey}/flake-module.nix"
     ./secrets.nix
   ];
 
@@ -82,7 +82,7 @@
         agenix-rekey-options =
           (lib.evalModules {
             modules = [
-              inputs.agenix-rekey.nixosModules.default
+              (import "${inputs.agenix-rekey}/modules/agenix-rekey.nix" inputs.nixpkgs)
               "${inputs.nixpkgs.outPath}/nixos/modules/misc/assertions.nix"
             ];
           }).options.age.rekey;

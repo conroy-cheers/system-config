@@ -67,6 +67,7 @@ in
   config = mkIf cfg.enable {
     wayland.windowManager.hyprland = {
       enable = true;
+      configType = "hyprlang";
       package = pkgs.hyprland;
       systemd.enable = true;
       plugins = [

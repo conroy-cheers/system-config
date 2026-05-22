@@ -17,7 +17,7 @@ in
       age.rekey.hostPubkey = pandaMeta.pubkey;
     }
     inputs.ragenix.nixosModules.default
-    inputs.agenix-rekey.nixosModules.default
+    (import "${inputs.agenix-rekey}/modules/agenix-rekey.nix" inputs.nixpkgs)
     inputs.agenix-template.nixosModules.default
     ../../../modules/flake/configurations/agenix-rekey
     ./default.nix
