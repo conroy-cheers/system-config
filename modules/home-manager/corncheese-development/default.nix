@@ -166,7 +166,7 @@ in
   config = lib.mkIf cfg.enable {
     services.vscode-server.enable = true;
 
-    programs.vscode = lib.mkIf cfg.vscode.enable {
+    programs.vscodium = lib.mkIf cfg.vscode.enable {
       enable = true;
       package = pkgs.vscodium;
       profiles.default =
