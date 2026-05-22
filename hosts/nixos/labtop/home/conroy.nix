@@ -79,24 +79,51 @@
 
   wayland.windowManager.hyprland.settings =
     let
+      lua = lib.generators.mkLuaInline;
+      internalDisplay = {
+        output = "eDP-1";
+        mode = "3072x1920@120";
+        position = "0x0";
+        scale = 1.2;
+      };
       internalDisplayString = "eDP-1,3072x1920@120,0x0,1.2";
     in
     {
       monitor = [
-        internalDisplayString
-        "desc:Dell Inc. DELL U2720Q 8LXMZ13,preferred,auto,1.5"
-        ",preferred,auto,1"
+        internalDisplay
+        {
+          output = "desc:Dell Inc. DELL U2720Q 8LXMZ13";
+          mode = "preferred";
+          position = "auto";
+          scale = 1.5;
+        }
+        {
+          output = "";
+          mode = "preferred";
+          position = "auto";
+          scale = 1;
+        }
       ];
-      bindl = [
-        # trigger when the switch is turning on
-        '', switch:on:Lid Switch, exec, hyprctl keyword monitor "eDP-1,disable"''
-        # trigger when the switch is turning off
-        '', switch:off:Lid Switch, exec, hyprctl keyword monitor "${internalDisplayString}"''
+      bind = [
+        {
+          _args = [
+            "switch:on:Lid Switch"
+            (lua ''hl.dsp.exec_cmd("hyprctl keyword monitor \"eDP-1,disable\"")'')
+            { locked = true; }
+          ];
+        }
+        {
+          _args = [
+            "switch:off:Lid Switch"
+            (lua "hl.dsp.exec_cmd(${builtins.toJSON "hyprctl keyword monitor \"${internalDisplayString}\""})")
+            { locked = true; }
+          ];
+        }
       ];
     };
 
   stylix = {
-    targets.hyprland.enable = true;
+    targets.hyprland.enable = false;
   };
 
   # Let Home Manager install and manage itself.

@@ -80,13 +80,23 @@
 
   wayland.windowManager.hyprland.settings = {
     monitor = [
-      "DP-1,3440x1440@100,0x0,1"
-      ",preferred,auto,1"
+      {
+        output = "DP-1";
+        mode = "3440x1440@100";
+        position = "0x0";
+        scale = 1;
+      }
+      {
+        output = "";
+        mode = "preferred";
+        position = "auto";
+        scale = 1;
+      }
     ];
   };
 
   stylix = {
-    targets.hyprland.enable = true;
+    targets.hyprland.enable = false;
   };
 
   # Let Home Manager install and manage itself.

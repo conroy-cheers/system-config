@@ -49,10 +49,10 @@ let
         fi
 
         if [[ "$next_mode" == "game" ]]; then
-          hypr dispatch submap game >/dev/null 2>&1 || true
+          hypr dispatch 'hl.dsp.submap("game")' >/dev/null 2>&1 || true
           printf '%s' game > "$state_file"
         else
-          hypr dispatch submap reset >/dev/null 2>&1 || true
+          hypr dispatch 'hl.dsp.submap("reset")' >/dev/null 2>&1 || true
           : > "$state_file"
         fi
 
@@ -98,32 +98,73 @@ in
 {
   config = lib.mkIf cfg.enable {
     home.packages = with pkgs; [
-      (pkgs.writeScriptBin "hyprworkspace" ''
-        #!/bin/sh
-        # from https://github.com/taylor85345/hyprland-dotfiles/blob/master/hypr/scripts/workspace
-        monitors=/tmp/hypr/monitors_temp
-        hyprctl monitors > $monitors
+      (pkgs.writeShellApplication {
+        name = "hyprworkspace";
+        runtimeInputs = with pkgs; [
+          coreutils
+          hyprland
+          jq
+        ];
+        text = ''
+          set -euo pipefail
 
-        if [[ -z $1 ]]; then
-          workspace=$(grep -B 5 "focused: no" "$monitors" | awk 'NR==1 {print $3}')
-        else
-          workspace=$1
-        fi
+          lua_string() {
+            jq -Rn --arg value "$1" '$value'
+          }
 
-        activemonitor=$(grep -B 11 "focused: yes" "$monitors" | awk 'NR==1 {print $2}')
-        passivemonitor=$(grep  -B 6 "($workspace)" "$monitors" | awk 'NR==1 {print $2}')
-        #activews=$(grep -A 2 "$activemonitor" "$monitors" | awk 'NR==3 {print $1}' RS='(' FS=')')
-        passivews=$(grep -A 6 "Monitor $passivemonitor" "$monitors" | awk 'NR==4 {print $1}' RS='(' FS=')')
+          dispatch_lua() {
+            hyprctl dispatch "$1"
+          }
 
-        if [[ $workspace -eq $passivews ]] && [[ $activemonitor != "$passivemonitor" ]]; then
-        hyprctl dispatch workspace "$workspace" && hyprctl dispatch swapactiveworkspaces "$activemonitor" "$passivemonitor" && hyprctl dispatch workspace "$workspace"
-          echo $activemonitor $passivemonitor
-        else
-          hyprctl dispatch moveworkspacetomonitor "$workspace $activemonitor" && hyprctl dispatch workspace "$workspace"
-        fi
+          focus_workspace() {
+            dispatch_lua "hl.dsp.focus({ workspace = $1 })"
+          }
 
-        exit 0
-      '')
+          move_workspace_to_monitor() {
+            dispatch_lua "hl.dsp.workspace.move({ workspace = $1, monitor = $(lua_string "$2") })"
+          }
+
+          swap_active_workspaces() {
+            dispatch_lua "hl.dsp.workspace.swap_monitors({ monitor1 = $(lua_string "$1"), monitor2 = $(lua_string "$2") })"
+          }
+
+          # from https://github.com/taylor85345/hyprland-dotfiles/blob/master/hypr/scripts/workspace
+          monitors="$(hyprctl monitors -j)"
+
+          if [[ -z "''${1:-}" ]]; then
+            workspace="$(
+              jq -r 'map(select(.focused == false))[0].activeWorkspace.id // empty' <<< "$monitors"
+            )"
+          else
+            workspace="$1"
+          fi
+
+          if [[ -z "$workspace" ]]; then
+            exit 0
+          fi
+
+          activemonitor="$(jq -r 'map(select(.focused == true))[0].name' <<< "$monitors")"
+          passivemonitor="$(
+            jq -r --argjson workspace "$workspace" '
+              map(select(.activeWorkspace.id == $workspace))[0].name // empty
+            ' <<< "$monitors"
+          )"
+          passivews="$(
+            jq -r --arg monitor "$passivemonitor" '
+              map(select(.name == $monitor))[0].activeWorkspace.id // empty
+            ' <<< "$monitors"
+          )"
+
+          if [[ "$workspace" == "$passivews" && "$activemonitor" != "$passivemonitor" ]]; then
+            focus_workspace "$workspace"
+            swap_active_workspaces "$activemonitor" "$passivemonitor"
+            focus_workspace "$workspace"
+          else
+            move_workspace_to_monitor "$workspace" "$activemonitor" >/dev/null 2>&1 || true
+            focus_workspace "$workspace"
+          fi
+        '';
+      })
       # Spotifyd is slow with playerctl, use dbus insted.
       (pkgs.writeScriptBin "hyprmusic" ''
         #!/bin/sh

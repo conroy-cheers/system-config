@@ -112,14 +112,32 @@
 
   wayland.windowManager.hyprland.settings = {
     monitor = [
-      "desc: LG Electronics 27GN950 008NTJJ7W924,3840x2160@160,0x0,1.33333,vrr,3"
-      "desc: Dell Inc. DELL U2720Q 8LXMZ13,3840x2160@60,2880x0,1.33333,vrr,0,bitdepth,10"
-      ",preferred,auto,1"
+      {
+        output = "desc: LG Electronics 27GN950 008NTJJ7W924";
+        mode = "3840x2160@160";
+        position = "0x0";
+        scale = 1.33333;
+        vrr = 3;
+      }
+      {
+        output = "desc: Dell Inc. DELL U2720Q 8LXMZ13";
+        mode = "3840x2160@60";
+        position = "2880x0";
+        scale = 1.33333;
+        vrr = 0;
+        bitdepth = 10;
+      }
+      {
+        output = "";
+        mode = "preferred";
+        position = "auto";
+        scale = 1;
+      }
     ];
   };
 
   stylix = {
-    targets.hyprland.enable = true;
+    targets.hyprland.enable = false;
   };
 
   # Let Home Manager install and manage itself.

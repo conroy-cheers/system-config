@@ -5,56 +5,210 @@ let
 in
 {
   wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
-    layerrule = [
-    ];
-
-    windowrule = [
-      "float yes,match:class ^(qalculate-gtk)$"
-      "opacity 0.8,match:class ^(qalculate-gtk)$"
-      "float yes,match:class ^(thunar)$"
+    window_rule = [
+      {
+        match.class = "^(qalculate-gtk)$";
+        float = true;
+      }
+      {
+        match.class = "^(qalculate-gtk)$";
+        opacity = 0.8;
+      }
+      {
+        match.class = "^(thunar)$";
+        float = true;
+      }
 
       # Set content type "game" for games
-      "content game,match:class ^(steam_app_[0-9]+)$"
-      "tag +game,match:class ^(steam_app_[0-9]+)$"
-      "content game,match:class ^gamescope$"
-      "tag +game,match:class ^gamescope$"
-      "content game,match:class ^Minecraft[*].*$"
-      "tag +game,match:class ^Minecraft[*].*$"
-      "fullscreen yes,match:content 3" # fullscreen all games
+      {
+        match.class = "^(steam_app_[0-9]+)$";
+        content = "game";
+      }
+      {
+        match.class = "^(steam_app_[0-9]+)$";
+        tag = "+game";
+      }
+      {
+        match.class = "^gamescope$";
+        content = "game";
+      }
+      {
+        match.class = "^gamescope$";
+        tag = "+game";
+      }
+      {
+        match.class = "^Minecraft[*].*$";
+        content = "game";
+      }
+      {
+        match.class = "^Minecraft[*].*$";
+        tag = "+game";
+      }
+      {
+        match.content = 3;
+        fullscreen = true;
+      }
 
       # 1Password unlock dialog
-      "pin yes,match:class ^(1password)$,match:title ^(1Password)$,match:float yes"
+      {
+        match = {
+          class = "^(1password)$";
+          title = "^(1Password)$";
+          float = true;
+        };
+        pin = true;
+      }
 
-      "keep_aspect_ratio on,match:class ^(firefox)$,match:title ^(Picture-in-Picture)$"
-      "border_size 0,match:class ^(firefox)$,match:title ^(Picture-in-Picture)$"
-      "pin yes,match:class ^(firefox)$,match:title ^(Firefox)$"
-      "pin yes,match:class ^(firefox)$,match:title ^(Picture-in-Picture)$"
-      "float yes,match:class ^(firefox)$,match:title ^(Firefox)$"
-      "float yes,match:class ^(firefox)$,match:title ^(Picture-in-Picture)$"
+      {
+        match = {
+          class = "^(firefox)$";
+          title = "^(Picture-in-Picture)$";
+        };
+        keep_aspect_ratio = true;
+      }
+      {
+        match = {
+          class = "^(firefox)$";
+          title = "^(Picture-in-Picture)$";
+        };
+        border_size = 0;
+      }
+      {
+        match = {
+          class = "^(firefox)$";
+          title = "^(Firefox)$";
+        };
+        pin = true;
+      }
+      {
+        match = {
+          class = "^(firefox)$";
+          title = "^(Picture-in-Picture)$";
+        };
+        pin = true;
+      }
+      {
+        match = {
+          class = "^(firefox)$";
+          title = "^(Firefox)$";
+        };
+        float = true;
+      }
+      {
+        match = {
+          class = "^(firefox)$";
+          title = "^(Picture-in-Picture)$";
+        };
+        float = true;
+      }
 
-      "opacity 1.0,match:class ^(com.mitchellh.ghostty)$"
-      "opacity 1.0,match:class ^(org.wezfurlong.wezterm)$"
-      "float yes,match:class ^(com.mitchellh.ghostty)$,match:title ^(ghostty-floating)$"
-      "size 50% 50%,match:class ^(floating)$,match:title ^(ghostty)$"
-      "center yes,match:class ^(floating)$,match:title ^(ghostty)$"
+      {
+        match.class = "^(com.mitchellh.ghostty)$";
+        opacity = 1.0;
+      }
+      {
+        match.class = "^(org.wezfurlong.wezterm)$";
+        opacity = 1.0;
+      }
+      {
+        match = {
+          class = "^(com.mitchellh.ghostty)$";
+          title = "^(ghostty-floating)$";
+        };
+        float = true;
+      }
+      {
+        match = {
+          class = "^(floating)$";
+          title = "^(ghostty)$";
+        };
+        size = "50% 50%";
+      }
+      {
+        match = {
+          class = "^(floating)$";
+          title = "^(ghostty)$";
+        };
+        center = true;
+      }
 
-      "stay_focused on, match:title ^()$,match:class ^(steam)$"
-      "min_size 1 1, match:title ^()$,match:class ^(steam)$"
+      {
+        match = {
+          title = "^()$";
+          class = "^(steam)$";
+        };
+        stay_focused = true;
+      }
+      {
+        match = {
+          title = "^()$";
+          class = "^(steam)$";
+        };
+        min_size = "1 1";
+      }
 
-      "float yes,match:class ^(moe.launcher.the-honkers-railway-launcher)$"
-      "float yes,match:class ^(lutris)$"
-      "size 1880 990,match:class ^(lutris)$"
-      "center yes,match:class ^(lutris)$"
+      {
+        match.class = "^(moe.launcher.the-honkers-railway-launcher)$";
+        float = true;
+      }
+      {
+        match.class = "^(lutris)$";
+        float = true;
+      }
+      {
+        match.class = "^(lutris)$";
+        size = "1880 990";
+      }
+      {
+        match.class = "^(lutris)$";
+        center = true;
+      }
 
       # Chromium notification windows
-      "float yes,match:title ^()$,match:class ^()$"
-      "pin yes,match:title ^()$,match:class ^()$"
-      "border_size 0,match:title ^()$,match:class ^()$"
-      "opacity 0.95,match:title ^()$,match:class ^()$"
-      "move 100%-w-15 40,match:title ^()$,match:class ^()$"
+      {
+        match = {
+          title = "^()$";
+          class = "^()$";
+        };
+        float = true;
+      }
+      {
+        match = {
+          title = "^()$";
+          class = "^()$";
+        };
+        pin = true;
+      }
+      {
+        match = {
+          title = "^()$";
+          class = "^()$";
+        };
+        border_size = 0;
+      }
+      {
+        match = {
+          title = "^()$";
+          class = "^()$";
+        };
+        opacity = 0.95;
+      }
+      {
+        match = {
+          title = "^()$";
+          class = "^()$";
+        };
+        move = "100%-w-15 40";
+      }
     ];
 
-    workspace = [ "special,gapsin:24,gapsout:64" ];
+    workspace_rule = [
+      {
+        workspace = "special";
+        gaps_in = 24;
+        gaps_out = 64;
+      }
+    ];
 
   };
 }

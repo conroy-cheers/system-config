@@ -9,162 +9,194 @@ let
   cfg = config.corncheese.wm;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   lockCommand = if colorshellEnabled then "colorshell lock" else "hyprlock";
+
+  lua = lib.generators.mkLuaInline;
+  luaString = builtins.toJSON;
+
+  bind = key: dispatcher: {
+    _args = [
+      key
+      dispatcher
+    ];
+  };
+
+  bindWith = key: dispatcher: opts: {
+    _args = [
+      key
+      dispatcher
+      opts
+    ];
+  };
+
+  bindExec = key: command: bind key (lua "hl.dsp.exec_cmd(${luaString command})");
+  mod = suffix: lua ''mod .. " + ${suffix}"'';
 in
 {
   wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
-    "$mod" = "ALT";
+    mod = {
+      _var = "ALT";
+    };
 
     # Mouse bindings.
-    bindm = [
-      "$mod, mouse:272, movewindow"
-      "$mod, mouse:273, resizewindow"
-    ];
-
-    binde = [
-      ", XF86AudioRaiseVolume, exec, pulsemixer --change-volume +5"
-      ", XF86AudioLowerVolume, exec, pulsemixer --change-volume -5"
-      ", XF86MonBrightnessUp, exec, brightnessctl s +5%"
-      ", XF86MonBrightnessDown, exec, brightnessctl s 5%-"
-      "$mod SUPER, k, exec, pulsemixer --change-volume +5"
-      "$mod SUPER, j, exec, pulsemixer --change-volume -5"
-    ];
-
     bind = [
+      (bindWith (mod "mouse:272") (lua "hl.dsp.window.drag()") { mouse = true; })
+      (bindWith (mod "mouse:273") (lua "hl.dsp.window.resize()") { mouse = true; })
+
       # Window/Session actions.
-      "$mod, Q, killactive,"
-      "$mod, W, fullscreen, 1"
-      "$mod SHIFT, W, fullscreen,"
-      "$mod, E, togglefloating,"
-      "$mod CTRL, delete, exit,"
+      (bind (mod "Q") (lua "hl.dsp.window.close()"))
+      (bind (mod "W") (lua ''hl.dsp.window.fullscreen({ mode = "maximized" })''))
+      (bind (mod "SHIFT + W") (lua "hl.dsp.window.fullscreen()"))
+      (bind (mod "E") (lua ''hl.dsp.window.float({ action = "toggle" })''))
+      (bind (mod "CTRL + delete") (lua "hl.dsp.exit()"))
 
       # Dwindle
-      "$mod, O, togglesplit,"
-      "$mod, P, pseudo,"
+      (bind (mod "O") (lua ''hl.dsp.layout("togglesplit")''))
+      (bind (mod "P") (lua "hl.dsp.window.pseudo()"))
 
       # Lock screen
-      "$mod, Escape, exec, ${lockCommand}"
+      (bindExec (mod "Escape") lockCommand)
 
       # Application shortcuts.
-      "$mod, Return, exec, ghostty"
-      "$mod SHIFT, Return, exec, ghostty '--title=ghostty-floating'"
-      "$mod, F, exec, chromium"
-      "$mod, T, exec, thunar"
+      (bindExec (mod "Return") "ghostty")
+      (bindExec (mod "SHIFT + Return") "ghostty '--title=ghostty-floating'")
+      (bindExec (mod "F") "chromium")
+      (bindExec (mod "T") "thunar")
 
       # Special workspace
-      "$mod, S, togglespecialworkspace"
-      "$mod CTRL,S,togglespecialworkspace"
-      "$mod SHIFT, S, movetoworkspacesilent, special"
+      (bind (mod "S") (lua "hl.dsp.workspace.toggle_special()"))
+      (bind (mod "CTRL + S") (lua "hl.dsp.workspace.toggle_special()"))
+      (bind (mod "SHIFT + S") (lua ''hl.dsp.window.move({ workspace = "special", follow = false })''))
 
-      # Launcher
-      # "$mod, A, exec, rofi -show drun -kb-cancel Super_L"
       # Screenshot
-      "$mod SHIFT, PRINT, exec, grimblast copy area"
-      "$mod, PRINT, exec, grimblast copysave screen"
+      (bindExec (mod "SHIFT + PRINT") "grimblast copy area")
+      (bindExec (mod "PRINT") "grimblast copysave screen")
 
       # Move window focus with vim keys.
-      "$mod, h, movefocus, l"
-      "$mod, l, movefocus, r"
-      "$mod, k, movefocus, u"
-      "$mod, j, movefocus, d"
-
-      # Music control
-      # "$mod ALT, m, exec, pulsemixer --id $(pulsemixer --list-sources | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
-      # ", XF86AudioMicMute, exec, pulsemixer --id $(pulsemixer --list-sources | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
-      # ",XF86AudioMute, exec, pulsemixer --id $(pulsemixer --list-sinks | cut -f3 | grep 'Default' | cut -d ',' -f 1 | cut -c 6-) --toggle-mute"
-      # "$mod ALT, l, exec, hyprmusic next"
-      # "$mod ALT, h, exec, hyprmusic previous"
-      # "$mod ALT, p, exec, hyprmusic play-pause"
+      (bind (mod "h") (lua ''hl.dsp.focus({ direction = "left" })''))
+      (bind (mod "l") (lua ''hl.dsp.focus({ direction = "right" })''))
+      (bind (mod "k") (lua ''hl.dsp.focus({ direction = "up" })''))
+      (bind (mod "j") (lua ''hl.dsp.focus({ direction = "down" })''))
 
       # Swap windows with vim keys
-      "$mod SHIFT, h, swapwindow, l"
-      "$mod SHIFT, l, swapwindow, r"
-      "$mod SHIFT, k, swapwindow, u"
-      "$mod SHIFT, j, swapwindow, d"
+      (bind (mod "SHIFT + h") (lua ''hl.dsp.window.swap({ direction = "left" })''))
+      (bind (mod "SHIFT + l") (lua ''hl.dsp.window.swap({ direction = "right" })''))
+      (bind (mod "SHIFT + k") (lua ''hl.dsp.window.swap({ direction = "up" })''))
+      (bind (mod "SHIFT + j") (lua ''hl.dsp.window.swap({ direction = "down" })''))
 
       # Move monitor focus.
-      "$mod, TAB, focusmonitor, +1"
+      (bind (mod "TAB") (lua ''hl.dsp.focus({ monitor = "+1" })''))
 
       # Switch workspaces.
-      "$mod, 1,exec,hyprworkspace 1"
-      "$mod, 2,exec,hyprworkspace 2"
-      "$mod, 3,exec,hyprworkspace 3"
-      "$mod, 4,exec,hyprworkspace 4"
-      "$mod, 5,exec,hyprworkspace 5"
-      "$mod, 6,exec,hyprworkspace 6"
-      "$mod, 7,exec,hyprworkspace 7"
-      "$mod, 8,exec,hyprworkspace 8"
-      "$mod, 9,exec,hyprworkspace 9"
+      (bindExec (mod "1") "hyprworkspace 1")
+      (bindExec (mod "2") "hyprworkspace 2")
+      (bindExec (mod "3") "hyprworkspace 3")
+      (bindExec (mod "4") "hyprworkspace 4")
+      (bindExec (mod "5") "hyprworkspace 5")
+      (bindExec (mod "6") "hyprworkspace 6")
+      (bindExec (mod "7") "hyprworkspace 7")
+      (bindExec (mod "8") "hyprworkspace 8")
+      (bindExec (mod "9") "hyprworkspace 9")
 
-      "$mod CTRL, h, workspace, r-1"
-      "$mod CTRL, l, workspace, r+1"
+      (bind (mod "CTRL + h") (lua ''hl.dsp.focus({ workspace = "r-1" })''))
+      (bind (mod "CTRL + l") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
 
       # Scroll through monitor workspaces with mod + scroll
-      "$mod, mouse_down, workspace, r-1"
-      "$mod, mouse_up, workspace, r+1"
-      "$mod, mouse:274, killactive,"
+      (bind (mod "mouse_down") (lua ''hl.dsp.focus({ workspace = "r-1" })''))
+      (bind (mod "mouse_up") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
+      (bind (mod "mouse:274") (lua "hl.dsp.window.close()"))
 
       # Move active window to a workspace.
-      "$mod SHIFT, 1, movetoworkspace, 1"
-      "$mod SHIFT, 2, movetoworkspace, 2"
-      "$mod SHIFT, 3, movetoworkspace, 3"
-      "$mod SHIFT, 4, movetoworkspace, 4"
-      "$mod SHIFT, 5, movetoworkspace, 5"
-      "$mod SHIFT, 6, movetoworkspace, 6"
-      "$mod SHIFT, 7, movetoworkspace, 7"
-      "$mod SHIFT, 8, movetoworkspace, 8"
-      "$mod SHIFT, 9, movetoworkspace, 9"
-      "$mod SHIFT, 0, movetoworkspace, 10"
-      "$mod CTRL SHIFT, l, movetoworkspace, r+1"
-      "$mod CTRL SHIFT, h, movetoworkspace, r-1"
+      (bind (mod "SHIFT + 1") (lua "hl.dsp.window.move({ workspace = 1 })"))
+      (bind (mod "SHIFT + 2") (lua "hl.dsp.window.move({ workspace = 2 })"))
+      (bind (mod "SHIFT + 3") (lua "hl.dsp.window.move({ workspace = 3 })"))
+      (bind (mod "SHIFT + 4") (lua "hl.dsp.window.move({ workspace = 4 })"))
+      (bind (mod "SHIFT + 5") (lua "hl.dsp.window.move({ workspace = 5 })"))
+      (bind (mod "SHIFT + 6") (lua "hl.dsp.window.move({ workspace = 6 })"))
+      (bind (mod "SHIFT + 7") (lua "hl.dsp.window.move({ workspace = 7 })"))
+      (bind (mod "SHIFT + 8") (lua "hl.dsp.window.move({ workspace = 8 })"))
+      (bind (mod "SHIFT + 9") (lua "hl.dsp.window.move({ workspace = 9 })"))
+      (bind (mod "SHIFT + 0") (lua "hl.dsp.window.move({ workspace = 10 })"))
+      (bind (mod "CTRL + SHIFT + l") (lua ''hl.dsp.window.move({ workspace = "r+1" })''))
+      (bind (mod "CTRL + SHIFT + h") (lua ''hl.dsp.window.move({ workspace = "r-1" })''))
+
+      # Resize submap
+      (bind (mod "R") (lua ''
+        function()
+          hl.exec_cmd("echo -n Resize > /tmp/hypr_submap")
+          hl.dispatch(hl.dsp.submap("resize"))
+        end
+      ''))
     ]
     ++ lib.optionals colorshellEnabled [
-      "$mod, F5, exec, colorshell reload"
-      "$mod, Space, exec, colorshell runner"
-      "$mod, V, exec, colorshell runner '>'"
-      "$mod, M, exec, colorshell toggle center-window"
+      (bindExec (mod "F5") "colorshell reload")
+      (bindExec (mod "Space") "colorshell runner")
+      (bindExec (mod "V") "colorshell runner '>'")
+      (bindExec (mod "M") "colorshell toggle center-window")
+    ]
+    ++ [
+      (bindWith "XF86AudioRaiseVolume" (lua ''hl.dsp.exec_cmd("pulsemixer --change-volume +5")'') {
+        repeating = true;
+      })
+      (bindWith "XF86AudioLowerVolume" (lua ''hl.dsp.exec_cmd("pulsemixer --change-volume -5")'') {
+        repeating = true;
+      })
+      (bindWith "XF86MonBrightnessUp" (lua ''hl.dsp.exec_cmd("brightnessctl s +5%")'') {
+        repeating = true;
+      })
+      (bindWith "XF86MonBrightnessDown" (lua ''hl.dsp.exec_cmd("brightnessctl s 5%-")'') {
+        repeating = true;
+      })
+      (bindWith (mod "SUPER + k") (lua ''hl.dsp.exec_cmd("pulsemixer --change-volume +5")'') {
+        repeating = true;
+      })
+      (bindWith (mod "SUPER + j") (lua ''hl.dsp.exec_cmd("pulsemixer --change-volume -5")'') {
+        repeating = true;
+      })
+    ];
+
+    define_submap = [
+      {
+        _args = [
+          "resize"
+          (lua ''
+            function()
+              hl.bind("l", hl.dsp.window.resize({ x = 30, y = 0, relative = true }), { repeating = true })
+              hl.bind("h", hl.dsp.window.resize({ x = -30, y = 0, relative = true }), { repeating = true })
+              hl.bind("k", hl.dsp.window.resize({ x = 0, y = -30, relative = true }), { repeating = true })
+              hl.bind("j", hl.dsp.window.resize({ x = 0, y = 30, relative = true }), { repeating = true })
+              hl.bind("escape", function()
+                hl.exec_cmd("truncate -s 0 /tmp/hypr_submap")
+                hl.dispatch(hl.dsp.submap("reset"))
+              end)
+            end
+          '')
+        ];
+      }
+      {
+        _args = [
+          "game"
+          (lua ''
+            function()
+              hl.bind(mod .. " + Q", hl.dsp.window.close())
+              hl.bind(mod .. " + CTRL + delete", hl.dsp.exit())
+              hl.bind(mod .. " + 1", hl.dsp.exec_cmd("hyprworkspace 1"))
+              hl.bind(mod .. " + 2", hl.dsp.exec_cmd("hyprworkspace 2"))
+              hl.bind(mod .. " + 3", hl.dsp.exec_cmd("hyprworkspace 3"))
+              hl.bind(mod .. " + 4", hl.dsp.exec_cmd("hyprworkspace 4"))
+              hl.bind(mod .. " + 5", hl.dsp.exec_cmd("hyprworkspace 5"))
+              hl.bind(mod .. " + 6", hl.dsp.exec_cmd("hyprworkspace 6"))
+              hl.bind(mod .. " + 7", hl.dsp.exec_cmd("hyprworkspace 7"))
+              hl.bind(mod .. " + 8", hl.dsp.exec_cmd("hyprworkspace 8"))
+              hl.bind(mod .. " + 9", hl.dsp.exec_cmd("hyprworkspace 9"))
+              hl.bind(mod .. " + CTRL + h", hl.dsp.focus({ workspace = "r-1" }))
+              hl.bind(mod .. " + CTRL + l", hl.dsp.focus({ workspace = "r+1" }))
+              hl.bind(mod .. " + CTRL + S", hl.dsp.workspace.toggle_special())
+              hl.bind(mod .. " + SHIFT + W", hl.dsp.window.fullscreen())
+              hl.bind("SHIFT + F10", hl.dsp.exec_cmd("/home/conroy/src/erss/tools/mark_erss_state.sh /tmp/erss-watch-mark 'visual glitch observed'"))
+            end
+          '')
+        ];
+      }
     ];
   };
-  wayland.windowManager.hyprland.extraConfig = ''
-    # will switch to a submap called resize
-    bind=$mod,R,exec,echo -n "Resize" > /tmp/hypr_submap
-    bind=$mod,R,submap,resizerr
-
-    # will start a submap called "resize"
-    submap=resize
-
-    # sets repeatable binds for resizing the active window
-    binde=,l,resizeactive,30 0
-    binde=,h,resizeactive,-30 0
-    binde=,k,resizeactive,0 -30
-    binde=,j,resizeactive,0 30
-
-    # use reset to go back to the global submap
-    bind=,escape,exec,truncate -s 0 /tmp/hypr_submap
-    bind=,escape,submap,reset
-
-    # will reset the submap, meaning end the current one and return to the global one
-    submap=reset
-
-    # while focused on a window tagged "game", only keep workspace switching and quit binds
-    submap=game
-    bind=$mod,Q,killactive,
-    bind=$mod CTRL,delete,exit,
-    bind=$mod,1,exec,hyprworkspace 1
-    bind=$mod,2,exec,hyprworkspace 2
-    bind=$mod,3,exec,hyprworkspace 3
-    bind=$mod,4,exec,hyprworkspace 4
-    bind=$mod,5,exec,hyprworkspace 5
-    bind=$mod,6,exec,hyprworkspace 6
-    bind=$mod,7,exec,hyprworkspace 7
-    bind=$mod,8,exec,hyprworkspace 8
-    bind=$mod,9,exec,hyprworkspace 9
-    bind=$mod CTRL,h,workspace,r-1
-    bind=$mod CTRL,l,workspace,r+1
-    bind=$mod CTRL,S,togglespecialworkspace
-    bind=$mod SHIFT,W,fullscreen,
-
-    bind=SHIFT,F10,exec,/home/conroy/src/erss/tools/mark_erss_state.sh /tmp/erss-watch-mark 'visual glitch observed'
-
-    submap=reset
-  '';
 }
