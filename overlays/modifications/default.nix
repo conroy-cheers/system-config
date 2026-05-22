@@ -111,4 +111,20 @@ final: prev: {
   prismlauncher = prev.prismlauncher.overrideAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [ ./offline-mode-prism-launcher.diff ];
   });
+
+  openrgb = prev.openrgb.overrideAttrs (oldAttrs: {
+    version = "1.0rc2-unstable-2026-05-23";
+
+    src = final.fetchFromGitHub {
+      owner = "CalcProgrammer1";
+      repo = "OpenRGB";
+      rev = "f67030fcc7b9bf0688a955821a4ad9ac7b3b238e";
+      hash = "sha256-RQw3tdIZFOZVK3YMCa99b+8nwMBIfYTvQKaCvq24Hi0=";
+    };
+
+    patches = final.lib.filter (
+      patch:
+      !(final.lib.hasInfix "Install-systemd-service-under-PREFIX.patch" (toString patch))
+    ) (oldAttrs.patches or [ ]);
+  });
 }
