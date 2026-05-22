@@ -47,6 +47,7 @@ in
 
       limine = {
         enable = true;
+        efiInstallAsRemovable = true;
         extraEntries = ''
           /Windows
             protocol: efi
