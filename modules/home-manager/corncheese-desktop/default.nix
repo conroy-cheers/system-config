@@ -279,7 +279,7 @@ in
     })
     (lib.mkIf desktopCfg.media.enable (
       let
-        plexMpvVideoConfig = ''
+        plexMpvShimVideoConfig = ''
           vo=gpu-next
           gpu-api=vulkan
           gpu-context=waylandvk
@@ -291,6 +291,18 @@ in
           target-peak=400
           gamut-mapping-mode=perceptual
         '';
+        plexDesktopMpvConfig = ''
+          ao=pulse
+          audio-channels=stereo
+
+          vo=gpu-next
+          dither-depth=10
+
+          target-colorspace-hint=no
+          tone-mapping=bt.2390
+          target-peak=400
+          gamut-mapping-mode=perceptual
+        '';
       in
       {
         home.packages = with pkgs; [
@@ -299,17 +311,12 @@ in
 
         xdg.configFile."plex-mpv-shim/mpv.conf" = {
           force = true;
-          text = plexMpvVideoConfig;
+          text = plexMpvShimVideoConfig;
         };
 
         xdg.dataFile."plex/mpv.conf" = {
           force = true;
-          text = ''
-            ao=pulse
-            audio-channels=stereo
-
-            ${plexMpvVideoConfig}
-          '';
+          text = plexDesktopMpvConfig;
         };
 
         services.plex-mpv-shim = {
