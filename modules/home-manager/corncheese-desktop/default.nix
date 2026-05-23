@@ -84,6 +84,33 @@ let
     guiScale:3
   '';
 
+  minecraftRuntimeLibs = with pkgs; [
+    (lib.getLib stdenv.cc.cc)
+    glfw3-minecraft
+    openal
+    alsa-lib
+    libjack2
+    libpulseaudio
+    pipewire
+    libGL
+    libx11
+    libxcursor
+    libxext
+    libxrandr
+    libxxf86vm
+    udev
+    vulkan-loader
+    flite
+    libxtst
+    libxkbcommon
+    libxt
+  ];
+
+  minecraftRuntimePrograms = with pkgs; [
+    busybox
+    xrandr
+  ];
+
   corncraftServerName = "corncraft";
   corncraftServerAddress = "lasagne.xyz";
 in
@@ -486,12 +513,16 @@ in
               libraries = lib.mkForce (
                 filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radiance.meta.versionData.libraries
               );
-              runtimeLibs = with pkgs; [
-                zlib
-                bzip2
-                xz
-                openssl
-              ];
+              runtimeLibs = lib.mkForce (
+                minecraftRuntimeLibs
+                ++ (with pkgs; [
+                  zlib
+                  bzip2
+                  xz
+                  openssl
+                ])
+              );
+              runtimePrograms = lib.mkForce minecraftRuntimePrograms;
 
               fabricLoader = {
                 enable = true;
@@ -527,12 +558,16 @@ in
               libraries = lib.mkForce (
                 filterOutLibrary "org.ow2.asm:asm:9.6" config.nixcraft.client.instances.radianceOnline.meta.versionData.libraries
               );
-              runtimeLibs = with pkgs; [
-                zlib
-                bzip2
-                xz
-                openssl
-              ];
+              runtimeLibs = lib.mkForce (
+                minecraftRuntimeLibs
+                ++ (with pkgs; [
+                  zlib
+                  bzip2
+                  xz
+                  openssl
+                ])
+              );
+              runtimePrograms = lib.mkForce minecraftRuntimePrograms;
 
               fabricLoader = {
                 enable = true;
@@ -567,6 +602,8 @@ in
               libraries = lib.mkForce (
                 filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon.meta.versionData.libraries
               );
+              runtimeLibs = lib.mkForce minecraftRuntimeLibs;
+              runtimePrograms = lib.mkForce minecraftRuntimePrograms;
 
               fabricLoader = {
                 enable = true;
@@ -612,6 +649,8 @@ in
               libraries = lib.mkForce (
                 filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photonOnline.meta.versionData.libraries
               );
+              runtimeLibs = lib.mkForce minecraftRuntimeLibs;
+              runtimePrograms = lib.mkForce minecraftRuntimePrograms;
 
               fabricLoader = {
                 enable = true;
@@ -658,6 +697,8 @@ in
               libraries = lib.mkForce (
                 filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26.meta.versionData.libraries
               );
+              runtimeLibs = lib.mkForce minecraftRuntimeLibs;
+              runtimePrograms = lib.mkForce minecraftRuntimePrograms;
 
               fabricLoader = {
                 enable = true;
@@ -705,6 +746,8 @@ in
               libraries = lib.mkForce (
                 filterOutLibraryPrefix "org.ow2.asm:asm:" config.nixcraft.client.instances.photon26Online.meta.versionData.libraries
               );
+              runtimeLibs = lib.mkForce minecraftRuntimeLibs;
+              runtimePrograms = lib.mkForce minecraftRuntimePrograms;
 
               fabricLoader = {
                 enable = true;
