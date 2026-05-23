@@ -702,7 +702,7 @@ in
           ])
         ])
         (lib.optionals cfg.photo.enable [
-          (inputs.affinity.packages.${meta.system}.v3)
+          pkgs.affinity-v3
         ])
       ];
 

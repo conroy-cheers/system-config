@@ -50,6 +50,7 @@
               inputs.zig-overlay.overlays.default
               inputs.nix-topology.overlays.default
               inputs.wired.overlays.default
+              inputs.affinity.overlays.default
               # NOTE: nix-on-droid overlay (needed for `proot`)
               inputs.nix-on-droid.overlays.default
               # inputs.nix-lib-net.overlays.default
