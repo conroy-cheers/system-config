@@ -242,6 +242,8 @@
     enable = true;
   };
   hardware.nvidia-container-toolkit.enable = true;
+  virtualisation.vmVariant.hardware.nvidia-container-toolkit.enable = lib.mkForce false;
+  virtualisation.vmVariantWithBootLoader.hardware.nvidia-container-toolkit.enable = lib.mkForce false;
 
   age.secrets."conroy.user.password" = {
     rekeyFile = lib.repoSecret "home/conroy/user/password.age";

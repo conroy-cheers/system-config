@@ -1,4 +1,9 @@
-{ lib, config, ... }:
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.corncheese.development;
@@ -7,7 +12,7 @@ in
   config = lib.mkIf cfg.enable {
     virtualisation.vmVariant = {
       virtualisation = {
-        host.pkgs = import <nixpkgs> { };
+        host.pkgs = lib.mkDefault pkgs;
         cores = 4;
         memorySize = 8192;
         resolution = {

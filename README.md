@@ -45,6 +45,75 @@ And opening the resulting `./result/main.svg` and `./result/network.svg`
 
 ---
 
+# Host VMs
+
+NixOS hosts with a normal initrd get generated VM outputs under `nixosVms`.
+
+```sh
+# Fast VM for quick config smoke testing
+nix run .#vm-brick
+nix build .#nixosVms.brick.fast
+
+# Bootloader VM for boot menu testing without copying the full store closure
+nix run .#boot-store-vm-brick
+nix build .#nixosVms.brick.bootSharedStore
+
+# Automated boot-store VM validation: greeter login and desktop health
+nix run .#test-boot-store-vm-brick
+
+# Standalone bootloader VM; slower because it builds a full disk image
+nix run .#boot-vm-brick
+nix build .#nixosVms.brick.boot
+```
+
+The app names are generated per host:
+
+- `vm-${host}` / `vm-fast-${host}` run `system.build.vm`
+- `boot-store-vm-${host}` / `vm-boot-store-${host}` run an EFI bootloader VM
+  with a small generated boot disk and the host `/nix/store` mounted read-only
+- `test-boot-store-vm-${host}` boots the shared-store VM, captures greeter and
+  desktop screenshots, logs in with the VM credentials through QEMU keyboard
+  events, and asserts that Home Manager, Hyprland, colorshell, and system/user
+  units are healthy
+- `boot-vm-${host}` / `vm-boot-${host}` run `system.build.vmWithBootLoader`
+
+The shared-store boot VM runs the host bootloader installer against a synthetic
+single-generation profile, so bootloader styling, menu entries, kernel/initrd
+copying, and boot splash behavior come from the host configuration. Its VM-only
+overrides are limited to the temporary ESP mount path, EFI variable handling,
+tmpfs root/shared-store mounts, disabled host disk unlock/swap, and hardware
+assertions that do not apply inside QEMU.
+
+The VM does not mount the real host `/persist` volume or decrypt host agenix
+secrets. For interactive login testing, `auto.nixos-vms.bootSharedStoreUserPasswords`
+defaults to giving the existing `conroy` account a VM-only password:
+
+```text
+username: conroy
+password: vm
+```
+
+Common VM-only secret substitutions can be applied to every shared-store boot VM
+with `auto.nixos-vms.bootSharedStoreExtraModules`. Those modules are appended to
+the generated VM config and can take `nixosVmHostName` as an argument for
+host-specific overrides:
+
+```nix
+auto.nixos-vms.bootSharedStoreExtraModules = [
+  (
+    { lib, nixosVmHostName, ... }:
+    lib.mkIf (nixosVmHostName == "brick") {
+      # VM-only secret and service overrides go here.
+    }
+  )
+];
+```
+
+Disko interactive VMs can be enabled through `auto.nixos-vms.includeDisko`, but
+they are disabled by default because they evaluate host filesystem assertions.
+
+---
+
 # Secrets
 
 Secrets are managed by [`agenix`](https://github.com/ryantm/agenix) and [`agenix-rekey`](https://github.com/oddlama/agenix-rekey)

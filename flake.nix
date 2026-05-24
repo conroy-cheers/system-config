@@ -31,6 +31,7 @@
           ./modules/flake/agenix
           ./modules/flake/checks
           ./modules/flake/hydra
+          ./modules/flake/nixos-vms
           ./modules/flake/topology
           ./modules/flake/packages
           ./modules/flake/overlays
@@ -50,6 +51,9 @@
 
           # Automatic checks, see `./modules/flake/checks/default.nix`
           checks.enable = true;
+
+          # Automatic NixOS VM packages and apps, see `./modules/flake/nixos-vms/default.nix`
+          nixos-vms.enable = true;
 
           # Automatic overlays, see `./modules/flake/overlays/default/default.nix`
           overlays.enable = true;

@@ -41,15 +41,15 @@ let
   claudeSettingsFile = "${config.home.homeDirectory}/.claude/settings.json";
   claudeSettingsSource = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
   mergeClaudeSettings = pkgs.writeShellScript "merge-claude-settings" ''
-    mkdir -p "${config.home.homeDirectory}/.claude"
+    ${pkgs.coreutils}/bin/mkdir -p "${config.home.homeDirectory}/.claude"
 
     if [ -f "${claudeSettingsFile}" ]; then
       ${pkgs.jq}/bin/jq -s '.[0] * .[1]' \
         "${claudeSettingsFile}" \
         "${claudeSettingsSource}" \
-        > "${claudeSettingsFile}.tmp" && mv "${claudeSettingsFile}.tmp" "${claudeSettingsFile}"
+        > "${claudeSettingsFile}.tmp" && ${pkgs.coreutils}/bin/mv "${claudeSettingsFile}.tmp" "${claudeSettingsFile}"
     else
-      cp "${claudeSettingsSource}" "${claudeSettingsFile}"
+      ${pkgs.coreutils}/bin/cp "${claudeSettingsSource}" "${claudeSettingsFile}"
     fi
   '';
 in
