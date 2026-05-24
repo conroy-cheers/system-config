@@ -13,6 +13,28 @@ let
   walbridgePackage = walbridgePackages.default;
   walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
+  colorshellPackage =
+    (inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs (oldAttrs: {
+      postInstall = (oldAttrs.postInstall or "") + ''
+        substituteInPlace resources/config/hyprland/runtime.lua \
+          --replace-fail '"$HOME/.config"' '"${config.xdg.configHome}"' \
+          --replace-fail '"$HOME/.cache"' '"${config.xdg.cacheHome}"' \
+          --replace-fail '"$HOME/.local/share"' '"${config.xdg.dataHome}"' \
+          --replace-fail '"$HOME/.local/state"' '"${config.xdg.stateHome}"'
+
+        substituteInPlace resources/config/hyprland/environment.conf \
+          --replace-fail '$HOME/.config' '${config.xdg.configHome}' \
+          --replace-fail '$HOME/.cache' '${config.xdg.cacheHome}' \
+          --replace-fail '$HOME/.local/share' '${config.xdg.dataHome}' \
+          --replace-fail '$HOME/.local/state' '${config.xdg.stateHome}'
+
+        printf '%s\n' 'nixos-xdg-home-2026-05-24' > resources/config/hyprland/.last-updated
+
+        glib-compile-resources resources.gresource.xml \
+          --sourcedir ./resources \
+          --target "$out/share/colorshell/resources.gresource"
+      '';
+    }));
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     source = ~/.cache/wal/colors-hyprland.conf
 
@@ -99,6 +121,7 @@ in
     };
 
     programs.colorshell = {
+      package = colorshellPackage;
       settings = {
         wallpaper = {
           default_path = toString themeDetails.wallpaper;

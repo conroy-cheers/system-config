@@ -165,7 +165,6 @@ in
           ];
         };
       };
-
       programs.ghostty =
         let
           # On macOS, the ghostty package is not available through Nix

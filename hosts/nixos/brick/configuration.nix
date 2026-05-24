@@ -225,7 +225,8 @@ in
         command = ''
           ${lib.getExe pkgs.tuigreet} --sessions \
             ${config.services.displayManager.sessionData.desktops}/share/xsessions:${config.services.displayManager.sessionData.desktops}/share/wayland-sessions \
-            --remember --remember-user-session
+            --cmd /home/conroy/.wayland-session \
+            --remember
         '';
         user = "conroy";
       };

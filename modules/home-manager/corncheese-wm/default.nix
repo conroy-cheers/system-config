@@ -98,6 +98,23 @@ in
     home.file.".wayland-session" = {
       text = ''
         #!${pkgs.bash}/bin/bash
+
+        normalize_xdg_home() {
+          local name="$1"
+          local fallback="$2"
+          local value="''${!name-}"
+
+          case "$value" in
+            /*) ;;
+            *) export "$name=$fallback" ;;
+          esac
+        }
+
+        normalize_xdg_home XDG_CONFIG_HOME "${config.xdg.configHome}"
+        normalize_xdg_home XDG_CACHE_HOME "${config.xdg.cacheHome}"
+        normalize_xdg_home XDG_DATA_HOME "${config.xdg.dataHome}"
+        normalize_xdg_home XDG_STATE_HOME "${config.xdg.stateHome}"
+
         ${builtins.concatStringsSep "\n" (
           builtins.attrValues (builtins.mapAttrs (name: value: ''export ${name}="${value}"'') cfg.environment)
         )}

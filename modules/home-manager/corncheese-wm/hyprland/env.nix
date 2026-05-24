@@ -17,6 +17,10 @@ in
 {
   wayland.windowManager.hyprland.settings = lib.mkIf cfg.enable {
     env = [
+      (env "XDG_CONFIG_HOME" config.xdg.configHome)
+      (env "XDG_CACHE_HOME" config.xdg.cacheHome)
+      (env "XDG_DATA_HOME" config.xdg.dataHome)
+      (env "XDG_STATE_HOME" config.xdg.stateHome)
       (env "XDG_CURRENT_DESKTOP" "Hyprland")
       (env "XDG_SESSION_TYPE" "wayland")
       (env "XDG_SESSION_DEKSTOP" "Hyprland")
