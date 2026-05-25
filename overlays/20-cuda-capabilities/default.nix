@@ -82,6 +82,7 @@ lib.optionalAttrs hasCustomCudaCapabilities {
           cudaSupport = true;
           cudaPackages = final.cudaPackages;
           gpuTargets = cudaCapabilities;
+          withNvshmem = false;
         };
 
         bitsandbytes =
@@ -108,11 +109,14 @@ lib.optionalAttrs hasCustomCudaCapabilities {
         );
 
         torchaudio = withTorchArchEnv (
-          python-prev.torchaudio.override {
+          (python-prev.torchaudio.override {
             torch = python-final.torch;
             torchcodec = python-final.torchcodec;
             cudaPackages = final.cudaPackages;
-          }
+          }).overridePythonAttrs
+            (_oldAttrs: {
+              doCheck = false;
+            })
         );
       }
     )

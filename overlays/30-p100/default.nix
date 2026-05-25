@@ -51,6 +51,7 @@ lib.optionalAttrs isP100Cuda {
             cudaSupport = true;
             cudaPackages = final.cudaPackages;
             gpuTargets = [ "6.0" ];
+            withNvshmem = false;
             _tritonEffective = python-final.triton;
           }).overridePythonAttrs
             (oldAttrs: {

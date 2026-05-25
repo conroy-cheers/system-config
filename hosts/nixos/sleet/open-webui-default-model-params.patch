@@ -8,10 +8,10 @@ index 9fde6de58..2bfe7de4d 100644
  import inspect
  import json
  import logging
-@@ -99,6 +100,7 @@ from open_webui.models.functions import Functions
+@@ -122,6 +123,7 @@ from open_webui.models.functions import Functions
  from open_webui.models.models import Models
  from open_webui.models.users import UserModel, Users
- from open_webui.models.chats import Chats
+ from open_webui.models.chats import Chats, ChatForm
 +from open_webui.utils.misc import deep_update
  
  from open_webui.config import (

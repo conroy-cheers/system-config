@@ -41,19 +41,19 @@ index 8d5cb52bb..5e53a735c 100644
              redis_key = f'{self._redis_key_prefix}:config:{key}'
              redis_value = self._redis.get(redis_key)
  
-@@ -1223,5 +1223,6 @@
- DEFAULT_MODEL_METADATA = PersistentConfig(
+@@ -1330,6 +1330,7 @@ DEFAULT_MODEL_METADATA = PersistentConfig(
      'DEFAULT_MODEL_METADATA',
      'models.default_metadata',
--    {},
-+    json.loads(os.environ.get('DEFAULT_MODEL_METADATA', '{}')),
+     default_model_metadata,
 +    env_override='DEFAULT_MODEL_METADATA' in os.environ,
  )
-@@ -1229,5 +1230,6 @@
- DEFAULT_MODEL_PARAMS = PersistentConfig(
+ 
+ try:
+@@ -1342,6 +1343,7 @@ DEFAULT_MODEL_PARAMS = PersistentConfig(
      'DEFAULT_MODEL_PARAMS',
      'models.default_params',
--    {},
-+    json.loads(os.environ.get('DEFAULT_MODEL_PARAMS', '{}')),
+     default_model_params,
 +    env_override='DEFAULT_MODEL_PARAMS' in os.environ,
  )
+ 
+ DEFAULT_USER_ROLE = PersistentConfig(
