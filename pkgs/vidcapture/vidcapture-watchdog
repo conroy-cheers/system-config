@@ -1,0 +1,62 @@
+#!@bash@
+set -euo pipefail
+
+usage() {
+  printf '%s\n' \
+    "Usage:" \
+    "  vidcapture-watchdog DEVICE KEEPALIVE_UNIT" \
+    "" \
+    "Checks that the MJPEG stream frame size matches uStreamer's state and" \
+    "restarts the keepalive unit if the capture card gets stuck on stale output."
+}
+
+if [[ $# -ne 2 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+    exit 0
+  fi
+  exit 2
+fi
+
+device=$1
+unit=$2
+state_url=${VIDCAPTURE_STATE_URL:-http://127.0.0.1:39272/state}
+snapshot_url=${VIDCAPTURE_SNAPSHOT_URL:-http://127.0.0.1:39272/snapshot}
+
+if [[ ! -e "$device" ]]; then
+  exit 0
+fi
+
+if ! @systemctl@ is-active --quiet "$unit"; then
+  exit 0
+fi
+
+state=$(@curl@ --fail --silent --show-error --max-time 2 "$state_url") || exit 0
+
+if [[ "$state" =~ \"online\"[[:space:]]*:[[:space:]]*false ]]; then
+  exit 0
+fi
+
+if [[ ! "$state" =~ \"width\"[[:space:]]*:[[:space:]]*([0-9]+).*\"height\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
+  exit 0
+fi
+expected="${BASH_REMATCH[1]}x${BASH_REMATCH[2]}"
+
+tmp=$(@mktemp@ --tmpdir vidcapture-watchdog.XXXXXX.jpg)
+cleanup() {
+  @rm@ -f "$tmp"
+}
+trap cleanup EXIT
+
+@curl@ --fail --silent --show-error --max-time 2 "$snapshot_url" > "$tmp" || exit 0
+file_output=$(@file@ "$tmp")
+
+if [[ ! "$file_output" =~ ([0-9]+x[0-9]+) ]]; then
+  exit 0
+fi
+actual="${BASH_REMATCH[1]}"
+
+if [[ "$actual" != "$expected" ]]; then
+  printf 'vidcapture-watchdog: actual frame size %s differs from service state %s; restarting %s\n' "$actual" "$expected" "$unit" >&2
+  exec @systemctl@ restart "$unit"
+fi

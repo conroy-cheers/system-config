@@ -1,1 +1,1 @@
-ACTION=="add", SUBSYSTEM=="video4linux", ATTR{name}=="UGREEN 15389: UGREEN 15389", ATTR{index}=="0", ATTRS{idVendor}=="2b89", ATTRS{idProduct}=="5389", TAG+="systemd", ENV{SYSTEMD_WANTS}+="vidcapture-keepalive@%k.service", SYMLINK+="vidcapture-ugreen"
+ACTION=="add", SUBSYSTEM=="video4linux", ATTR{name}=="UGREEN 15389: UGREEN 15389", ATTR{index}=="0", ATTRS{idVendor}=="2b89", ATTRS{idProduct}=="5389", TAG+="systemd", ENV{SYSTEMD_WANTS}+="vidcapture-keepalive@%k.service", ENV{SYSTEMD_WANTS}+="vidcapture-watchdog@%k.timer", SYMLINK+="vidcapture-ugreen"

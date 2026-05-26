@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically verify UGREEN capture-card stream resolution for /dev/%I
+BindsTo=dev-%i.device
+After=dev-%i.device vidcapture-keepalive@%i.service
+
+[Timer]
+OnActiveSec=15s
+OnUnitActiveSec=15s
+AccuracySec=2s
+Unit=vidcapture-watchdog@%i.service
+
+[Install]
+WantedBy=timers.target

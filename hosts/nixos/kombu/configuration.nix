@@ -251,6 +251,9 @@
   systemd.packages = with pkgs; [
     vidcapture
   ];
+  systemd.targets.timers.wants = [
+    "vidcapture-watchdog@video0.timer"
+  ];
 
   ### Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;

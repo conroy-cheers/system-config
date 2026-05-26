@@ -1,0 +1,9 @@
+[Unit]
+Description=UGREEN capture-card stream resolution watchdog for /dev/%I
+BindsTo=dev-%i.device
+After=dev-%i.device vidcapture-keepalive@%i.service
+Wants=vidcapture-keepalive@%i.service
+
+[Service]
+Type=oneshot
+ExecStart=@out@/bin/vidcapture-watchdog /dev/%I vidcapture-keepalive@%i.service
