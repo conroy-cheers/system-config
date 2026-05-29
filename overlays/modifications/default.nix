@@ -112,6 +112,12 @@ final: prev: {
     patches = (oldAttrs.patches or [ ]) ++ [ ./offline-mode-prism-launcher.diff ];
   });
 
+  git-spice = prev.git-spice.overrideAttrs (oldAttrs: {
+    # Route PR base-branch updates through the REST API; GitHub's GraphQL
+    # updatePullRequest mutation intermittently 502s when changing the base.
+    patches = (oldAttrs.patches or [ ]) ++ [ ./git-spice-rest-base.diff ];
+  });
+
   openrgb = prev.openrgb.overrideAttrs (oldAttrs: {
     version = "1.0rc2-unstable-2026-05-23";
 

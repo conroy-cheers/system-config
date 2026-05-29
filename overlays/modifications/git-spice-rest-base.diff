@@ -1,0 +1,181 @@
+diff --git a/internal/forge/github/edit.go b/internal/forge/github/edit.go
+index 197f2b7..d0849f1 100644
+--- a/internal/forge/github/edit.go
++++ b/internal/forge/github/edit.go
+@@ -1,8 +1,14 @@
+ package github
+ 
+ import (
++	"bytes"
+ 	"context"
++	"encoding/json"
+ 	"fmt"
++	"io"
++	"net/http"
++	"net/url"
++	"strconv"
+ 
+ 	"github.com/shurcooL/githubv4"
+ 	"go.abhg.dev/gs/internal/cmputil"
+@@ -27,21 +33,30 @@ func (r *Repository) EditChange(ctx context.Context, fid forge.ChangeID, opts fo
+ 	}
+ 
+ 	if opts.Base != "" {
+-		var m struct {
+-			UpdatePullRequest struct {
+-				// We don't need any information back,
+-				// so just anything non-empty will suffice as a query.
+-				ClientMutationID string `graphql:"clientMutationId"`
+-			} `graphql:"updatePullRequest(input: $input)"`
+-		}
++		// GitHub's GraphQL updatePullRequest mutation is unreliable for
++		// changing the base branch (intermittent 502s from the backend),
++		// so use the REST API when an HTTP client is available.
++		if r.restClient != nil {
++			if err := r.editBaseREST(ctx, pr.Number, opts.Base); err != nil {
++				return fmt.Errorf("edit pull request base: %w", err)
++			}
++		} else {
++			var m struct {
++				UpdatePullRequest struct {
++					// We don't need any information back,
++					// so just anything non-empty will suffice as a query.
++					ClientMutationID string `graphql:"clientMutationId"`
++				} `graphql:"updatePullRequest(input: $input)"`
++			}
+ 
+-		input := githubv4.UpdatePullRequestInput{
+-			PullRequestID: graphQLID,
+-			BaseRefName:   (*githubv4.String)(&opts.Base),
+-		}
++			input := githubv4.UpdatePullRequestInput{
++				PullRequestID: graphQLID,
++				BaseRefName:   (*githubv4.String)(&opts.Base),
++			}
+ 
+-		if err := r.client.Mutate(ctx, &m, input, nil); err != nil {
+-			return fmt.Errorf("edit pull request: %w", err)
++			if err := r.client.Mutate(ctx, &m, input, nil); err != nil {
++				return fmt.Errorf("edit pull request: %w", err)
++			}
+ 		}
+ 		r.log.Debug("Changed base branch for PR", "new.base", opts.Base)
+ 	}
+@@ -107,3 +122,42 @@ func (r *Repository) EditChange(ctx context.Context, fid forge.ChangeID, opts fo
+ 
+ 	return nil
+ }
++
++// editBaseREST changes the base branch of a pull request
++// using GitHub's REST API.
++//
++// This is a workaround for the GraphQL updatePullRequest mutation,
++// which intermittently fails with a 502 when changing the base branch.
++func (r *Repository) editBaseREST(ctx context.Context, number int, base string) error {
++	endpoint, err := url.JoinPath(r.restAPIURL, "repos", r.owner, r.repo, "pulls", strconv.Itoa(number))
++	if err != nil {
++		return fmt.Errorf("build REST API URL: %w", err)
++	}
++
++	body, err := json.Marshal(struct {
++		Base string `json:"base"`
++	}{Base: base})
++	if err != nil {
++		return fmt.Errorf("marshal request body: %w", err)
++	}
++
++	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
++	if err != nil {
++		return fmt.Errorf("build request: %w", err)
++	}
++	req.Header.Set("Accept", "application/vnd.github+json")
++	req.Header.Set("Content-Type", "application/json")
++
++	res, err := r.restClient.Do(req)
++	if err != nil {
++		return fmt.Errorf("send request: %w", err)
++	}
++	defer func() { _ = res.Body.Close() }()
++
++	if res.StatusCode < 200 || res.StatusCode >= 300 {
++		resBody, _ := io.ReadAll(io.LimitReader(res.Body, 1<<16))
++		return fmt.Errorf("unexpected response %s: %s", res.Status, bytes.TrimSpace(resBody))
++	}
++
++	return nil
++}
+diff --git a/internal/forge/github/forge.go b/internal/forge/github/forge.go
+index 069d4ba..86cec64 100644
+--- a/internal/forge/github/forge.go
++++ b/internal/forge/github/forge.go
+@@ -6,6 +6,7 @@ import (
+ 	"cmp"
+ 	"context"
+ 	"fmt"
++	"net/http"
+ 	"net/url"
+ 
+ 	"github.com/shurcooL/githubv4"
+@@ -110,12 +111,19 @@ func (f *Forge) OpenRepository(ctx context.Context, tok forge.AuthenticationToke
+ 		return nil, err
+ 	}
+ 
+-	ghc, err := newGitHubv4Client(ctx, f.APIURL(), tokenSource)
++	httpClient := oauth2.NewClient(ctx, tokenSource)
++	ghc, err := newGitHubv4Client(f.APIURL(), httpClient)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("create GitHub client: %w", err)
+ 	}
+ 
+-	return newRepository(ctx, f, rid.owner, rid.name, f.logger(), ghc, nil)
++	repo, err := newRepository(ctx, f, rid.owner, rid.name, f.logger(), ghc, nil)
++	if err != nil {
++		return nil, err
++	}
++	repo.restClient = httpClient
++	repo.restAPIURL = f.APIURL()
++	return repo, nil
+ }
+ 
+ // RepositoryID is a unique identifier for a GitHub repository.
+@@ -146,13 +154,12 @@ func (rid *RepositoryID) ChangeURL(id forge.ChangeID) string {
+ 	return fmt.Sprintf("%s/%s/%s/pull/%d", rid.url, owner, repo, prNum)
+ }
+ 
+-func newGitHubv4Client(ctx context.Context, apiURL string, tokenSource oauth2.TokenSource) (*githubv4.Client, error) {
++func newGitHubv4Client(apiURL string, httpClient *http.Client) (*githubv4.Client, error) {
+ 	graphQLAPIURL, err := url.JoinPath(apiURL, "/graphql")
+ 	if err != nil {
+ 		return nil, fmt.Errorf("build GraphQL API URL: %w", err)
+ 	}
+ 
+-	httpClient := oauth2.NewClient(ctx, tokenSource)
+ 	return newGitHubEnterpriseClient(graphQLAPIURL, httpClient), nil
+ }
+ 
+diff --git a/internal/forge/github/repository.go b/internal/forge/github/repository.go
+index 2675c6f..38a1a92 100644
+--- a/internal/forge/github/repository.go
++++ b/internal/forge/github/repository.go
+@@ -3,6 +3,7 @@ package github
+ import (
+ 	"context"
+ 	"fmt"
++	"net/http"
+ 
+ 	"github.com/shurcooL/githubv4"
+ 	"go.abhg.dev/gs/internal/forge"
+@@ -16,6 +17,13 @@ type Repository struct {
+ 	log         *silog.Logger
+ 	client      *githubv4.Client
+ 	forge       *Forge
++
++	// restClient and restAPIURL are used for REST API calls
++	// in cases where the GraphQL API is unreliable.
++	// These may be nil/empty (e.g. in tests),
++	// in which case the GraphQL API is used instead.
++	restClient *http.Client
++	restAPIURL string
+ }
+ 
+ var _ forge.Repository = (*Repository)(nil)
