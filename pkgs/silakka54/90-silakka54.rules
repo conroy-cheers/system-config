@@ -1,0 +1,1 @@
+KERNEL=="hidraw*", ATTRS{idVendor}=="feed", ATTRS{idProduct}=="1212", TAG+="uaccess"
