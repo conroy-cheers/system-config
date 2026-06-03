@@ -3,11 +3,119 @@
   lib,
   pkgs,
   inputs,
+  meta,
   ...
 }:
 
 let
   cfg = config.andromeda.development;
+  codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
+  codexAndromedaConfigFile = "${codexAndromedaHome}/config.toml";
+  codexAndromedaConfig = (pkgs.formats.toml { }).generate "codex-andromeda-config.toml" {
+    model = "gpt-5.5";
+    model_provider = "azure";
+    model_reasoning_effort = "medium";
+    personality = "pragmatic";
+
+    model_providers.azure = {
+      name = "Azure OpenAI";
+      base_url = "https://andromeda-developer-au.openai.azure.com/openai/v1";
+      wire_api = "responses";
+
+      auth = {
+        command = "az";
+        args = [
+          "account"
+          "get-access-token"
+          "--resource"
+          "https://cognitiveservices.azure.com"
+          "--query"
+          "accessToken"
+          "-o"
+          "tsv"
+        ];
+        timeout_ms = 5000;
+        refresh_interval_ms = 0;
+      };
+    };
+  };
+  codexAndromedaMergePython = pkgs.python3.withPackages (pythonPackages: [
+    pythonPackages.tomlkit
+  ]);
+  codexAndromedaMergeScript = pkgs.writeText "merge-codex-andromeda-config.py" ''
+    import os
+    import sys
+    from pathlib import Path
+
+    import tomlkit
+
+
+    def merge_config(existing, desired):
+        for key, desired_value in desired.items():
+            if key in existing and mergeable(existing[key], desired_value):
+                merge_config(existing[key], desired_value)
+            else:
+                existing[key] = desired_value
+
+
+    def mergeable(existing_value, desired_value):
+        return hasattr(existing_value, "items") and hasattr(desired_value, "items")
+
+
+    source = Path(sys.argv[1])
+    target = Path(sys.argv[2])
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    desired_config = tomlkit.parse(source.read_text())
+    existing_config = tomlkit.document()
+    if target.exists() or target.is_symlink():
+        try:
+            existing_config = tomlkit.parse(target.read_text())
+        except FileNotFoundError:
+            pass
+
+    if target.is_symlink():
+        target.unlink()
+
+    merge_config(existing_config, desired_config)
+
+    tmp = target.with_name(f"{target.name}.tmp")
+    tmp.write_text(tomlkit.dumps(existing_config))
+    os.replace(tmp, target)
+  '';
+  mergeCodexAndromedaConfig = pkgs.writeShellScript "merge-codex-andromeda-config" ''
+    ${codexAndromedaMergePython}/bin/python \
+      ${codexAndromedaMergeScript} \
+      ${codexAndromedaConfig} \
+      "${codexAndromedaConfigFile}"
+  '';
+  codex-andromeda-wrapped = pkgs.symlinkJoin {
+    name = "codex-andromeda-wrapped";
+    paths = [ inputs.llm-agents.packages.${meta.system}.codex ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+
+    postBuild = ''
+      mv $out/bin/codex $out/bin/codex-andromeda
+      wrapProgram $out/bin/codex-andromeda \
+        --set CODEX_HOME "${codexAndromedaHome}" \
+        --run '${pkgs.coreutils}/bin/mkdir -p "${codexAndromedaHome}"' \
+        --prefix PATH : ${
+          lib.makeBinPath [
+            pkgs.azure-cli
+            pkgs.ripgrep
+            pkgs.fd
+            pkgs.gnused
+            pkgs.gawk
+            pkgs.jq
+            pkgs.curl
+            pkgs.wget2
+            pkgs.gnutar
+            pkgs.unzip
+            pkgs.just
+          ]
+        }
+    '';
+  };
 
   abiUser = "abi";
   abiAliases = {
@@ -116,6 +224,25 @@ in
       '';
     };
 
+    home.activation.mergeCodexAndromedaConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      ${mergeCodexAndromedaConfig}
+    '';
+
+    systemd.user.services.codex-andromeda-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+      Unit = {
+        Description = "Merge Codex Andromeda config with Nix-defined configuration";
+        After = [ "default.target" ];
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${mergeCodexAndromedaConfig}";
+        RemainAfterExit = true;
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+    };
+
     systemd.user.services.claude-settings-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
       Unit = {
         Description = "Merge Claude settings with Nix-defined configuration";
@@ -128,6 +255,15 @@ in
       };
       Install = {
         WantedBy = [ "default.target" ];
+      };
+    };
+
+    launchd.agents.codex-andromeda-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+      enable = true;
+      config = {
+        ProgramArguments = [ "${mergeCodexAndromedaConfig}" ];
+        ProcessType = "Background";
+        RunAtLoad = true;
       };
     };
 
@@ -190,6 +326,10 @@ in
           };
         };
     };
+
+    home.packages = [
+      codex-andromeda-wrapped
+    ];
 
     programs.awscli = {
       enable = true;
