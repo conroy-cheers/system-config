@@ -18,6 +18,16 @@ let
   hypr-pkgs = import inputs.hyprland.inputs.nixpkgs {
     system = pkgs.stdenv.hostPlatform.system;
   };
+
+  hyprlandPackage =
+    inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
+      (old: {
+        env = (old.env or { }) // {
+          NIX_CFLAGS_COMPILE =
+            lib.optionalString (old.env ? NIX_CFLAGS_COMPILE) "${old.env.NIX_CFLAGS_COMPILE} "
+            + "-fno-var-tracking-assignments";
+        };
+      });
 in
 {
   imports = [
@@ -51,6 +61,10 @@ in
   config = mkIf cfg.enable (
     lib.mkMerge [
       {
+        warnings =
+          lib.optional ((inputs.hyprland.rev or null) != "04435fb857d4e3c5845bc43b077568d28e048c54")
+            "hyprland input changed; re-check whether the -fno-var-tracking-assignments GCC ICE workaround in modules/nixos/corncheese-wm/default.nix is still required.";
+
         environment.systemPackages = with pkgs; [
           brightnessctl
           seahorse
@@ -72,9 +86,12 @@ in
             enable = true;
             xwayland.enable = true;
             withUWSM = true;
-            package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.default;
+            package = hyprlandPackage;
             portalPackage =
-              inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+              inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland.override
+                {
+                  hyprland = hyprlandPackage;
+                };
           };
 
           # thunar file manager
