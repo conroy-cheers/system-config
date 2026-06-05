@@ -223,12 +223,14 @@ in
     # };
     settings = {
       default_session = {
-        command = ''
-          ${lib.getExe pkgs.tuigreet} --sessions \
-            ${config.services.displayManager.sessionData.desktops}/share/xsessions:${config.services.displayManager.sessionData.desktops}/share/wayland-sessions \
-            --cmd ${hmWaylandSession} \
-            --remember
-        '';
+        command = lib.concatStringsSep " " [
+          (lib.getExe pkgs.tuigreet)
+          "--sessions"
+          "${config.services.displayManager.sessionData.desktops}/share/xsessions:${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
+          "--cmd"
+          "${hmWaylandSession}"
+          "--remember"
+        ];
         user = "conroy";
       };
     };

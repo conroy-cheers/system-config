@@ -101,8 +101,8 @@ in
       (bind (mod "CTRL + l") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
 
       # Scroll through monitor workspaces with mod + scroll
-      (bind (mod "mouse_down") (lua ''hl.dsp.focus({ workspace = "r-1" })''))
-      (bind (mod "mouse_up") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
+      (bind (mod "mouse_down") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
+      (bind (mod "mouse_up") (lua ''hl.dsp.focus({ workspace = "r-1" })''))
       (bind (mod "mouse:274") (lua "hl.dsp.window.close()"))
 
       # Move active window to a workspace.
