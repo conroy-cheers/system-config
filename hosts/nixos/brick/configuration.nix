@@ -260,7 +260,29 @@ in
   ### udev packages
   services.udev.packages = with pkgs; [
     picoprobe-udev-rules
+    silakka54
   ];
+
+  systemd.services.silakka54-hotplug = {
+    description = "Sync Silakka54 dynamic keymap after keyboard hotplug";
+    after = [ "systemd-udevd.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.silakka54}/bin/silakka54-sync hotplug";
+    };
+    path = [
+      pkgs.systemd
+    ];
+  };
+
+  system.activationScripts.silakka54-udev-trigger.text = ''
+    ${pkgs.systemd}/bin/udevadm control --reload-rules || true
+    ${pkgs.systemd}/bin/udevadm trigger \
+      --subsystem-match=hidraw \
+      --property-match=ID_VENDOR_ID=feed \
+      --property-match=ID_MODEL_ID=1212 \
+      --action=change || true
+  '';
 
   ### Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;

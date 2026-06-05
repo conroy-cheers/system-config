@@ -6,6 +6,19 @@
   ...
 }:
 
+let
+  silakka54FirmwarePrompt = pkgs.writeShellScript "silakka54-firmware-prompt" ''
+    export PATH=${
+      lib.makeBinPath [
+        pkgs.silakka54
+        pkgs.zenity
+        pkgs.coreutils
+        pkgs.systemd
+      ]
+    }:$PATH
+    exec silakka54-sync prompt-firmware
+  '';
+in
 {
   imports = [ inputs.wired.homeManagerModules.default ];
 
@@ -159,6 +172,7 @@
     # native wayland support (unstable)
     wineWow64Packages.waylandFull
     samba
+    silakka54
   ];
 
   home.sessionVariables = {
@@ -166,6 +180,17 @@
   };
 
   services.udiskie.enable = true;
+
+  systemd.user.services.silakka54-firmware-prompt = {
+    Unit = {
+      Description = "Prompt before flashing stale Silakka54 firmware";
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${silakka54FirmwarePrompt}";
+    };
+  };
 
   # Enable the GPG Agent daemon.
   services.gpg-agent = {

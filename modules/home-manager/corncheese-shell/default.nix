@@ -22,15 +22,18 @@ let
         if isx86_64 && isLinux then
           ''
             if [ "$(id -u)" -eq 0 ]; then
-              exec nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              return
             fi
 
             if sudo -n true 2>/dev/null; then
-              exec sudo -n nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              sudo -n nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              return
             fi
 
             if [[ -t 0 && -t 1 ]]; then
-              exec sudo nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              sudo nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              return
             fi
 
             echo "rebuild: sudo requires a terminal on this host" >&2
@@ -39,15 +42,18 @@ let
         else if isDarwin then
           ''
             if [ "$(id -u)" -eq 0 ]; then
-              exec darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              return
             fi
 
             if sudo -n true 2>/dev/null; then
-              exec sudo -n darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              sudo -n darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              return
             fi
 
             if [[ -t 0 && -t 1 ]]; then
-              exec sudo darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              sudo darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              return
             fi
 
             echo "rebuild: sudo requires a terminal on this host" >&2
@@ -55,11 +61,11 @@ let
           ''
         else if isAarch64 then
           ''
-            exec nix-on-droid --flake "$flake_ref" "$action" "$@"
+            nix-on-droid --flake "$flake_ref" "$action" "$@"
           ''
         else
           ''
-            exec home-manager --flake "$flake_ref" "$action" "$@"
+            home-manager --flake "$flake_ref" "$action" "$@"
           '';
     in
     pkgs.writeShellScriptBin "rebuild" ''
@@ -71,7 +77,17 @@ let
         shift
       fi
 
-      ${rebuildCommand}
+      run_rebuild() {
+        ${rebuildCommand}
+      }
+
+      run_rebuild "$@"
+
+      ${optionalString isLinux ''
+        if [ "$action" = switch ] && [ -z "''${REBUILD_SKIP_SILAKKA54:-}" ]; then
+          ${pkgs.silakka54}/bin/silakka54-sync rebuild-switch || true
+        fi
+      ''}
     '';
 
   inherit (lib)
