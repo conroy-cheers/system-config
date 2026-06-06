@@ -21,7 +21,7 @@
 
   # Hyprland and ags.
   opacity = 0.8; # affects theme.blur in ags.
-  terminalBackgroundBlur = 0;
+  terminalBackgroundBlur = 20;
   terminalTuiTransparent = true;
   roundingRadius = 15; # affects theme.rounding in ags.
   shadows = false; # affects theme.shadows in ags.

@@ -318,7 +318,7 @@ in
           decoration = {
             dim_special = 0.2;
             shadow = lib.mkForce {
-              enabled = false;
+              enabled = true;
               range = 35;
               render_power = 3;
               color = "rgba(030a1430)";
@@ -345,5 +345,13 @@ in
         };
       })
     ];
+
+    wayland.windowManager.hyprland.extraConfig = lib.mkIf cfg.enableFancyEffects ''
+      -- Hyprland 0.55's Lua reload path misapplies some blur values when they
+      -- are set inside the large generated settings.config table above.
+      hl.config({ decoration = { blur = { size = 12 } } })
+      hl.config({ decoration = { blur = { passes = 2 } } })
+      hl.config({ decoration = { blur = { vibrancy = 0.1696 } } })
+    '';
   };
 }

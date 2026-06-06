@@ -58,6 +58,14 @@ in
         };
         pin = true;
       }
+      {
+        match = {
+          class = "^(1password)$";
+          title = "^(1Password)$";
+          float = true;
+        };
+        focus_on_activate = true;
+      }
 
       {
         match = {
@@ -107,8 +115,16 @@ in
         opacity = 1.0;
       }
       {
+        match.class = "^(com.mitchellh.ghostty)$";
+        opaque = false;
+      }
+      {
         match.class = "^(org.wezfurlong.wezterm)$";
         opacity = 1.0;
+      }
+      {
+        match.class = "^(plexamp)$";
+        workspace = "2 silent";
       }
       {
         match = {
@@ -162,43 +178,6 @@ in
       {
         match.class = "^(lutris)$";
         center = true;
-      }
-
-      # Chromium notification windows
-      {
-        match = {
-          title = "^()$";
-          class = "^()$";
-        };
-        float = true;
-      }
-      {
-        match = {
-          title = "^()$";
-          class = "^()$";
-        };
-        pin = true;
-      }
-      {
-        match = {
-          title = "^()$";
-          class = "^()$";
-        };
-        border_size = 0;
-      }
-      {
-        match = {
-          title = "^()$";
-          class = "^()$";
-        };
-        opacity = 0.95;
-      }
-      {
-        match = {
-          title = "^()$";
-          class = "^()$";
-        };
-        move = "100%-w-15 40";
       }
     ];
 

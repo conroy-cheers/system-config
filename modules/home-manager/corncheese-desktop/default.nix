@@ -18,6 +18,7 @@ let
   themeDetails = config.corncheese.theming.themeDetails;
   terminalOpacity = themeDetails.terminalOpacity or themeDetails.opacity;
   terminalBlur = themeDetails.terminalBackgroundBlur or 0;
+  terminalTuiTransparent = themeDetails.terminalTuiTransparent or false;
   terminalFontFamily = themeDetails.terminalFontFamily or "MesloLGM Nerd Font Mono";
   terminalEmojiFontFamily = themeDetails.terminalEmojiFontFamily or "Noto Color Emoji";
   exportEnvVars =
@@ -181,6 +182,7 @@ in
             ];
             background-blur = terminalBlur;
             background-opacity = terminalOpacity;
+            background-opacity-cells = terminalTuiTransparent;
             font-family = [
               terminalFontFamily
               terminalEmojiFontFamily

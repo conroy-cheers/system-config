@@ -80,7 +80,10 @@ in
         fonts.fontconfig.enable = true;
 
         programs = {
-          chromium.extraOpts.BrowserThemeColor = lib.mkForce config.lib.stylix.colors.withHashtag.base0D;
+          chromium.extraOpts = {
+            AllowSystemNotifications = true;
+            BrowserThemeColor = lib.mkForce config.lib.stylix.colors.withHashtag.base0D;
+          };
 
           hyprland = {
             enable = true;

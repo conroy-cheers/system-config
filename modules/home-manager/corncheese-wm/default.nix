@@ -3,6 +3,7 @@
   config,
   lib,
   pkgs,
+  osConfig ? { },
   ...
 }:
 
@@ -10,6 +11,7 @@ let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
+  hyprlandPackage = osConfig.programs.hyprland.package or pkgs.hyprland;
   inherit (lib) mkEnableOption mkOption mkIf;
 in
 {
@@ -68,13 +70,24 @@ in
     wayland.windowManager.hyprland = {
       enable = true;
       configType = "lua";
-      package = pkgs.hyprland;
+      package = hyprlandPackage;
       systemd.enable = true;
       plugins = [
         # pkgs.hyprlandPlugins.hyprexpo
       ]
       ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
     };
+
+    home.activation.reloadHyprlandLuaConfig = lib.mkIf cfg.enableFancyEffects (
+      lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
+        runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        if [[ -d "$runtime_dir/hypr" ]]; then
+          for instance in $(${hyprlandPackage}/bin/hyprctl instances -j | ${lib.getExe pkgs.jq} -r '.[].instance'); do
+            ${hyprlandPackage}/bin/hyprctl -i "$instance" eval 'hl.config({ decoration = { blur = { size = 12, passes = 2, vibrancy = 0.1696 } } })' >/dev/null || true
+          done
+        fi
+      ''
+    );
 
     services.hyprpaper = mkIf (cfg.hyprpaper.enable && !colorshellEnabled) { enable = true; };
 
@@ -118,7 +131,7 @@ in
         ${builtins.concatStringsSep "\n" (
           builtins.attrValues (builtins.mapAttrs (name: value: ''export ${name}="${value}"'') cfg.environment)
         )}
-        exec ${pkgs.hyprland}/bin/start-hyprland
+        exec ${hyprlandPackage}/bin/start-hyprland
       '';
       executable = true;
     };
