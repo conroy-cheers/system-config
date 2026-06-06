@@ -444,11 +444,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779540271,
-        "narHash": "sha256-REOue0Yxv6a0CRNmneNm4Jq8TraowAfERL31sMurtBE=",
+        "lastModified": 1780661802,
+        "narHash": "sha256-iHMZZVYTLXU53HfusR58lKTHbNgjv8eWJjp4T6yTe3g=",
         "owner": "conroy-cheers",
         "repo": "colorshell",
-        "rev": "c1ada348159ddbbf14f85f96ba13276e723381ef",
+        "rev": "9ce75f14bc6be5037a1082d3a4b524dd394c6809",
         "type": "github"
       },
       "original": {
