@@ -1,0 +1,93 @@
+{
+  "keyboard_name": "silakka54",
+  "manufacturer": "Squalius-cephalus",
+  "maintainer": "conroy",
+  "bootloader": "rp2040",
+  "diode_direction": "COL2ROW",
+  "features": {
+    "bootmagic": true,
+    "extrakey": true,
+    "mousekey": true,
+    "nkro": true
+  },
+  "split": {
+    "enabled": true,
+    "serial": {
+      "driver": "vendor"
+    },
+    "transport": {
+      "watchdog": true
+    }
+  },
+  "matrix_pins": {
+    "cols": ["GP7", "GP8", "GP9", "GP10", "GP11", "GP12"],
+    "rows": ["GP2", "GP3", "GP4", "GP5", "GP6"]
+  },
+  "processor": "RP2040",
+  "url": "https://github.com/Squalius-cephalus/silakka54",
+  "usb": {
+    "device_version": "1.0.0",
+    "pid": "0x1212",
+    "vid": "0xFEED"
+  },
+  "layouts": {
+    "LAYOUT": {
+      "layout": [
+        { "matrix": [0, 0], "x": 0.0, "y": 0.274, "label": "`" },
+        { "matrix": [0, 1], "x": 1.0822, "y": 0.274, "label": "1" },
+        { "matrix": [0, 2], "x": 2.1644, "y": 0.137, "label": "2" },
+        { "matrix": [0, 3], "x": 3.2397, "y": 0.0, "label": "3" },
+        { "matrix": [0, 4], "x": 4.3151, "y": 0.137, "label": "4" },
+        { "matrix": [0, 5], "x": 5.3973, "y": 0.274, "label": "5" },
+        { "matrix": [5, 5], "x": 8.6096, "y": 0.274, "label": "6" },
+        { "matrix": [5, 4], "x": 9.6849, "y": 0.137, "label": "7" },
+        { "matrix": [5, 3], "x": 10.7603, "y": 0.0, "label": "8" },
+        { "matrix": [5, 2], "x": 11.8425, "y": 0.137, "label": "9" },
+        { "matrix": [5, 1], "x": 12.9247, "y": 0.274, "label": "0" },
+        { "matrix": [5, 0], "x": 14.0068, "y": 0.274, "label": "-" },
+        { "matrix": [1, 0], "x": 0.0, "y": 1.3562, "label": "Tab" },
+        { "matrix": [1, 1], "x": 1.0822, "y": 1.3562, "label": "B" },
+        { "matrix": [1, 2], "x": 2.1644, "y": 1.2192, "label": "L" },
+        { "matrix": [1, 3], "x": 3.2397, "y": 1.0822, "label": "D" },
+        { "matrix": [1, 4], "x": 4.3151, "y": 1.2192, "label": "C" },
+        { "matrix": [1, 5], "x": 5.3973, "y": 1.3562, "label": "V" },
+        { "matrix": [6, 5], "x": 8.6096, "y": 1.3562, "label": "J" },
+        { "matrix": [6, 4], "x": 9.6849, "y": 1.2192, "label": "Y" },
+        { "matrix": [6, 3], "x": 10.774, "y": 1.0822, "label": "O" },
+        { "matrix": [6, 2], "x": 11.8425, "y": 1.2192, "label": "U" },
+        { "matrix": [6, 1], "x": 12.9247, "y": 1.3562, "label": "," },
+        { "matrix": [6, 0], "x": 14.0068, "y": 1.3562, "label": "Bspc" },
+        { "matrix": [2, 0], "x": 0.0, "y": 2.4384, "label": "Ctrl" },
+        { "matrix": [2, 1], "x": 1.0822, "y": 2.4384, "label": "N" },
+        { "matrix": [2, 2], "x": 2.1644, "y": 2.3014, "label": "R" },
+        { "matrix": [2, 3], "x": 3.2397, "y": 2.1644, "label": "T" },
+        { "matrix": [2, 4], "x": 4.3151, "y": 2.3014, "label": "S" },
+        { "matrix": [2, 5], "x": 5.3973, "y": 2.4384, "label": "G" },
+        { "matrix": [7, 5], "x": 8.6096, "y": 2.4384, "label": "P" },
+        { "matrix": [7, 4], "x": 9.6849, "y": 2.3014, "label": "H" },
+        { "matrix": [7, 3], "x": 10.774, "y": 2.1644, "label": "A" },
+        { "matrix": [7, 2], "x": 11.8425, "y": 2.3014, "label": "E" },
+        { "matrix": [7, 1], "x": 12.9247, "y": 2.4384, "label": "I" },
+        { "matrix": [7, 0], "x": 14.0068, "y": 2.4384, "label": "/" },
+        { "matrix": [3, 0], "x": 0.0, "y": 3.5137, "label": "Shift" },
+        { "matrix": [3, 1], "x": 1.0822, "y": 3.5137, "label": "X" },
+        { "matrix": [3, 2], "x": 2.1644, "y": 3.3836, "label": "Q" },
+        { "matrix": [3, 3], "x": 3.2397, "y": 3.2329, "label": "M" },
+        { "matrix": [3, 4], "x": 4.3151, "y": 3.3836, "label": "W" },
+        { "matrix": [3, 5], "x": 5.3973, "y": 3.5137, "label": "Z" },
+        { "matrix": [8, 5], "x": 8.6096, "y": 3.5137, "label": "K" },
+        { "matrix": [8, 4], "x": 9.6849, "y": 3.3836, "label": "F" },
+        { "matrix": [8, 3], "x": 10.774, "y": 3.2329, "label": "'" },
+        { "matrix": [8, 2], "x": 11.8425, "y": 3.3836, "label": ";" },
+        { "matrix": [8, 1], "x": 12.9247, "y": 3.5137, "label": "." },
+        { "matrix": [8, 0], "x": 14.0068, "y": 3.5137, "label": "Shift" },
+        { "matrix": [4, 3], "x": 3.4247, "y": 4.5754, "label": "GUI" },
+        { "matrix": [4, 4], "x": 4.7164, "y": 4.8082, "label": "Num", "w": 1.0137, "h": 1.0137, "r": 10, "rx": 5.2233, "ry": 5.3151 },
+        { "matrix": [4, 5], "x": 6.0062, "y": 4.9624, "label": "Space", "w": 1.0205, "h": 1.5, "r": 20, "rx": 6.5164, "ry": 5.7124 },
+        { "matrix": [9, 5], "x": 7.976, "y": 4.9624, "label": "Enter", "w": 1.0205, "h": 1.5, "r": -20, "rx": 8.4863, "ry": 5.7124 },
+        { "matrix": [9, 4], "x": 9.2726, "y": 4.8041, "label": "Nav", "w": 1.0137, "h": 1.0137, "r": -10, "rx": 9.7795, "ry": 5.311 },
+        { "matrix": [9, 3], "x": 10.5685, "y": 4.5754, "label": "Sym" }
+      ]
+    }
+  }
+}

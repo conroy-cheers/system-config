@@ -94,6 +94,7 @@ stdenv.mkDerivation {
     chmod -R u+w qmk
     patchShebangs qmk/util qmk/lib/python
     cp -r "$src/firmware" qmk/keyboards/silakka54
+    install -m 0644 ${./info.json} qmk/keyboards/silakka54/keyboard.json
 
     export XDG_CACHE_HOME="$TMPDIR/xdg-cache"
     export FONTCONFIG_FILE=${fontconfig.out}/etc/fonts/fonts.conf
@@ -108,7 +109,7 @@ stdenv.mkDerivation {
           ${./config.h} \
           ${./rules.mk} \
           ${./generate-keymap.py} \
-          qmk/keyboards/silakka54/keyboard.json \
+          ${./info.json} \
           qmk/keyboards/silakka54/keymaps/vial/vial.json
       } | sha256sum | awk '{print $1}'
     )
@@ -122,7 +123,7 @@ stdenv.mkDerivation {
     mkdir -p generated layers
     python ${./generate-keymap.py} \
       --keymap ${./keymap.yaml} \
-      --keyboard-json qmk/keyboards/silakka54/keyboard.json \
+      --info-json ${./info.json} \
       --output-c "$keymap_dir/keymap.c" \
       --output-metadata generated/layer-metadata.json \
       --output-dynamic-keymap generated/dynamic-keymap.json \
@@ -130,7 +131,7 @@ stdenv.mkDerivation {
       --firmware-abi-hash "$firmware_abi_hash" \
       --keymap-hash "$keymap_hash"
 
-    keymap draw -j ${./drawer-info.json} -o generated/silakka54-keymap.svg ${./keymap.yaml}
+    keymap draw -j ${./info.json} -o generated/silakka54-keymap.svg ${./keymap.yaml}
 
     substitute ${./sync.rs} generated/silakka54-sync.rs \
       --replace-fail @manifest_path@ "$out/share/silakka54/firmware/manifest.json" \
@@ -151,7 +152,7 @@ stdenv.mkDerivation {
 
     install -Dm0644 qmk/silakka54_conroy.uf2 "$out/share/silakka54/firmware/silakka54-conroy.uf2"
     install -Dm0644 ${./keymap.yaml} "$out/share/silakka54/keymap/keymap.yaml"
-    install -Dm0644 ${./drawer-info.json} "$out/share/silakka54/keymap/drawer-info.json"
+    install -Dm0644 ${./info.json} "$out/share/silakka54/keymap/info.json"
     install -Dm0644 generated/layer-metadata.json "$out/share/silakka54/keymap/layer-metadata.json"
     install -Dm0644 generated/dynamic-keymap.json "$out/share/silakka54/keymap/dynamic-keymap.json"
     install -Dm0644 generated/dynamic-keymap.tsv "$out/share/silakka54/keymap/dynamic-keymap.tsv"

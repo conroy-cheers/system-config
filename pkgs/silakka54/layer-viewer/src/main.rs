@@ -1,14 +1,14 @@
 use anyhow::{bail, Context, Result};
 use glib::object::Cast;
-use gtk::cairo::{Context as CairoContext, FontSlant, FontWeight};
+use gtk::cairo::{Context as CairoContext, FontSlant, FontWeight, Operator};
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, DrawingArea};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer as ShellLayer, LayerShell};
 use serde::Deserialize;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -23,77 +23,15 @@ use std::time::{Duration, Instant};
 const APP_ID: &str = "dev.corncheese.silakka54.LayerViewer";
 const DEFAULT_VID: &str = "feed";
 const DEFAULT_PID: &str = "1212";
-const KEY_COUNT: usize = 54;
-const KEY_REPORT_BYTES: usize = (KEY_COUNT + 7) / 8;
 const LAYER_REPORT_MAGIC: &[u8] = b"SL54LYR";
 const KEY_REPORT_MAGIC: &[u8] = b"SL54KEY";
-const CONTENT_MIN_X: f64 = 17.0;
-const CONTENT_MIN_Y: f64 = 26.0;
-const CONTENT_WIDTH: f64 = 1095.5;
-const CONTENT_HEIGHT: f64 = 472.0;
 const WINDOW_WIDTH: i32 = 659;
 const WINDOW_HEIGHT: i32 = 284;
 const BOTTOM_MARGIN: i32 = 12;
 const OVERLAY_OPACITY: f64 = 0.60;
+const KEY_FILL_OPACITY: f64 = 0.72;
 const AUTO_HIDE_DURATION: Duration = Duration::from_secs(3);
 const SUPPRESSED_SUBMAP: &str = "game";
-
-const KEY_GEOMETRY: [KeyGeometry; KEY_COUNT] = [
-    KeyGeometry::square(53.5, 82.5),
-    KeyGeometry::square(132.5, 82.5),
-    KeyGeometry::square(211.5, 72.5),
-    KeyGeometry::square(290.0, 62.5),
-    KeyGeometry::square(368.5, 72.5),
-    KeyGeometry::square(447.5, 82.5),
-    KeyGeometry::square(682.0, 82.5),
-    KeyGeometry::square(760.5, 72.5),
-    KeyGeometry::square(839.0, 62.5),
-    KeyGeometry::square(918.0, 72.5),
-    KeyGeometry::square(997.0, 82.5),
-    KeyGeometry::square(1076.0, 82.5),
-    KeyGeometry::square(53.5, 161.5),
-    KeyGeometry::square(132.5, 161.5),
-    KeyGeometry::square(211.5, 151.5),
-    KeyGeometry::square(290.0, 141.5),
-    KeyGeometry::square(368.5, 151.5),
-    KeyGeometry::square(447.5, 161.5),
-    KeyGeometry::square(682.0, 161.5),
-    KeyGeometry::square(760.5, 151.5),
-    KeyGeometry::square(840.0, 141.5),
-    KeyGeometry::square(918.0, 151.5),
-    KeyGeometry::square(997.0, 161.5),
-    KeyGeometry::square(1076.0, 161.5),
-    KeyGeometry::square(53.5, 240.5),
-    KeyGeometry::square(132.5, 240.5),
-    KeyGeometry::square(211.5, 230.5),
-    KeyGeometry::square(290.0, 220.5),
-    KeyGeometry::square(368.5, 230.5),
-    KeyGeometry::square(447.5, 240.5),
-    KeyGeometry::square(682.0, 240.5),
-    KeyGeometry::square(760.5, 230.5),
-    KeyGeometry::square(840.0, 220.5),
-    KeyGeometry::square(918.0, 230.5),
-    KeyGeometry::square(997.0, 240.5),
-    KeyGeometry::square(1076.0, 240.5),
-    KeyGeometry::square(53.5, 319.0),
-    KeyGeometry::square(132.5, 319.0),
-    KeyGeometry::square(211.5, 309.5),
-    KeyGeometry::square(290.0, 298.5),
-    KeyGeometry::square(368.5, 309.5),
-    KeyGeometry::square(447.5, 319.0),
-    KeyGeometry::square(682.0, 319.0),
-    KeyGeometry::square(760.5, 309.5),
-    KeyGeometry::square(840.0, 298.5),
-    KeyGeometry::square(918.0, 309.5),
-    KeyGeometry::square(997.0, 319.0),
-    KeyGeometry::square(1076.0, 319.0),
-    KeyGeometry::square(303.5, 396.5),
-    KeyGeometry::rotated(398.3, 414.0, 74.0, 74.0, 10.0),
-    KeyGeometry::rotated(492.7, 443.0, 74.5, 109.5, 20.0),
-    KeyGeometry::rotated(636.5, 443.0, 74.5, 109.5, -20.0),
-    KeyGeometry::rotated(730.9, 413.7, 74.0, 74.0, -10.0),
-    KeyGeometry::square(825.0, 396.5),
-];
 
 const CSS: &str = r#"
 window {
@@ -105,6 +43,48 @@ window {
 struct KeyLayer {
     name: String,
     keys: Vec<String>,
+}
+
+#[derive(Clone)]
+struct KeyboardLayout {
+    keys: Vec<KeyGeometry>,
+    bounds: LayoutBounds,
+}
+
+#[derive(Clone, Copy)]
+struct LayoutBounds {
+    min_x: f64,
+    min_y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[derive(Deserialize)]
+struct QmkInfo {
+    layouts: HashMap<String, QmkLayout>,
+}
+
+#[derive(Deserialize)]
+struct QmkLayout {
+    layout: Vec<QmkKey>,
+}
+
+#[derive(Deserialize)]
+struct QmkKey {
+    x: f64,
+    y: f64,
+    #[serde(default = "one_f64")]
+    w: f64,
+    #[serde(default = "one_f64")]
+    h: f64,
+    #[serde(default)]
+    r: f64,
+    rx: Option<f64>,
+    ry: Option<f64>,
+}
+
+fn one_f64() -> f64 {
+    1.0
 }
 
 #[derive(Clone, Copy)]
@@ -280,10 +260,6 @@ struct KeyGeometry {
 }
 
 impl KeyGeometry {
-    const fn square(x: f64, y: f64) -> Self {
-        Self::rotated(x, y, 73.0, 73.0, 0.0)
-    }
-
     const fn rotated(x: f64, y: f64, width: f64, height: f64, rotation: f64) -> Self {
         Self {
             x,
@@ -292,6 +268,31 @@ impl KeyGeometry {
             height,
             rotation,
         }
+    }
+
+    fn from_qmk_key(key: QmkKey) -> Self {
+        let mut x = key.x + key.w / 2.0;
+        let mut y = key.y + key.h / 2.0;
+        if key.r != 0.0 {
+            if let (Some(rx), Some(ry)) = (key.rx, key.ry) {
+                let rotation = key.r.to_radians();
+                let dx = x - rx;
+                let dy = y - ry;
+                x = rx + dx * rotation.cos() - dy * rotation.sin();
+                y = ry + dx * rotation.sin() + dy * rotation.cos();
+            }
+        }
+        Self::rotated(x, y, key.w, key.h, key.r)
+    }
+
+    fn x_axis_half_extent(self) -> f64 {
+        let rotation = self.rotation.to_radians();
+        (self.width * rotation.cos().abs() + self.height * rotation.sin().abs()) / 2.0
+    }
+
+    fn y_axis_half_extent(self) -> f64 {
+        let rotation = self.rotation.to_radians();
+        (self.width * rotation.sin().abs() + self.height * rotation.cos().abs()) / 2.0
     }
 }
 
@@ -308,6 +309,7 @@ struct Args {
     pid: String,
     path: Option<PathBuf>,
     keymap_path: PathBuf,
+    info_path: PathBuf,
     simulate_layer: Option<u8>,
     control_command: Option<ControlCommand>,
     hidden: bool,
@@ -317,10 +319,8 @@ struct Args {
 enum ControlCommand {
     Activity,
     Hide,
-    Place {
-        monitor: String,
-        left_margin: i32,
-    },
+    Place { monitor: String, left_margin: i32 },
+    RefreshPlacement,
 }
 
 impl ControlCommand {
@@ -332,6 +332,7 @@ impl ControlCommand {
                 monitor,
                 left_margin,
             } => format!("place {monitor} {left_margin}"),
+            Self::RefreshPlacement => "refresh-placement".to_string(),
         }
     }
 }
@@ -343,16 +344,11 @@ struct EventSink {
 
 enum AppEvent {
     Layer(u8),
-    PressedKeys {
-        layer: u8,
-        keys: [u8; KEY_REPORT_BYTES],
-    },
+    PressedKeys { layer: u8, keys: Vec<u8> },
     Activity,
     Hide,
-    Place {
-        monitor: String,
-        left_margin: i32,
-    },
+    Place { monitor: String, left_margin: i32 },
+    RefreshPlacement,
     Monitor(String),
     Submap(String),
 }
@@ -361,9 +357,10 @@ struct UiState {
     _hold: gtk::gio::ApplicationHoldGuard,
     window: ApplicationWindow,
     drawing_area: DrawingArea,
+    layout: KeyboardLayout,
     layers: Vec<KeyLayer>,
     current_layer: usize,
-    pressed_keys: [u8; KEY_REPORT_BYTES],
+    pressed_keys: Vec<u8>,
     visible: bool,
     auto_hide_enabled: bool,
     hide_after: Option<Instant>,
@@ -379,8 +376,57 @@ enum AutoHideDeadlineAction {
 
 #[derive(Deserialize)]
 struct HyprMonitor {
+    #[serde(default)]
     name: String,
+    #[serde(default)]
+    id: Option<i64>,
+    #[serde(default)]
     focused: bool,
+    #[serde(default)]
+    x: f64,
+    #[serde(default)]
+    y: f64,
+    #[serde(default)]
+    width: f64,
+    #[serde(default)]
+    height: f64,
+    #[serde(default)]
+    scale: f64,
+    #[serde(default, rename = "activeWorkspace")]
+    active_workspace: HyprWorkspace,
+    #[serde(default, rename = "specialWorkspace")]
+    special_workspace: HyprWorkspace,
+}
+
+#[derive(Clone, Default, Deserialize)]
+struct HyprWorkspace {
+    id: Option<i64>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(untagged)]
+enum HyprMonitorRef {
+    Id(i64),
+    Name(String),
+}
+
+#[derive(Clone, Default, Deserialize)]
+struct HyprClient {
+    #[serde(default)]
+    address: String,
+    mapped: Option<bool>,
+    hidden: Option<bool>,
+    monitor: Option<HyprMonitorRef>,
+    #[serde(default)]
+    workspace: HyprWorkspace,
+    at: Option<[f64; 2]>,
+    size: Option<[f64; 2]>,
+}
+
+#[derive(Default, Deserialize)]
+struct HyprGapsOption {
+    #[serde(default)]
+    css: String,
 }
 
 fn main() -> Result<()> {
@@ -408,7 +454,8 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let layers = load_layers(&args.keymap_path)?;
+    let layout = load_layout(&args.info_path)?;
+    let layers = load_layers(&args.keymap_path, layout.keys.len())?;
     let initial_layer = clamp_layer(args.simulate_layer.unwrap_or(0) as usize, &layers);
     let (tx, rx) = mpsc::channel();
     let sink = EventSink { tx };
@@ -423,7 +470,8 @@ fn main() -> Result<()> {
     } else {
         let hid_args = args.clone();
         let hid_sink = sink.clone();
-        thread::spawn(move || watch_layer_devices(hid_args, hid_sink));
+        let key_report_bytes = key_report_bytes(layout.keys.len());
+        thread::spawn(move || watch_layer_devices(hid_args, hid_sink, key_report_bytes));
     }
 
     let rx = Rc::new(RefCell::new(Some(rx)));
@@ -433,7 +481,14 @@ fn main() -> Result<()> {
             .borrow_mut()
             .take()
             .expect("application activated more than once");
-        build_ui(app, rx, layers.clone(), initial_layer, !args.hidden);
+        build_ui(
+            app,
+            rx,
+            layout.clone(),
+            layers.clone(),
+            initial_layer,
+            !args.hidden,
+        );
     });
     app.run_with_args(&["silakka54-layer-viewer"]);
     Ok(())
@@ -446,6 +501,7 @@ fn parse_args() -> Result<Args> {
         pid: DEFAULT_PID.to_string(),
         path: None,
         keymap_path: packaged_keymap_path(),
+        info_path: packaged_info_path(),
         simulate_layer: None,
         control_command: None,
         hidden: true,
@@ -464,6 +520,9 @@ fn parse_args() -> Result<Args> {
             }
             "--keymap" => {
                 parsed.keymap_path = PathBuf::from(next_arg(&mut args, "--keymap")?);
+            }
+            "--info" => {
+                parsed.info_path = PathBuf::from(next_arg(&mut args, "--info")?);
             }
             "--simulate-layer" => {
                 parsed.simulate_layer = Some(
@@ -488,12 +547,15 @@ fn parse_args() -> Result<Args> {
                     left_margin,
                 });
             }
+            "--refresh-placement" => {
+                parsed.control_command = Some(ControlCommand::RefreshPlacement);
+            }
             "--hidden" => {
                 parsed.hidden = true;
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: silakka54-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--hidden] [--vid 0xfeed] [--pid 0x1212] [--path /dev/hidrawN] [--keymap keymap.yaml] [--simulate-layer N]"
+                    "Usage: silakka54-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--refresh-placement] [--hidden] [--vid 0xfeed] [--pid 0x1212] [--path /dev/hidrawN] [--keymap keymap.yaml] [--info info.json] [--simulate-layer N]"
                 );
                 std::process::exit(0);
             }
@@ -525,6 +587,18 @@ fn packaged_keymap_path() -> PathBuf {
     PathBuf::from("/run/current-system/sw/share/silakka54/keymap/keymap.yaml")
 }
 
+fn packaged_info_path() -> PathBuf {
+    if let Some(path) = std::env::var_os("SILAKKA54_INFO_JSON") {
+        return PathBuf::from(path);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(prefix) = exe.parent().and_then(Path::parent) {
+            return prefix.join("share/silakka54/keymap/info.json");
+        }
+    }
+    PathBuf::from("/run/current-system/sw/share/silakka54/keymap/info.json")
+}
+
 fn normalize_hex_arg(value: &str) -> String {
     let trimmed = value.trim_start_matches("0x").trim_start_matches("0X");
     format!("{:0>4}", trimmed.to_ascii_lowercase())
@@ -533,6 +607,7 @@ fn normalize_hex_arg(value: &str) -> String {
 fn build_ui(
     app: &Application,
     rx: Receiver<AppEvent>,
+    layout: KeyboardLayout,
     layers: Vec<KeyLayer>,
     current_layer: usize,
     visible: bool,
@@ -583,9 +658,10 @@ fn build_ui(
         _hold: hold,
         window: window.clone(),
         drawing_area: drawing_area.clone(),
+        pressed_keys: vec![0; key_report_bytes(layout.keys.len())],
+        layout,
         layers,
         current_layer,
-        pressed_keys: [0; KEY_REPORT_BYTES],
         visible,
         auto_hide_enabled: false,
         hide_after: None,
@@ -600,10 +676,17 @@ fn build_ui(
         });
     }
 
-    if let Some(name) = focused_hyprland_monitor() {
-        set_layer_monitor(&window, &name);
-    } else {
-        set_first_monitor(&window);
+    if current_layer_placement()
+        .map(|(monitor, left_margin)| {
+            set_layer_placement(&window, &monitor, left_margin);
+        })
+        .is_none()
+    {
+        if let Some(name) = focused_hyprland_monitor() {
+            set_layer_monitor(&window, &name);
+        } else {
+            set_first_monitor(&window);
+        }
     }
 
     {
@@ -642,6 +725,10 @@ fn handle_event(state: &Rc<RefCell<UiState>>, event: AppEvent) {
         } => {
             let state = state.borrow();
             set_layer_placement(&state.window, &monitor, left_margin);
+        }
+        AppEvent::RefreshPlacement => {
+            let state = state.borrow();
+            refresh_layer_placement(&state.window);
         }
         AppEvent::Monitor(name) => {
             let state = state.borrow();
@@ -690,13 +777,13 @@ fn set_layer(state: &mut UiState, layer: u8) {
         return;
     }
     state.current_layer = layer;
-    state.pressed_keys = [0; KEY_REPORT_BYTES];
+    state.pressed_keys = vec![0; key_report_bytes(state.layout.keys.len())];
     update_auto_hide_deadline(state);
     state.drawing_area.queue_draw();
 }
 
-fn set_pressed_keys(state: &mut UiState, layer: u8, keys: [u8; KEY_REPORT_BYTES]) {
-    let pressed_count = pressed_key_count(&keys);
+fn set_pressed_keys(state: &mut UiState, layer: u8, keys: Vec<u8>) {
+    let pressed_count = pressed_key_count(&keys, state.layout.keys.len());
     state.current_layer = clamp_layer(layer as usize, &state.layers);
     state.pressed_keys = keys;
     if pressed_count > 0 {
@@ -714,7 +801,7 @@ fn update_auto_hide_deadline(state: &mut UiState) {
     match auto_hide_deadline_action(
         state.auto_hide_enabled,
         state.visible,
-        pressed_key_count(&state.pressed_keys),
+        pressed_key_count(&state.pressed_keys, state.layout.keys.len()),
     ) {
         AutoHideDeadlineAction::Unchanged => {}
         AutoHideDeadlineAction::Clear => state.hide_after = None,
@@ -758,14 +845,70 @@ fn refresh_submap_suppression(state: &mut UiState) {
     }
 }
 
-fn load_layers(path: &Path) -> Result<Vec<KeyLayer>> {
+fn load_layout(path: &Path) -> Result<KeyboardLayout> {
     let text =
         fs::read_to_string(path).with_context(|| format!("could not read {}", path.display()))?;
-    let root: Value = serde_yaml::from_str(&text)
+    parse_layout_json(&text).with_context(|| format!("could not parse {}", path.display()))
+}
+
+fn parse_layout_json(text: &str) -> Result<KeyboardLayout> {
+    let info: QmkInfo = serde_json::from_str(text)?;
+    let layout = info
+        .layouts
+        .get("LAYOUT")
+        .context("info.json does not contain layouts.LAYOUT")?;
+    if layout.layout.is_empty() {
+        bail!("info.json does not define any keys in layouts.LAYOUT");
+    }
+
+    let keys = layout
+        .layout
+        .iter()
+        .map(|key| {
+            KeyGeometry::from_qmk_key(QmkKey {
+                x: key.x,
+                y: key.y,
+                w: key.w,
+                h: key.h,
+                r: key.r,
+                rx: key.rx,
+                ry: key.ry,
+            })
+        })
+        .collect::<Vec<_>>();
+    let bounds = layout_bounds(&keys);
+    Ok(KeyboardLayout { keys, bounds })
+}
+
+fn layout_bounds(keys: &[KeyGeometry]) -> LayoutBounds {
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    for key in keys {
+        let half_width = key.x_axis_half_extent();
+        let half_height = key.y_axis_half_extent();
+        min_x = min_x.min(key.x - half_width);
+        min_y = min_y.min(key.y - half_height);
+        max_x = max_x.max(key.x + half_width);
+        max_y = max_y.max(key.y + half_height);
+    }
+    LayoutBounds {
+        min_x,
+        min_y,
+        width: max_x - min_x,
+        height: max_y - min_y,
+    }
+}
+
+fn load_layers(path: &Path, key_count: usize) -> Result<Vec<KeyLayer>> {
+    let text =
+        fs::read_to_string(path).with_context(|| format!("could not read {}", path.display()))?;
+    let root: YamlValue = serde_yaml::from_str(&text)
         .with_context(|| format!("could not parse {}", path.display()))?;
     let layers = root
         .get("layers")
-        .and_then(Value::as_mapping)
+        .and_then(YamlValue::as_mapping)
         .with_context(|| format!("{} does not contain a layers mapping", path.display()))?;
 
     let mut output = Vec::new();
@@ -777,8 +920,8 @@ fn load_layers(path: &Path) -> Result<Vec<KeyLayer>> {
             .iter()
             .map(|value| scalar_to_string(value).context("key label must be a scalar"))
             .collect::<Result<Vec<_>>>()?;
-        if keys.len() != KEY_COUNT {
-            bail!("layer {name} has {} keys, expected {KEY_COUNT}", keys.len());
+        if keys.len() != key_count {
+            bail!("layer {name} has {} keys, expected {key_count}", keys.len());
         }
         output.push(KeyLayer { name, keys });
     }
@@ -789,12 +932,12 @@ fn load_layers(path: &Path) -> Result<Vec<KeyLayer>> {
     Ok(output)
 }
 
-fn scalar_to_string(value: &Value) -> Result<String> {
+fn scalar_to_string(value: &YamlValue) -> Result<String> {
     match value {
-        Value::String(value) => Ok(value.clone()),
-        Value::Number(value) => Ok(value.to_string()),
-        Value::Bool(value) => Ok(value.to_string()),
-        Value::Null => Ok(String::new()),
+        YamlValue::String(value) => Ok(value.clone()),
+        YamlValue::Number(value) => Ok(value.to_string()),
+        YamlValue::Bool(value) => Ok(value.to_string()),
+        YamlValue::Null => Ok(String::new()),
         _ => bail!("expected scalar"),
     }
 }
@@ -824,7 +967,7 @@ fn hidraw_paths(args: &Args) -> Vec<PathBuf> {
         .collect()
 }
 
-fn watch_layer_devices(args: Args, sink: EventSink) {
+fn watch_layer_devices(args: Args, sink: EventSink, key_report_bytes: usize) {
     let active_paths = Arc::new(Mutex::new(HashSet::new()));
     loop {
         for path in hidraw_paths(&args) {
@@ -839,7 +982,7 @@ fn watch_layer_devices(args: Args, sink: EventSink) {
             let reader_sink = sink.clone();
             let reader_active_paths = Arc::clone(&active_paths);
             thread::spawn(move || {
-                read_layer_path(&path, reader_sink);
+                read_layer_path(&path, reader_sink, key_report_bytes);
                 reader_active_paths
                     .lock()
                     .expect("active hidraw path set poisoned")
@@ -851,14 +994,14 @@ fn watch_layer_devices(args: Args, sink: EventSink) {
     }
 }
 
-fn read_layer_path(path: &Path, sink: EventSink) {
+fn read_layer_path(path: &Path, sink: EventSink, key_report_bytes: usize) {
     let Ok(mut file) = OpenOptions::new().read(true).open(path) else {
         return;
     };
     let mut buffer = [0u8; 64];
     loop {
         match file.read(&mut buffer) {
-            Ok(len) if len > 0 => read_report(&buffer[..len], &sink),
+            Ok(len) if len > 0 => read_report(&buffer[..len], &sink, key_report_bytes),
             Ok(_) => thread::sleep(Duration::from_millis(1)),
             Err(error) if error.kind() == ErrorKind::Interrupted => {}
             Err(_) => break,
@@ -866,16 +1009,15 @@ fn read_layer_path(path: &Path, sink: EventSink) {
     }
 }
 
-fn read_report(buffer: &[u8], sink: &EventSink) {
+fn read_report(buffer: &[u8], sink: &EventSink, key_report_bytes: usize) {
     let report = normalize_report(buffer);
     if report.len() >= 9 && &report[0..7] == LAYER_REPORT_MAGIC && report[7] == 1 {
         sink.send(AppEvent::Layer(report[8]));
-    } else if report.len() >= 9 + KEY_REPORT_BYTES
+    } else if report.len() >= 9 + key_report_bytes
         && &report[0..7] == KEY_REPORT_MAGIC
         && report[7] == 1
     {
-        let mut keys = [0u8; KEY_REPORT_BYTES];
-        keys.copy_from_slice(&report[9..9 + KEY_REPORT_BYTES]);
+        let keys = report[9..9 + key_report_bytes].to_vec();
         sink.send(AppEvent::PressedKeys {
             layer: report[8],
             keys,
@@ -964,6 +1106,7 @@ fn handle_control_stream(mut stream: UnixStream, sink: &EventSink) {
                     left_margin,
                 });
             }
+            Some("refresh-placement") => sink.send(AppEvent::RefreshPlacement),
             _ => {}
         }
     }
@@ -1038,6 +1181,209 @@ fn current_hyprland_submap() -> Option<String> {
         .map(|submap| submap.trim().to_string())
 }
 
+fn refresh_layer_placement(window: &ApplicationWindow) {
+    if let Some((monitor, left_margin)) = current_layer_placement() {
+        set_layer_placement(window, &monitor, left_margin);
+    } else if let Some(name) = focused_hyprland_monitor() {
+        set_layer_monitor(window, &name);
+    }
+}
+
+fn current_layer_placement() -> Option<(String, i32)> {
+    if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
+        return None;
+    }
+
+    let monitors: Vec<HyprMonitor> = hyprctl_json(&["monitors", "-j"])?;
+    let clients: Vec<HyprClient> = hyprctl_json(&["clients", "-j"])?;
+    let active: HyprClient = hyprctl_json(&["activewindow", "-j"]).unwrap_or_default();
+    let gaps: HyprGapsOption = hyprctl_json(&["getoption", "general:gaps_in", "-j"])
+        .unwrap_or_default();
+
+    compute_layer_placement(&monitors, &clients, &active, &gaps)
+}
+
+fn hyprctl_json<T: for<'de> Deserialize<'de>>(args: &[&str]) -> Option<T> {
+    let output = Command::new("hyprctl").args(args).output().ok()?;
+    if !output.status.success() || output.stdout.is_empty() {
+        return None;
+    }
+    serde_json::from_slice(&output.stdout).ok()
+}
+
+fn compute_layer_placement(
+    monitors: &[HyprMonitor],
+    clients: &[HyprClient],
+    active: &HyprClient,
+    gaps: &HyprGapsOption,
+) -> Option<(String, i32)> {
+    let monitor = monitors
+        .iter()
+        .find(|monitor| monitor.focused)
+        .or_else(|| monitors.first())?;
+    let monitor_scale = if monitor.scale == 0.0 {
+        1.0
+    } else {
+        monitor.scale
+    };
+    let monitor_width = monitor.width / monitor_scale;
+    let monitor_height = monitor.height / monitor_scale;
+    let monitor_center = monitor.x + monitor_width / 2.0;
+    let band_top = monitor.y + monitor_height - f64::from(WINDOW_HEIGHT) - f64::from(BOTTOM_MARGIN);
+    let band_bottom = monitor.y + monitor_height;
+    let fallback_x = monitor.x
+        + if monitor_width > f64::from(WINDOW_WIDTH) {
+            (monitor_width - f64::from(WINDOW_WIDTH)) / 2.0
+        } else {
+            0.0
+        };
+    let workspace_id = placement_workspace_id(monitor, active)?;
+    let focused_address = active.address.as_str();
+    let gap_margin = configured_gap_margin(gaps);
+
+    let focused_choice = if mapped_visible(active)
+        && on_monitor(active, monitor)
+        && on_workspace(active, workspace_id)
+    {
+        Some(PlacementChoice {
+            left: place_near_window(
+                active,
+                monitor.x,
+                monitor_width,
+                band_top,
+                band_bottom,
+                gap_margin,
+            ),
+            distance: 0.0,
+        })
+    } else {
+        None
+    };
+
+    let choice = focused_choice.or_else(|| {
+        clients
+            .iter()
+            .filter(|client| mapped_visible(client))
+            .filter(|client| on_monitor(client, monitor))
+            .filter(|client| on_workspace(client, workspace_id))
+            .filter(|client| client.address != focused_address)
+            .filter_map(|client| {
+                let [window_x, window_y] = client.at?;
+                let [window_width, window_height] = client.size?;
+                if window_width < f64::from(WINDOW_WIDTH)
+                    || window_y + window_height <= band_top
+                    || window_y >= band_bottom
+                {
+                    return None;
+                }
+                let left_bound = window_x.max(monitor.x);
+                let right_bound =
+                    (window_x + window_width - f64::from(WINDOW_WIDTH)).min(
+                        monitor.x + monitor_width - f64::from(WINDOW_WIDTH),
+                    );
+                if right_bound < left_bound {
+                    return None;
+                }
+                let left = clamp(
+                    monitor_center - f64::from(WINDOW_WIDTH) / 2.0,
+                    left_bound,
+                    right_bound,
+                );
+                Some(PlacementChoice {
+                    left,
+                    distance: (left + f64::from(WINDOW_WIDTH) / 2.0 - monitor_center).abs(),
+                })
+            })
+            .min_by(|left, right| left.distance.total_cmp(&right.distance))
+    });
+
+    let left = choice.map_or(fallback_x, |choice| choice.left);
+    Some((monitor.name.clone(), (left - monitor.x).floor().max(0.0) as i32))
+}
+
+#[derive(Clone, Copy)]
+struct PlacementChoice {
+    left: f64,
+    distance: f64,
+}
+
+fn placement_workspace_id(monitor: &HyprMonitor, active: &HyprClient) -> Option<i64> {
+    if monitor.special_workspace.id.is_some_and(|id| id != 0) {
+        return monitor.special_workspace.id;
+    }
+    if mapped_visible(active) && on_monitor(active, monitor) {
+        return active.workspace.id.or(monitor.active_workspace.id);
+    }
+    monitor.active_workspace.id
+}
+
+fn mapped_visible(client: &HyprClient) -> bool {
+    client.mapped.unwrap_or(true) && !client.hidden.unwrap_or(false)
+}
+
+fn on_monitor(client: &HyprClient, monitor: &HyprMonitor) -> bool {
+    match (&client.monitor, monitor.id) {
+        (Some(HyprMonitorRef::Id(client_id)), Some(monitor_id)) => *client_id == monitor_id,
+        (Some(HyprMonitorRef::Name(client_name)), _) => client_name == &monitor.name,
+        _ => false,
+    }
+}
+
+fn on_workspace(client: &HyprClient, workspace_id: i64) -> bool {
+    client.workspace.id == Some(workspace_id)
+}
+
+fn configured_gap_margin(gaps: &HyprGapsOption) -> f64 {
+    (gaps
+        .css
+        .split_whitespace()
+        .next()
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or(0.0)
+        * 0.7)
+        .ceil()
+}
+
+fn place_near_window(
+    client: &HyprClient,
+    monitor_x: f64,
+    monitor_width: f64,
+    band_top: f64,
+    band_bottom: f64,
+    gap_margin: f64,
+) -> f64 {
+    let [window_x, window_y] = client.at.unwrap_or([0.0, 0.0]);
+    let [window_width, window_height] = client.size.unwrap_or([0.0, 0.0]);
+    let min_x = monitor_x;
+    let max_x = monitor_x + monitor_width - f64::from(WINDOW_WIDTH);
+    let centered_x = window_x + window_width / 2.0 - f64::from(WINDOW_WIDTH) / 2.0;
+    let overlaps_band = window_y + window_height > band_top && window_y < band_bottom;
+
+    if max_x < min_x {
+        min_x
+    } else if !overlaps_band {
+        clamp(centered_x, min_x, max_x)
+    } else {
+        let window_center = window_x + window_width / 2.0;
+        [
+            window_x - gap_margin - f64::from(WINDOW_WIDTH),
+            window_x + window_width + gap_margin,
+        ]
+        .into_iter()
+        .filter(|left| *left >= min_x && *left <= max_x)
+        .map(|left| PlacementChoice {
+            left,
+            distance: (left + f64::from(WINDOW_WIDTH) / 2.0 - window_center).abs(),
+        })
+        .min_by(|left, right| left.distance.total_cmp(&right.distance))
+        .map_or_else(|| clamp(centered_x, min_x, max_x), |choice| choice.left)
+    }
+}
+
+fn clamp(value: f64, min: f64, max: f64) -> f64 {
+    value.max(min).min(max)
+}
+
 fn focused_hyprland_monitor() -> Option<String> {
     if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
         return None;
@@ -1107,7 +1453,12 @@ fn clamp_layer(layer: usize, layers: &[KeyLayer]) -> usize {
 }
 
 fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: f64, height: f64) {
-    let metrics = layout_metrics(width, height);
+    cr.save().ok();
+    cr.set_operator(Operator::Clear);
+    cr.paint().ok();
+    cr.restore().ok();
+
+    let metrics = layout_metrics(width, height, state.layout.bounds);
     let palette = ThemePalette::from_widget(area);
     let layer = &state.layers[state.current_layer];
     let layer_names = state
@@ -1115,7 +1466,7 @@ fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: 
         .iter()
         .map(|layer| layer.name.as_str())
         .collect::<Vec<_>>();
-    for (index, geometry) in KEY_GEOMETRY.iter().enumerate() {
+    for (index, geometry) in state.layout.keys.iter().enumerate() {
         draw_key(
             cr,
             &metrics,
@@ -1129,12 +1480,10 @@ fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: 
     }
 }
 
-fn layout_metrics(width: f64, height: f64) -> LayoutMetrics {
-    let scale = (width / CONTENT_WIDTH)
-        .min(height / CONTENT_HEIGHT)
-        .max(0.05);
-    let origin_x = (width - CONTENT_WIDTH * scale) / 2.0 - CONTENT_MIN_X * scale;
-    let origin_y = (height - CONTENT_HEIGHT * scale) / 2.0 - CONTENT_MIN_Y * scale;
+fn layout_metrics(width: f64, height: f64, bounds: LayoutBounds) -> LayoutMetrics {
+    let scale = (width / bounds.width).min(height / bounds.height).max(0.05);
+    let origin_x = (width - bounds.width * scale) / 2.0 - bounds.min_x * scale;
+    let origin_y = (height - bounds.height * scale) / 2.0 - bounds.min_y * scale;
     LayoutMetrics {
         origin_x,
         origin_y,
@@ -1154,6 +1503,7 @@ fn draw_key(
 ) {
     let key_width = geometry.width * metrics.scale;
     let key_height = geometry.height * metrics.scale;
+    let key_size = key_width.min(key_height);
     let radius = key_width.min(key_height) * 0.13;
     cr.save().ok();
     cr.translate(
@@ -1170,21 +1520,21 @@ fn draw_key(
         radius,
     );
     if pressed {
-        set_rgba(cr, palette.accent, 0.96 * OVERLAY_OPACITY);
+        set_rgba(cr, palette.accent, 0.98 * KEY_FILL_OPACITY);
     } else if is_layer_label(label, layer_names) {
-        set_rgba(cr, palette.layer, 0.86 * OVERLAY_OPACITY);
+        set_rgba(cr, palette.layer, 0.92 * KEY_FILL_OPACITY);
     } else if label == "___" {
-        set_rgba(cr, palette.key_dim, 0.74 * OVERLAY_OPACITY);
+        set_rgba(cr, palette.key_dim, 0.78 * KEY_FILL_OPACITY);
     } else {
-        set_rgba(cr, palette.key, 0.82 * OVERLAY_OPACITY);
+        set_rgba(cr, palette.key, 0.90 * KEY_FILL_OPACITY);
     }
     cr.fill_preserve().ok();
     if pressed {
         set_rgba(cr, palette.accent, OVERLAY_OPACITY);
-        cr.set_line_width(2.8 * metrics.scale);
+        cr.set_line_width(key_size * 0.038);
     } else {
         set_rgba(cr, palette.outline, 0.62 * OVERLAY_OPACITY);
-        cr.set_line_width(1.5 * metrics.scale);
+        cr.set_line_width(key_size * 0.020);
     }
     cr.stroke().ok();
 
@@ -1267,13 +1617,22 @@ fn is_layer_label(label: &str, layer_names: &[&str]) -> bool {
 }
 
 fn key_is_pressed(state: &UiState, index: usize) -> bool {
-    index < KEY_COUNT && (state.pressed_keys[index / 8] & (1 << (index % 8))) != 0
+    index < state.layout.keys.len()
+        && index / 8 < state.pressed_keys.len()
+        && (state.pressed_keys[index / 8] & (1 << (index % 8))) != 0
 }
 
-fn pressed_key_count(keys: &[u8; KEY_REPORT_BYTES]) -> usize {
-    (0..KEY_COUNT)
-        .filter(|index| keys[index / 8] & (1 << (index % 8)) != 0)
+fn pressed_key_count(keys: &[u8], key_count: usize) -> usize {
+    (0..key_count)
+        .filter(|index| {
+            keys.get(index / 8)
+                .is_some_and(|byte| byte & (1 << (index % 8)) != 0)
+        })
         .count()
+}
+
+fn key_report_bytes(key_count: usize) -> usize {
+    (key_count + 7) / 8
 }
 
 #[cfg(test)]
@@ -1332,19 +1691,27 @@ mod tests {
 
     #[test]
     fn inner_thumb_gap_is_about_half_a_key_width() {
-        let left_inner_thumb = KEY_GEOMETRY[50];
-        let right_inner_thumb = KEY_GEOMETRY[51];
+        let layout = parse_layout_json(
+            r#"{
+              "layouts": {
+                "LAYOUT": {
+                  "layout": [
+                    { "x": 6.0062, "y": 4.6884, "w": 1.0205, "h": 1.5, "r": 20 },
+                    { "x": 7.976, "y": 4.6884, "w": 1.0205, "h": 1.5, "r": -20 }
+                  ]
+                }
+              }
+            }"#,
+        )
+        .expect("test layout parses");
+        let left_inner_thumb = layout.keys[0];
+        let right_inner_thumb = layout.keys[1];
         let gap = right_inner_thumb.x
-            - x_axis_half_extent(right_inner_thumb)
+            - right_inner_thumb.x_axis_half_extent()
             - left_inner_thumb.x
-            - x_axis_half_extent(left_inner_thumb);
-        let key_widths = gap / KeyGeometry::square(0.0, 0.0).width;
+            - left_inner_thumb.x_axis_half_extent();
+        let key_widths = gap;
 
         assert!((key_widths - 0.5).abs() < 0.02);
-    }
-
-    fn x_axis_half_extent(geometry: KeyGeometry) -> f64 {
-        let rotation = geometry.rotation.to_radians();
-        (geometry.width * rotation.cos().abs() + geometry.height * rotation.sin().abs()) / 2.0
     }
 }
