@@ -27,7 +27,7 @@ stdenv.mkDerivation {
     runHook preBuild
 
     substitute main.rs generated-main.rs \
-      --replace-fail @default_keymap@ "${../silakka54/keymap.yaml}"
+      --replace-fail @default_keymap@ "${../../packages/silakka54/keymap.yaml}"
 
     rustc --edition=2021 generated-main.rs \
       -o keymap-editor \

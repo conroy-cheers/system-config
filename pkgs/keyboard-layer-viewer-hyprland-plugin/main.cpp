@@ -38,7 +38,7 @@ void sendRefreshPlacement() {
     if (!runtimeDir || !*runtimeDir)
         return;
 
-    const std::string socketPath = std::string(runtimeDir) + "/silakka54-layer-viewer.sock";
+    const std::string socketPath = std::string(runtimeDir) + "/keyboard-layer-viewer.sock";
     sockaddr_un addr = {};
     addr.sun_family = AF_UNIX;
     if (socketPath.size() >= sizeof(addr.sun_path))
@@ -137,8 +137,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     const std::string serverHash = __hyprland_api_get_hash();
     const std::string clientHash = __hyprland_api_get_client_hash();
     if (serverHash != clientHash) {
-        HyprlandAPI::addNotification(g_handle, "[silakka54] Plugin/header API hash mismatch", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        throw std::runtime_error("silakka54-hyprland-plugin API hash mismatch");
+        HyprlandAPI::addNotification(g_handle, "[keyboard-layer-viewer] Plugin/header API hash mismatch", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("keyboard-layer-viewer-hyprland-plugin API hash mismatch");
     }
 
     g_running.store(true);
@@ -165,7 +165,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     watchExistingWindows();
     markDirty();
 
-    return {"silakka54-hyprland-plugin", "Requests Silakka54 layer viewer placement refreshes after Hyprland geometry changes.", "conroy", "0.1.0"};
+    return {"keyboard-layer-viewer-hyprland-plugin", "Requests keyboard layer viewer placement refreshes after Hyprland geometry changes.", "conroy", "0.1.0"};
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {

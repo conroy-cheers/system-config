@@ -1,4 +1,4 @@
-project('silakka54-hyprland-plugin', 'cpp',
+project('keyboard-layer-viewer-hyprland-plugin', 'cpp',
   version: '0.1.0',
   default_options: ['buildtype=release'],
 )

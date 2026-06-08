@@ -7,7 +7,7 @@
 }:
 
 hyprlandPlugins.mkHyprlandPlugin {
-  pluginName = "silakka54-hyprland-plugin";
+  pluginName = "keyboard-layer-viewer-hyprland-plugin";
   version = "0.1.0";
 
   src = lib.cleanSource ./.;
@@ -20,7 +20,7 @@ hyprlandPlugins.mkHyprlandPlugin {
   ];
 
   meta = {
-    description = "Hyprland geometry trigger for the Silakka54 layer viewer";
+    description = "Hyprland geometry trigger for the keyboard layer viewer";
     license = lib.licenses.mit;
     platforms = lib.platforms.linux;
   };

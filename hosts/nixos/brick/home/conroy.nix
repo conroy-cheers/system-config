@@ -10,7 +10,31 @@
 let
   luaString = builtins.toJSON;
   hyprlandPackage = osConfig.programs.hyprland.package or pkgs.hyprland;
-  silakka54HyprlandPlugin = pkgs.silakka54-hyprland-plugin.override {
+  keyboardLayerViewerProfiles = pkgs.writeText "keyboard-layer-viewer-profiles.json" (
+    builtins.toJSON {
+      keyboards = [
+        {
+          id = "silakka54";
+          name = "Silakka54";
+          vid = "0xfeed";
+          pid = "0x1212";
+          info = "${pkgs.silakka54}/share/silakka54/keymap/info.json";
+          layers = "${pkgs.silakka54}/share/silakka54/keymap/keymap.yaml";
+          current_layer_hid = true;
+        }
+        {
+          id = "logitech-pro-x-tkl";
+          name = "Logitech PRO X TKL";
+          vid = "0x046d";
+          pid = "0xc339";
+          info = "${../keyboard-layer-viewer/qwerty-tkl-info.json}";
+          layers = "${../keyboard-layer-viewer/qwerty-tkl.yaml}";
+          current_layer_hid = false;
+        }
+      ];
+    }
+  );
+  keyboardLayerViewerHyprlandPlugin = pkgs.keyboard-layer-viewer-hyprland-plugin.override {
     hyprland = hyprlandPackage;
   };
   silakka54FirmwarePrompt = pkgs.writeShellScript "silakka54-firmware-prompt" ''
@@ -24,16 +48,16 @@ let
     }:$PATH
     exec silakka54-sync prompt-firmware
   '';
-  silakka54LayerViewer = lib.getExe' pkgs.silakka54 "silakka54-layer-viewer";
-  silakka54LayerViewerControl = pkgs.writeShellScript "silakka54-layer-viewer-control" ''
+  keyboardLayerViewer = lib.getExe pkgs.keyboard-layer-viewer;
+  keyboardLayerViewerControl = pkgs.writeShellScript "keyboard-layer-viewer-control" ''
     set -eu
 
-    command="''${1:?usage: silakka54-layer-viewer-control <activity|hide|refresh-placement|place MONITOR LEFT_MARGIN>}"
-    socket="''${XDG_RUNTIME_DIR:?}/silakka54-layer-viewer.sock"
+    command="''${1:?usage: keyboard-layer-viewer-control <activity|hide|refresh-placement|place MONITOR LEFT_MARGIN>}"
+    socket="''${XDG_RUNTIME_DIR:?}/keyboard-layer-viewer.sock"
 
     case "$command" in
       activity)
-        ${lib.getExe' pkgs.systemd "systemctl"} --user start silakka54-layer-viewer.service
+        ${lib.getExe' pkgs.systemd "systemctl"} --user start keyboard-layer-viewer.service
         tries=0
         while [ ! -S "$socket" ] && [ "$tries" -lt 40 ]; do
           tries=$((tries + 1))
@@ -45,11 +69,11 @@ let
       refresh-placement)
         ;;
       place)
-        monitor="''${2:?usage: silakka54-layer-viewer-control place MONITOR LEFT_MARGIN}"
-        left_margin="''${3:?usage: silakka54-layer-viewer-control place MONITOR LEFT_MARGIN}"
+        monitor="''${2:?usage: keyboard-layer-viewer-control place MONITOR LEFT_MARGIN}"
+        left_margin="''${3:?usage: keyboard-layer-viewer-control place MONITOR LEFT_MARGIN}"
         ;;
       *)
-        echo "unsupported silakka54-layer-viewer command: $command" >&2
+        echo "unsupported keyboard-layer-viewer command: $command" >&2
         exit 64
         ;;
     esac
@@ -60,17 +84,17 @@ let
 
     case "$command" in
       activity)
-        ${silakka54LayerViewer} --refresh-placement || true
-        exec ${silakka54LayerViewer} --activity
+        ${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} --refresh-placement || true
+        exec ${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} --activity
         ;;
       place)
-        exec ${silakka54LayerViewer} --place "$monitor" "$left_margin"
+        exec ${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} --place "$monitor" "$left_margin"
         ;;
       refresh-placement)
-        exec ${silakka54LayerViewer} --refresh-placement
+        exec ${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} --refresh-placement
         ;;
       *)
-        exec ${silakka54LayerViewer} "--$command"
+        exec ${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} "--$command"
         ;;
     esac
   '';
@@ -228,36 +252,36 @@ in
     ];
   };
   wayland.windowManager.hyprland.plugins = lib.mkAfter [
-    silakka54HyprlandPlugin
+    keyboardLayerViewerHyprlandPlugin
   ];
-  home.activation.loadSilakka54HyprlandPlugin = lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
+  home.activation.loadKeyboardLayerViewerHyprlandPlugin = lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
     runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     if [[ -d "$runtime_dir/hypr" ]]; then
       for instance in $(${hyprlandPackage}/bin/hyprctl instances -j | ${lib.getExe pkgs.jq} -r '.[].instance'); do
-        if ! ${hyprlandPackage}/bin/hyprctl -i "$instance" plugin list | ${lib.getExe pkgs.gnugrep} -q 'Plugin silakka54-hyprland-plugin'; then
-          ${hyprlandPackage}/bin/hyprctl -i "$instance" plugin load ${silakka54HyprlandPlugin}/lib/libsilakka54-hyprland-plugin.so >/dev/null || true
+        if ! ${hyprlandPackage}/bin/hyprctl -i "$instance" plugin list | ${lib.getExe pkgs.gnugrep} -q 'Plugin keyboard-layer-viewer-hyprland-plugin'; then
+          ${hyprlandPackage}/bin/hyprctl -i "$instance" plugin load ${keyboardLayerViewerHyprlandPlugin}/lib/libkeyboard-layer-viewer-hyprland-plugin.so >/dev/null || true
         fi
       done
     fi
   '';
   wayland.windowManager.hyprland.extraConfig = ''
-    local silakka54_layer_viewer_control = ${luaString silakka54LayerViewerControl}
-    local silakka54_layer_viewer_ready = true
+    local keyboard_layer_viewer_control = ${luaString keyboardLayerViewerControl}
+    local keyboard_layer_viewer_ready = true
 
-    local function silakka54_layer_viewer_activity()
-      if not silakka54_layer_viewer_ready then
+    local function keyboard_layer_viewer_activity()
+      if not keyboard_layer_viewer_ready then
         return
       end
 
-      silakka54_layer_viewer_ready = false
-      hl.exec_cmd(silakka54_layer_viewer_control .. " refresh-placement; " .. silakka54_layer_viewer_control .. " activity")
+      keyboard_layer_viewer_ready = false
+      hl.exec_cmd(keyboard_layer_viewer_control .. " refresh-placement; " .. keyboard_layer_viewer_control .. " activity")
       hl.timer(function()
-        silakka54_layer_viewer_ready = true
+        keyboard_layer_viewer_ready = true
       end, { timeout = 250, type = "oneshot" })
     end
 
     for keycode = 8, 255 do
-      hl.bind("code:" .. keycode, silakka54_layer_viewer_activity, {
+      hl.bind("code:" .. keycode, keyboard_layer_viewer_activity, {
         non_consuming = true,
         transparent = true,
         ignore_mods = true,
@@ -266,12 +290,12 @@ in
 
     hl.on("keybinds.submap", function(submap)
       if submap == "game" then
-        hl.exec_cmd(silakka54_layer_viewer_control .. " hide")
+        hl.exec_cmd(keyboard_layer_viewer_control .. " hide")
       end
     end)
 
     hl.layer_rule({
-      match = { namespace = "^silakka54-layer-viewer$" },
+      match = { namespace = "^keyboard-layer-viewer$" },
       blur = true,
       ignore_alpha = 0.4,
       animation = "slide",
@@ -301,6 +325,7 @@ in
     # native wayland support (unstable)
     wineWow64Packages.waylandFull
     samba
+    keyboard-layer-viewer
     silakka54
   ];
 
@@ -336,15 +361,15 @@ in
     };
   };
 
-  systemd.user.services.silakka54-layer-viewer = {
+  systemd.user.services.keyboard-layer-viewer = {
     Unit = {
-      Description = "Silakka54 layer viewer overlay";
+      Description = "Keyboard layer viewer overlay";
       After = [ "graphical-session.target" ];
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
       Type = "simple";
-      ExecStart = "${silakka54LayerViewer} --hidden";
+      ExecStart = "${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} --hidden";
       Restart = "on-failure";
       RestartSec = 1;
     };

@@ -638,7 +638,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "silakka54-layer-viewer"
+name = "keyboard-layer-viewer"
 version = "0.1.0"
 dependencies = [
  "anyhow",

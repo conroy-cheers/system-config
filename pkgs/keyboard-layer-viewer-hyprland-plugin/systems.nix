@@ -1,0 +1,3 @@
+{ hostPlatform, ... }:
+
+hostPlatform.isLinux

@@ -21,9 +21,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const APP_ID: &str = "dev.corncheese.silakka54.LayerViewer";
-const DEFAULT_VID: &str = "feed";
-const DEFAULT_PID: &str = "1212";
+const APP_ID: &str = "dev.corncheese.KeyboardLayerViewer";
+const DEFAULT_VID: &str = "0000";
+const DEFAULT_PID: &str = "0000";
 const LAYER_REPORT_MAGIC: &[u8] = b"KBLAYR";
 const LAYER_REPORT_VERSION: u8 = 1;
 const LAYER_REPORT_KIND_QUERY: u8 = 0;
@@ -533,7 +533,7 @@ fn main() -> Result<()> {
             !args.hidden,
         );
     });
-    app.run_with_args(&["silakka54-layer-viewer"]);
+    app.run_with_args(&["keyboard-layer-viewer"]);
     Ok(())
 }
 
@@ -605,7 +605,7 @@ fn parse_args() -> Result<Args> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: silakka54-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--refresh-placement] [--status] [--hidden] [--profiles keyboards.json] [--vid 0xfeed] [--pid 0x1212] [--path /dev/hidrawN] [--keymap keymap.yaml] [--info info.json] [--simulate-layer N]"
+                    "Usage: keyboard-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--refresh-placement] [--status] [--hidden] [--profiles keyboards.json] [--vid 0x0000] [--pid 0x0000] [--path /dev/hidrawN] [--keymap keymap.yaml] [--info info.json] [--simulate-layer N]"
                 );
                 std::process::exit(0);
             }
@@ -626,41 +626,39 @@ fn next_arg(args: &mut impl Iterator<Item = String>, option: &str) -> Result<Str
 }
 
 fn packaged_keymap_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("SILAKKA54_KEYMAP") {
+    if let Some(path) = std::env::var_os("KEYBOARD_LAYER_VIEWER_KEYMAP") {
         return PathBuf::from(path);
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(prefix) = exe.parent().and_then(Path::parent) {
-            return prefix.join("share/silakka54/keymap/keymap.yaml");
+            return prefix.join("share/keyboard-layer-viewer/keymap/keymap.yaml");
         }
     }
-    PathBuf::from("/run/current-system/sw/share/silakka54/keymap/keymap.yaml")
+    PathBuf::from("/run/current-system/sw/share/keyboard-layer-viewer/keymap/keymap.yaml")
 }
 
 fn packaged_info_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("SILAKKA54_INFO_JSON") {
+    if let Some(path) = std::env::var_os("KEYBOARD_LAYER_VIEWER_INFO_JSON") {
         return PathBuf::from(path);
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(prefix) = exe.parent().and_then(Path::parent) {
-            return prefix.join("share/silakka54/keymap/info.json");
+            return prefix.join("share/keyboard-layer-viewer/keymap/info.json");
         }
     }
-    PathBuf::from("/run/current-system/sw/share/silakka54/keymap/info.json")
+    PathBuf::from("/run/current-system/sw/share/keyboard-layer-viewer/keymap/info.json")
 }
 
 fn packaged_profiles_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("KEYBOARD_LAYER_VIEWER_PROFILES")
-        .or_else(|| std::env::var_os("SILAKKA54_KEYBOARDS"))
-    {
+    if let Some(path) = std::env::var_os("KEYBOARD_LAYER_VIEWER_PROFILES") {
         return PathBuf::from(path);
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(prefix) = exe.parent().and_then(Path::parent) {
-            return prefix.join("share/silakka54/keyboards.json");
+            return prefix.join("share/keyboard-layer-viewer/keyboards.json");
         }
     }
-    PathBuf::from("/run/current-system/sw/share/silakka54/keyboards.json")
+    PathBuf::from("/run/current-system/sw/share/keyboard-layer-viewer/keyboards.json")
 }
 
 fn normalize_hex_arg(value: &str) -> String {
@@ -697,7 +695,7 @@ fn build_ui(
     window.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT);
     window.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT);
     window.init_layer_shell();
-    window.set_namespace(Some("silakka54-layer-viewer"));
+    window.set_namespace(Some("keyboard-layer-viewer"));
     window.set_layer(ShellLayer::Overlay);
     window.set_keyboard_mode(KeyboardMode::None);
     window.set_exclusive_zone(0);
@@ -1331,7 +1329,7 @@ impl Drop for SocketGuard {
 
 fn control_socket_path() -> Result<PathBuf> {
     let runtime = std::env::var_os("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR is not set")?;
-    Ok(PathBuf::from(runtime).join("silakka54-layer-viewer.sock"))
+    Ok(PathBuf::from(runtime).join("keyboard-layer-viewer.sock"))
 }
 
 fn send_control(command: &str) -> Result<()> {
@@ -1355,7 +1353,7 @@ fn send_status_control() -> Result<String> {
 fn start_control_socket(sink: EventSink) -> Result<SocketGuard> {
     let path = control_socket_path()?;
     if UnixStream::connect(&path).is_ok() {
-        bail!("silakka54-layer-viewer is already running");
+        bail!("keyboard-layer-viewer is already running");
     }
     match fs::remove_file(&path) {
         Ok(()) => {}
@@ -1941,7 +1939,7 @@ mod tests {
             .expect("system clock before unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!(
-            "silakka54-layer-viewer-{name}-{}-{nanos}",
+            "keyboard-layer-viewer-{name}-{}-{nanos}",
             std::process::id()
         ))
     }

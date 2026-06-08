@@ -419,8 +419,8 @@ fn parse_args() -> Args {
 
 fn default_keymap_path() -> PathBuf {
     let candidates = [
-        PathBuf::from("pkgs/silakka54/keymap.yaml"),
-        dirs_home().join(".config/system-config/pkgs/silakka54/keymap.yaml"),
+        PathBuf::from("packages/silakka54/keymap.yaml"),
+        dirs_home().join(".config/system-config/packages/silakka54/keymap.yaml"),
         PathBuf::from(DEFAULT_KEYMAP),
     ];
 
