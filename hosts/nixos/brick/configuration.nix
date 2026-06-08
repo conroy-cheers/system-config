@@ -284,6 +284,11 @@ in
       --property-match=ID_VENDOR_ID=feed \
       --property-match=ID_MODEL_ID=1212 \
       --action=change || true
+    ${pkgs.systemd}/bin/udevadm trigger \
+      --subsystem-match=input \
+      --property-match=ID_VENDOR_ID=feed \
+      --property-match=ID_MODEL_ID=1212 \
+      --action=change || true
   '';
 
   ### Enable touchpad support (enabled default in most desktopManager).

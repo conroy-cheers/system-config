@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
+use std::net::Shutdown;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -23,8 +24,12 @@ use std::time::{Duration, Instant};
 const APP_ID: &str = "dev.corncheese.silakka54.LayerViewer";
 const DEFAULT_VID: &str = "feed";
 const DEFAULT_PID: &str = "1212";
-const LAYER_REPORT_MAGIC: &[u8] = b"SL54LYR";
-const KEY_REPORT_MAGIC: &[u8] = b"SL54KEY";
+const LAYER_REPORT_MAGIC: &[u8] = b"KBLAYR";
+const LAYER_REPORT_VERSION: u8 = 1;
+const LAYER_REPORT_KIND_QUERY: u8 = 0;
+const LAYER_REPORT_KIND_CURRENT: u8 = 1;
+const INPUT_EVENT_SIZE: usize = 24;
+const EV_KEY: u16 = 0x01;
 const WINDOW_WIDTH: i32 = 659;
 const WINDOW_HEIGHT: i32 = 284;
 const BOTTOM_MARGIN: i32 = 12;
@@ -130,7 +135,6 @@ struct ThemePalette {
     muted: Color,
     key: Color,
     key_dim: Color,
-    accent: Color,
     layer: Color,
     outline: Color,
     inverse_text: Color,
@@ -234,7 +238,6 @@ impl ThemePalette {
             muted,
             key,
             key_dim,
-            accent,
             layer,
             outline,
             inverse_text,
@@ -310,6 +313,7 @@ struct Args {
     path: Option<PathBuf>,
     keymap_path: PathBuf,
     info_path: PathBuf,
+    profiles_path: PathBuf,
     simulate_layer: Option<u8>,
     control_command: Option<ControlCommand>,
     hidden: bool,
@@ -321,6 +325,7 @@ enum ControlCommand {
     Hide,
     Place { monitor: String, left_margin: i32 },
     RefreshPlacement,
+    Status,
 }
 
 impl ControlCommand {
@@ -333,6 +338,7 @@ impl ControlCommand {
                 left_margin,
             } => format!("place {monitor} {left_margin}"),
             Self::RefreshPlacement => "refresh-placement".to_string(),
+            Self::Status => "status".to_string(),
         }
     }
 }
@@ -343,34 +349,61 @@ struct EventSink {
 }
 
 enum AppEvent {
-    Layer(u8),
-    PressedKeys { layer: u8, keys: Vec<u8> },
+    Layer { profile: usize, layer: u8 },
+    Touch { profile: usize },
     Activity,
     Hide,
     Place { monitor: String, left_margin: i32 },
     RefreshPlacement,
     Monitor(String),
     Submap(String),
+    Status { respond_to: Sender<String> },
 }
 
 struct UiState {
     _hold: gtk::gio::ApplicationHoldGuard,
     window: ApplicationWindow,
     drawing_area: DrawingArea,
-    layout: KeyboardLayout,
-    layers: Vec<KeyLayer>,
-    current_layer: usize,
-    pressed_keys: Vec<u8>,
+    profiles: Vec<KeyboardProfile>,
+    active_profile: usize,
     visible: bool,
     auto_hide_enabled: bool,
     hide_after: Option<Instant>,
     suppressed_by_submap: bool,
 }
 
+#[derive(Clone)]
+struct KeyboardProfile {
+    id: String,
+    name: String,
+    vid: String,
+    pid: String,
+    layout: KeyboardLayout,
+    layers: Vec<KeyLayer>,
+    current_layer: usize,
+    current_layer_hid: bool,
+}
+
+#[derive(Deserialize)]
+struct KeyboardProfilesFile {
+    keyboards: Vec<KeyboardProfileConfig>,
+}
+
+#[derive(Clone, Deserialize)]
+struct KeyboardProfileConfig {
+    id: String,
+    name: String,
+    vid: String,
+    pid: String,
+    info: PathBuf,
+    layers: PathBuf,
+    #[serde(default)]
+    current_layer_hid: bool,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum AutoHideDeadlineAction {
     Unchanged,
-    Clear,
     Schedule,
 }
 
@@ -432,6 +465,10 @@ struct HyprGapsOption {
 fn main() -> Result<()> {
     let args = parse_args()?;
     if let Some(command) = &args.control_command {
+        if matches!(command, ControlCommand::Status) {
+            print!("{}", send_status_control()?);
+            return Ok(());
+        }
         let message = if matches!(command, ControlCommand::Activity) && activity_is_suppressed_now()
         {
             "hide".to_string()
@@ -454,9 +491,13 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let layout = load_layout(&args.info_path)?;
-    let layers = load_layers(&args.keymap_path, layout.keys.len())?;
-    let initial_layer = clamp_layer(args.simulate_layer.unwrap_or(0) as usize, &layers);
+    let mut profiles = load_profiles(&args)?;
+    if profiles.is_empty() {
+        bail!("no keyboard profiles configured");
+    }
+    if let Some(layer) = args.simulate_layer {
+        profiles[0].current_layer = clamp_layer(layer as usize, &profiles[0].layers);
+    }
     let (tx, rx) = mpsc::channel();
     let sink = EventSink { tx };
     let _socket_guard = start_control_socket(sink.clone())?;
@@ -466,12 +507,16 @@ fn main() -> Result<()> {
     }
 
     if let Some(layer) = args.simulate_layer {
-        sink.send(AppEvent::Layer(layer));
+        sink.send(AppEvent::Layer { profile: 0, layer });
     } else {
+        let input_profiles = profiles.clone();
+        let input_sink = sink.clone();
+        thread::spawn(move || watch_input_devices(input_profiles, input_sink));
+
+        let hid_profiles = profiles.clone();
         let hid_args = args.clone();
         let hid_sink = sink.clone();
-        let key_report_bytes = key_report_bytes(layout.keys.len());
-        thread::spawn(move || watch_layer_devices(hid_args, hid_sink, key_report_bytes));
+        thread::spawn(move || watch_layer_devices(hid_args, hid_profiles, hid_sink));
     }
 
     let rx = Rc::new(RefCell::new(Some(rx)));
@@ -484,9 +529,7 @@ fn main() -> Result<()> {
         build_ui(
             app,
             rx,
-            layout.clone(),
-            layers.clone(),
-            initial_layer,
+            profiles.clone(),
             !args.hidden,
         );
     });
@@ -502,6 +545,7 @@ fn parse_args() -> Result<Args> {
         path: None,
         keymap_path: packaged_keymap_path(),
         info_path: packaged_info_path(),
+        profiles_path: packaged_profiles_path(),
         simulate_layer: None,
         control_command: None,
         hidden: true,
@@ -523,6 +567,9 @@ fn parse_args() -> Result<Args> {
             }
             "--info" => {
                 parsed.info_path = PathBuf::from(next_arg(&mut args, "--info")?);
+            }
+            "--profiles" => {
+                parsed.profiles_path = PathBuf::from(next_arg(&mut args, "--profiles")?);
             }
             "--simulate-layer" => {
                 parsed.simulate_layer = Some(
@@ -550,12 +597,15 @@ fn parse_args() -> Result<Args> {
             "--refresh-placement" => {
                 parsed.control_command = Some(ControlCommand::RefreshPlacement);
             }
+            "--status" => {
+                parsed.control_command = Some(ControlCommand::Status);
+            }
             "--hidden" => {
                 parsed.hidden = true;
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: silakka54-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--refresh-placement] [--hidden] [--vid 0xfeed] [--pid 0x1212] [--path /dev/hidrawN] [--keymap keymap.yaml] [--info info.json] [--simulate-layer N]"
+                    "Usage: silakka54-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--refresh-placement] [--status] [--hidden] [--profiles keyboards.json] [--vid 0xfeed] [--pid 0x1212] [--path /dev/hidrawN] [--keymap keymap.yaml] [--info info.json] [--simulate-layer N]"
                 );
                 std::process::exit(0);
             }
@@ -599,6 +649,20 @@ fn packaged_info_path() -> PathBuf {
     PathBuf::from("/run/current-system/sw/share/silakka54/keymap/info.json")
 }
 
+fn packaged_profiles_path() -> PathBuf {
+    if let Some(path) = std::env::var_os("KEYBOARD_LAYER_VIEWER_PROFILES")
+        .or_else(|| std::env::var_os("SILAKKA54_KEYBOARDS"))
+    {
+        return PathBuf::from(path);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(prefix) = exe.parent().and_then(Path::parent) {
+            return prefix.join("share/silakka54/keyboards.json");
+        }
+    }
+    PathBuf::from("/run/current-system/sw/share/silakka54/keyboards.json")
+}
+
 fn normalize_hex_arg(value: &str) -> String {
     let trimmed = value.trim_start_matches("0x").trim_start_matches("0X");
     format!("{:0>4}", trimmed.to_ascii_lowercase())
@@ -607,9 +671,7 @@ fn normalize_hex_arg(value: &str) -> String {
 fn build_ui(
     app: &Application,
     rx: Receiver<AppEvent>,
-    layout: KeyboardLayout,
-    layers: Vec<KeyLayer>,
-    current_layer: usize,
+    profiles: Vec<KeyboardProfile>,
     visible: bool,
 ) {
     let hold = app.hold();
@@ -625,7 +687,7 @@ fn build_ui(
 
     let window = ApplicationWindow::builder()
         .application(app)
-        .title("Silakka54 Layer Viewer")
+        .title("Keyboard Layer Viewer")
         .default_width(WINDOW_WIDTH)
         .default_height(WINDOW_HEIGHT)
         .decorated(false)
@@ -658,10 +720,8 @@ fn build_ui(
         _hold: hold,
         window: window.clone(),
         drawing_area: drawing_area.clone(),
-        pressed_keys: vec![0; key_report_bytes(layout.keys.len())],
-        layout,
-        layers,
-        current_layer,
+        profiles,
+        active_profile: 0,
         visible,
         auto_hide_enabled: false,
         hide_after: None,
@@ -713,10 +773,8 @@ fn build_ui(
 
 fn handle_event(state: &Rc<RefCell<UiState>>, event: AppEvent) {
     match event {
-        AppEvent::Layer(layer) => set_layer(&mut state.borrow_mut(), layer),
-        AppEvent::PressedKeys { layer, keys } => {
-            set_pressed_keys(&mut state.borrow_mut(), layer, keys)
-        }
+        AppEvent::Layer { profile, layer } => set_layer(&mut state.borrow_mut(), profile, layer),
+        AppEvent::Touch { profile } => touch_profile(&mut state.borrow_mut(), profile),
         AppEvent::Activity => activity_state(&mut state.borrow_mut()),
         AppEvent::Hide => hide_state(&mut state.borrow_mut()),
         AppEvent::Place {
@@ -740,6 +798,10 @@ fn handle_event(state: &Rc<RefCell<UiState>>, event: AppEvent) {
             if state.suppressed_by_submap {
                 hide_state(&mut state);
             }
+        }
+        AppEvent::Status { respond_to } => {
+            let state = state.borrow();
+            let _ = respond_to.send(state_status(&state));
         }
     }
 }
@@ -771,40 +833,81 @@ fn hide_state(state: &mut UiState) {
     }
 }
 
-fn set_layer(state: &mut UiState, layer: u8) {
-    let layer = clamp_layer(layer as usize, &state.layers);
-    if layer == state.current_layer {
+fn set_layer(state: &mut UiState, profile: usize, layer: u8) {
+    if profile >= state.profiles.len() {
         return;
     }
-    state.current_layer = layer;
-    state.pressed_keys = vec![0; key_report_bytes(state.layout.keys.len())];
-    update_auto_hide_deadline(state);
-    state.drawing_area.queue_draw();
+    let layer = clamp_layer(layer as usize, &state.profiles[profile].layers);
+    let changed =
+        state.active_profile != profile || state.profiles[profile].current_layer != layer;
+    state.active_profile = profile;
+    update_window_title(state);
+    state.profiles[profile].current_layer = layer;
+    if changed {
+        refresh_submap_suppression(state);
+        if state.suppressed_by_submap {
+            hide_state(state);
+        } else {
+            show_state(state);
+            state.auto_hide_enabled = true;
+            update_auto_hide_deadline(state);
+        }
+        state.drawing_area.queue_draw();
+    }
 }
 
-fn set_pressed_keys(state: &mut UiState, layer: u8, keys: Vec<u8>) {
-    let pressed_count = pressed_key_count(&keys, state.layout.keys.len());
-    state.current_layer = clamp_layer(layer as usize, &state.layers);
-    state.pressed_keys = keys;
-    if pressed_count > 0 {
-        refresh_submap_suppression(state);
+fn touch_profile(state: &mut UiState, profile: usize) {
+    if profile >= state.profiles.len() {
+        return;
     }
-    if should_open_from_pressed_keys(state.suppressed_by_submap, pressed_count) {
+    let changed = state.active_profile != profile;
+    state.active_profile = profile;
+    update_window_title(state);
+    refresh_submap_suppression(state);
+    if !state.suppressed_by_submap {
         show_state(state);
         state.auto_hide_enabled = true;
     }
     update_auto_hide_deadline(state);
-    state.drawing_area.queue_draw();
+    if changed {
+        state.drawing_area.queue_draw();
+    }
+}
+
+fn update_window_title(state: &UiState) {
+    let profile = &state.profiles[state.active_profile];
+    state
+        .window
+        .set_title(Some(&format!("{} Layer Viewer ({})", profile.name, profile.id)));
+}
+
+fn state_status(state: &UiState) -> String {
+    let profile = &state.profiles[state.active_profile];
+    let layer = &profile.layers[profile.current_layer];
+    serde_json::json!({
+        "active_profile": {
+            "index": state.active_profile,
+            "id": profile.id,
+            "name": profile.name,
+            "vid": profile.vid,
+            "pid": profile.pid,
+            "current_layer_hid": profile.current_layer_hid,
+        },
+        "current_layer": {
+            "index": profile.current_layer,
+            "name": layer.name,
+        },
+        "visible": state.visible,
+        "auto_hide_enabled": state.auto_hide_enabled,
+        "suppressed_by_submap": state.suppressed_by_submap,
+    })
+    .to_string()
+        + "\n"
 }
 
 fn update_auto_hide_deadline(state: &mut UiState) {
-    match auto_hide_deadline_action(
-        state.auto_hide_enabled,
-        state.visible,
-        pressed_key_count(&state.pressed_keys, state.layout.keys.len()),
-    ) {
+    match auto_hide_deadline_action(state.auto_hide_enabled, state.visible) {
         AutoHideDeadlineAction::Unchanged => {}
-        AutoHideDeadlineAction::Clear => state.hide_after = None,
         AutoHideDeadlineAction::Schedule => {
             state.hide_after = Some(Instant::now() + AUTO_HIDE_DURATION);
         }
@@ -814,21 +917,14 @@ fn update_auto_hide_deadline(state: &mut UiState) {
 fn auto_hide_deadline_action(
     auto_hide_enabled: bool,
     visible: bool,
-    pressed_count: usize,
 ) -> AutoHideDeadlineAction {
     if !auto_hide_enabled {
         AutoHideDeadlineAction::Unchanged
-    } else if pressed_count > 0 {
-        AutoHideDeadlineAction::Clear
     } else if visible {
         AutoHideDeadlineAction::Schedule
     } else {
         AutoHideDeadlineAction::Unchanged
     }
-}
-
-fn should_open_from_pressed_keys(suppressed_by_submap: bool, pressed_count: usize) -> bool {
-    !suppressed_by_submap && pressed_count > 0
 }
 
 fn submap_suppresses_activity(submap: &str) -> bool {
@@ -942,7 +1038,62 @@ fn scalar_to_string(value: &YamlValue) -> Result<String> {
     }
 }
 
-fn hidraw_paths(args: &Args) -> Vec<PathBuf> {
+fn load_profiles(args: &Args) -> Result<Vec<KeyboardProfile>> {
+    if args.profiles_path.exists() {
+        let text = fs::read_to_string(&args.profiles_path)
+            .with_context(|| format!("could not read {}", args.profiles_path.display()))?;
+        let file: KeyboardProfilesFile = serde_json::from_str(&text)
+            .with_context(|| format!("could not parse {}", args.profiles_path.display()))?;
+        let base = args
+            .profiles_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+        return file
+            .keyboards
+            .iter()
+            .map(|profile| load_profile(profile, &base))
+            .collect();
+    }
+
+    let config = KeyboardProfileConfig {
+        id: "manual".to_string(),
+        name: "Manual Keyboard".to_string(),
+        vid: args.vid.clone(),
+        pid: args.pid.clone(),
+        info: args.info_path.clone(),
+        layers: args.keymap_path.clone(),
+        current_layer_hid: true,
+    };
+    load_profile(&config, Path::new(".")).map(|profile| vec![profile])
+}
+
+fn load_profile(config: &KeyboardProfileConfig, base: &Path) -> Result<KeyboardProfile> {
+    let info_path = resolve_profile_path(base, &config.info);
+    let layers_path = resolve_profile_path(base, &config.layers);
+    let layout = load_layout(&info_path)?;
+    let layers = load_layers(&layers_path, layout.keys.len())?;
+    Ok(KeyboardProfile {
+        id: config.id.clone(),
+        name: config.name.clone(),
+        vid: normalize_hex_arg(&config.vid),
+        pid: normalize_hex_arg(&config.pid),
+        layout,
+        layers,
+        current_layer: 0,
+        current_layer_hid: config.current_layer_hid,
+    })
+}
+
+fn resolve_profile_path(base: &Path, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        base.join(path)
+    }
+}
+
+fn hidraw_paths(args: &Args, profile: &KeyboardProfile) -> Vec<PathBuf> {
     if let Some(path) = &args.path {
         return vec![path.clone()];
     }
@@ -958,7 +1109,7 @@ fn hidraw_paths(args: &Args) -> Vec<PathBuf> {
             let name = name.to_string_lossy();
             let uevent = entry.path().join("device/uevent");
             let contents = fs::read_to_string(uevent).ok()?;
-            let needle = format!(":0000{}:0000{}", args.vid, args.pid);
+            let needle = format!(":0000{}:0000{}", profile.vid, profile.pid);
             contents
                 .to_ascii_lowercase()
                 .contains(&needle)
@@ -967,41 +1118,48 @@ fn hidraw_paths(args: &Args) -> Vec<PathBuf> {
         .collect()
 }
 
-fn watch_layer_devices(args: Args, sink: EventSink, key_report_bytes: usize) {
+fn watch_layer_devices(args: Args, profiles: Vec<KeyboardProfile>, sink: EventSink) {
     let active_paths = Arc::new(Mutex::new(HashSet::new()));
     loop {
-        for path in hidraw_paths(&args) {
-            let mut active = active_paths
-                .lock()
-                .expect("active hidraw path set poisoned");
-            if !active.insert(path.clone()) {
+        for (profile, keyboard) in profiles.iter().enumerate() {
+            if !keyboard.current_layer_hid {
                 continue;
             }
-            drop(active);
-
-            let reader_sink = sink.clone();
-            let reader_active_paths = Arc::clone(&active_paths);
-            thread::spawn(move || {
-                read_layer_path(&path, reader_sink, key_report_bytes);
-                reader_active_paths
+            for path in hidraw_paths(&args, keyboard) {
+                let key = format!("{profile}:{}", path.display());
+                let mut active = active_paths
                     .lock()
-                    .expect("active hidraw path set poisoned")
-                    .remove(&path);
-            });
+                    .expect("active hidraw path set poisoned");
+                if !active.insert(key.clone()) {
+                    continue;
+                }
+                drop(active);
+
+                let reader_sink = sink.clone();
+                let reader_active_paths = Arc::clone(&active_paths);
+                thread::spawn(move || {
+                    read_layer_path(profile, &path, reader_sink);
+                    reader_active_paths
+                        .lock()
+                        .expect("active hidraw path set poisoned")
+                        .remove(&key);
+                });
+            }
         }
 
         thread::sleep(Duration::from_millis(250));
     }
 }
 
-fn read_layer_path(path: &Path, sink: EventSink, key_report_bytes: usize) {
-    let Ok(mut file) = OpenOptions::new().read(true).open(path) else {
+fn read_layer_path(profile: usize, path: &Path, sink: EventSink) {
+    let Ok(mut file) = OpenOptions::new().read(true).write(true).open(path) else {
         return;
     };
+    query_current_layer(&mut file);
     let mut buffer = [0u8; 64];
     loop {
         match file.read(&mut buffer) {
-            Ok(len) if len > 0 => read_report(&buffer[..len], &sink, key_report_bytes),
+            Ok(len) if len > 0 => read_report(profile, &buffer[..len], &sink),
             Ok(_) => thread::sleep(Duration::from_millis(1)),
             Err(error) if error.kind() == ErrorKind::Interrupted => {}
             Err(_) => break,
@@ -1009,20 +1167,142 @@ fn read_layer_path(path: &Path, sink: EventSink, key_report_bytes: usize) {
     }
 }
 
-fn read_report(buffer: &[u8], sink: &EventSink, key_report_bytes: usize) {
+fn query_current_layer(file: &mut fs::File) {
+    let mut query = [0u8; 32];
+    query[0..6].copy_from_slice(LAYER_REPORT_MAGIC);
+    query[6] = LAYER_REPORT_VERSION;
+    query[7] = LAYER_REPORT_KIND_QUERY;
+    let _ = file.write_all(&query);
+}
+
+fn read_report(profile: usize, buffer: &[u8], sink: &EventSink) {
     let report = normalize_report(buffer);
-    if report.len() >= 9 && &report[0..7] == LAYER_REPORT_MAGIC && report[7] == 1 {
-        sink.send(AppEvent::Layer(report[8]));
-    } else if report.len() >= 9 + key_report_bytes
-        && &report[0..7] == KEY_REPORT_MAGIC
-        && report[7] == 1
+    if report.len() >= 10
+        && &report[0..6] == LAYER_REPORT_MAGIC
+        && report[6] == LAYER_REPORT_VERSION
+        && report[7] == LAYER_REPORT_KIND_CURRENT
     {
-        let keys = report[9..9 + key_report_bytes].to_vec();
-        sink.send(AppEvent::PressedKeys {
+        sink.send(AppEvent::Layer {
+            profile,
             layer: report[8],
-            keys,
         });
     }
+}
+
+fn watch_input_devices(profiles: Vec<KeyboardProfile>, sink: EventSink) {
+    let active_paths = Arc::new(Mutex::new(HashSet::new()));
+    loop {
+        for (profile, path) in input_event_paths(&profiles) {
+            let key = format!("{profile}:{}", path.display());
+            let mut active = active_paths
+                .lock()
+                .expect("active input path set poisoned");
+            if !active.insert(key.clone()) {
+                continue;
+            }
+            drop(active);
+
+            let reader_sink = sink.clone();
+            let reader_active_paths = Arc::clone(&active_paths);
+            thread::spawn(move || {
+                read_input_path(profile, &path, reader_sink);
+                reader_active_paths
+                    .lock()
+                    .expect("active input path set poisoned")
+                    .remove(&key);
+            });
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn input_event_paths(profiles: &[KeyboardProfile]) -> Vec<(usize, PathBuf)> {
+    input_event_paths_from(
+        Path::new("/sys/class/input"),
+        Path::new("/run/udev/data"),
+        profiles,
+    )
+}
+
+fn input_event_paths_from(
+    sys_class_input: &Path,
+    udev_data_dir: &Path,
+    profiles: &[KeyboardProfile],
+) -> Vec<(usize, PathBuf)> {
+    let Ok(entries) = fs::read_dir(sys_class_input) else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(Result::ok)
+	        .filter_map(|entry| {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if !name.starts_with("event") {
+                return None;
+            }
+            if !input_event_is_keyboard(&entry.path(), udev_data_dir) {
+                return None;
+            }
+            let id_path = entry.path().join("device/id");
+            let vid = normalize_hex_arg(fs::read_to_string(id_path.join("vendor")).ok()?.trim());
+            let pid = normalize_hex_arg(fs::read_to_string(id_path.join("product")).ok()?.trim());
+            let profile = profiles
+                .iter()
+                .position(|profile| profile.vid == vid && profile.pid == pid)?;
+            Some((profile, PathBuf::from("/dev/input").join(name.as_ref())))
+        })
+        .collect()
+}
+
+fn input_event_is_keyboard(path: &Path, udev_data_dir: &Path) -> bool {
+    if let Some(dev) = fs::read_to_string(path.join("dev"))
+        .ok()
+        .map(|dev| dev.trim().to_string())
+    {
+        let udev_data = udev_data_dir.join(format!("c{dev}"));
+        if let Ok(data) = fs::read_to_string(udev_data) {
+            return udev_data_has_keyboard(&data);
+        }
+    }
+
+    fs::read_to_string(path.join("device/name"))
+        .ok()
+        .is_some_and(|name| name.to_ascii_lowercase().contains("keyboard"))
+}
+
+fn udev_data_has_keyboard(data: &str) -> bool {
+    data.lines().any(|line| line == "E:ID_INPUT_KEYBOARD=1")
+}
+
+fn read_input_path(profile: usize, path: &Path, sink: EventSink) {
+    let Ok(mut file) = OpenOptions::new().read(true).open(path) else {
+        return;
+    };
+    let mut buffer = [0u8; INPUT_EVENT_SIZE * 16];
+    loop {
+        match file.read(&mut buffer) {
+            Ok(len) if len > 0 => {
+                for event in buffer[..len].chunks_exact(INPUT_EVENT_SIZE) {
+                    if input_event_is_key_activity(event) {
+                        sink.send(AppEvent::Touch { profile });
+                    }
+                }
+            }
+            Ok(_) => thread::sleep(Duration::from_millis(1)),
+            Err(error) if error.kind() == ErrorKind::Interrupted => {}
+            Err(_) => break,
+        }
+    }
+}
+
+fn input_event_is_key_activity(event: &[u8]) -> bool {
+    if event.len() < INPUT_EVENT_SIZE {
+        return false;
+    }
+    let event_type = u16::from_ne_bytes([event[16], event[17]]);
+    let value = i32::from_ne_bytes([event[20], event[21], event[22], event[23]]);
+    event_type == EV_KEY && value > 0
 }
 
 fn normalize_report(buffer: &[u8]) -> &[u8] {
@@ -1060,6 +1340,16 @@ fn send_control(command: &str) -> Result<()> {
     stream.write_all(command.as_bytes())?;
     stream.write_all(b"\n")?;
     Ok(())
+}
+
+fn send_status_control() -> Result<String> {
+    let path = control_socket_path()?;
+    let mut stream = UnixStream::connect(path)?;
+    stream.write_all(b"status\n")?;
+    stream.shutdown(Shutdown::Write)?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response)?;
+    Ok(response)
 }
 
 fn start_control_socket(sink: EventSink) -> Result<SocketGuard> {
@@ -1107,6 +1397,13 @@ fn handle_control_stream(mut stream: UnixStream, sink: &EventSink) {
                 });
             }
             Some("refresh-placement") => sink.send(AppEvent::RefreshPlacement),
+            Some("status") => {
+                let (tx, rx) = mpsc::channel();
+                sink.send(AppEvent::Status { respond_to: tx });
+                if let Ok(response) = rx.recv_timeout(Duration::from_secs(1)) {
+                    let _ = stream.write_all(response.as_bytes());
+                }
+            }
             _ => {}
         }
     }
@@ -1458,22 +1755,23 @@ fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: 
     cr.paint().ok();
     cr.restore().ok();
 
-    let metrics = layout_metrics(width, height, state.layout.bounds);
+    let profile = &state.profiles[state.active_profile];
+    let metrics = layout_metrics(width, height, profile.layout.bounds);
     let palette = ThemePalette::from_widget(area);
-    let layer = &state.layers[state.current_layer];
+    let layer = &profile.layers[profile.current_layer];
     let layer_names = state
+        .profiles[state.active_profile]
         .layers
         .iter()
         .map(|layer| layer.name.as_str())
         .collect::<Vec<_>>();
-    for (index, geometry) in state.layout.keys.iter().enumerate() {
+    for (index, geometry) in profile.layout.keys.iter().enumerate() {
         draw_key(
             cr,
             &metrics,
             index,
             geometry,
             &layer.keys[index],
-            key_is_pressed(state, index),
             &layer_names,
             &palette,
         );
@@ -1497,7 +1795,6 @@ fn draw_key(
     index: usize,
     geometry: &KeyGeometry,
     label: &str,
-    pressed: bool,
     layer_names: &[&str],
     palette: &ThemePalette,
 ) {
@@ -1519,9 +1816,7 @@ fn draw_key(
         key_height,
         radius,
     );
-    if pressed {
-        set_rgba(cr, palette.accent, 0.98 * KEY_FILL_OPACITY);
-    } else if is_layer_label(label, layer_names) {
+    if is_layer_label(label, layer_names) {
         set_rgba(cr, palette.layer, 0.92 * KEY_FILL_OPACITY);
     } else if label == "___" {
         set_rgba(cr, palette.key_dim, 0.78 * KEY_FILL_OPACITY);
@@ -1529,16 +1824,11 @@ fn draw_key(
         set_rgba(cr, palette.key, 0.90 * KEY_FILL_OPACITY);
     }
     cr.fill_preserve().ok();
-    if pressed {
-        set_rgba(cr, palette.accent, OVERLAY_OPACITY);
-        cr.set_line_width(key_size * 0.038);
-    } else {
-        set_rgba(cr, palette.outline, 0.62 * OVERLAY_OPACITY);
-        cr.set_line_width(key_size * 0.020);
-    }
+    set_rgba(cr, palette.outline, 0.62 * OVERLAY_OPACITY);
+    cr.set_line_width(key_size * 0.020);
     cr.stroke().ok();
 
-    let text_color = if pressed || is_layer_label(label, layer_names) {
+    let text_color = if is_layer_label(label, layer_names) {
         palette.inverse_text
     } else if label == "___" {
         palette.muted
@@ -1616,41 +1906,66 @@ fn is_layer_label(label: &str, layer_names: &[&str]) -> bool {
     layer_names.contains(&label)
 }
 
-fn key_is_pressed(state: &UiState, index: usize) -> bool {
-    index < state.layout.keys.len()
-        && index / 8 < state.pressed_keys.len()
-        && (state.pressed_keys[index / 8] & (1 << (index % 8))) != 0
-}
-
-fn pressed_key_count(keys: &[u8], key_count: usize) -> usize {
-    (0..key_count)
-        .filter(|index| {
-            keys.get(index / 8)
-                .is_some_and(|byte| byte & (1 << (index % 8)) != 0)
-        })
-        .count()
-}
-
-fn key_report_bytes(key_count: usize) -> usize {
-    (key_count + 7) / 8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[test]
-    fn auto_hide_deadline_clears_while_keys_are_held() {
-        assert_eq!(
-            auto_hide_deadline_action(true, true, 1),
-            AutoHideDeadlineAction::Clear
-        );
+    fn test_profile(id: &str, vid: &str, pid: &str) -> KeyboardProfile {
+        KeyboardProfile {
+            id: id.to_string(),
+            name: id.to_string(),
+            vid: normalize_hex_arg(vid),
+            pid: normalize_hex_arg(pid),
+            layout: KeyboardLayout {
+                keys: vec![KeyGeometry::rotated(0.5, 0.5, 1.0, 1.0, 0.0)],
+                bounds: LayoutBounds {
+                    min_x: 0.0,
+                    min_y: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                },
+            },
+            layers: vec![KeyLayer {
+                name: "Base".to_string(),
+                keys: vec!["A".to_string()],
+            }],
+            current_layer: 0,
+            current_layer_hid: false,
+        }
+    }
+
+    fn unique_test_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "silakka54-layer-viewer-{name}-{}-{nanos}",
+            std::process::id()
+        ))
+    }
+
+    fn write_event_fixture(
+        root: &Path,
+        event: &str,
+        dev: &str,
+        vendor: &str,
+        product: &str,
+        name: &str,
+    ) {
+        let device = root.join("input").join(event).join("device");
+        fs::create_dir_all(device.join("id")).expect("create event fixture");
+        fs::write(root.join("input").join(event).join("dev"), dev).expect("write dev");
+        fs::write(device.join("id/vendor"), vendor).expect("write vendor");
+        fs::write(device.join("id/product"), product).expect("write product");
+        fs::write(device.join("name"), name).expect("write name");
     }
 
     #[test]
-    fn auto_hide_deadline_schedules_after_all_keys_release() {
+    fn auto_hide_deadline_schedules_for_visible_activity() {
         assert_eq!(
-            auto_hide_deadline_action(true, true, 0),
+            auto_hide_deadline_action(true, true),
             AutoHideDeadlineAction::Schedule
         );
     }
@@ -1658,28 +1973,9 @@ mod tests {
     #[test]
     fn auto_hide_deadline_ignores_inactive_auto_hide() {
         assert_eq!(
-            auto_hide_deadline_action(false, true, 0),
+            auto_hide_deadline_action(false, true),
             AutoHideDeadlineAction::Unchanged
         );
-        assert_eq!(
-            auto_hide_deadline_action(false, true, 1),
-            AutoHideDeadlineAction::Unchanged
-        );
-    }
-
-    #[test]
-    fn pressed_keys_open_when_not_suppressed() {
-        assert!(should_open_from_pressed_keys(false, 1));
-    }
-
-    #[test]
-    fn pressed_keys_do_not_open_while_suppressed() {
-        assert!(!should_open_from_pressed_keys(true, 1));
-    }
-
-    #[test]
-    fn empty_pressed_key_reports_do_not_open() {
-        assert!(!should_open_from_pressed_keys(false, 0));
     }
 
     #[test]
@@ -1687,6 +1983,108 @@ mod tests {
         assert!(submap_suppresses_activity("game"));
         assert!(!submap_suppresses_activity("default"));
         assert!(!submap_suppresses_activity(""));
+    }
+
+    #[test]
+    fn parses_current_layer_report_with_optional_report_id() {
+        let (tx, rx) = mpsc::channel();
+        let sink = EventSink { tx };
+        let mut report = [0u8; 32];
+        report[0..6].copy_from_slice(LAYER_REPORT_MAGIC);
+        report[6] = LAYER_REPORT_VERSION;
+        report[7] = LAYER_REPORT_KIND_CURRENT;
+        report[8] = 3;
+        read_report(1, &report, &sink);
+        match rx.try_recv().expect("event sent") {
+            AppEvent::Layer { profile, layer } => {
+                assert_eq!(profile, 1);
+                assert_eq!(layer, 3);
+            }
+            _ => panic!("unexpected event"),
+        }
+
+        let mut report_with_id = [0u8; 33];
+        report_with_id[1..].copy_from_slice(&report);
+        read_report(2, &report_with_id, &sink);
+        match rx.try_recv().expect("event sent") {
+            AppEvent::Layer { profile, layer } => {
+                assert_eq!(profile, 2);
+                assert_eq!(layer, 3);
+            }
+            _ => panic!("unexpected event"),
+        }
+
+        read_report(3, &report[..9], &sink);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn udev_keyboard_property_identifies_keyboard_events() {
+        assert!(udev_data_has_keyboard(
+            "E:ID_INPUT=1\nE:ID_INPUT_KEY=1\nE:ID_INPUT_KEYBOARD=1\n"
+        ));
+        assert!(!udev_data_has_keyboard(
+            "E:ID_INPUT=1\nE:ID_INPUT_KEY=1\nE:ID_INPUT_MOUSE=1\n"
+        ));
+    }
+
+    #[test]
+    fn input_event_paths_match_profiles_and_ignore_non_keyboard_nodes() {
+        let root = unique_test_dir("input");
+        let input = root.join("input");
+        let udev = root.join("udev");
+        fs::create_dir_all(&udev).expect("create udev fixture");
+        write_event_fixture(
+            &root,
+            "event0",
+            "13:64",
+            "046d",
+            "c339",
+            "Logitech PRO X Gaming Keyboard",
+        );
+        write_event_fixture(
+            &root,
+            "event1",
+            "13:65",
+            "feed",
+            "1212",
+            "Squalius-cephalus silakka54 Mouse",
+        );
+        write_event_fixture(
+            &root,
+            "event2",
+            "13:66",
+            "feed",
+            "1212",
+            "Squalius-cephalus silakka54 Keyboard",
+        );
+        fs::write(
+            udev.join("c13:64"),
+            "E:ID_INPUT=1\nE:ID_INPUT_KEY=1\nE:ID_INPUT_KEYBOARD=1\n",
+        )
+        .expect("write logitech udev data");
+        fs::write(
+            udev.join("c13:65"),
+            "E:ID_INPUT=1\nE:ID_INPUT_KEY=1\nE:ID_INPUT_MOUSE=1\n",
+        )
+        .expect("write mouse udev data");
+
+        let profiles = vec![
+            test_profile("silakka54", "feed", "1212"),
+            test_profile("logitech-pro-x-tkl", "046d", "c339"),
+        ];
+        let mut paths = input_event_paths_from(&input, &udev, &profiles);
+        paths.sort_by(|left, right| left.1.cmp(&right.1));
+
+        assert_eq!(
+            paths,
+            vec![
+                (1, PathBuf::from("/dev/input/event0")),
+                (0, PathBuf::from("/dev/input/event2")),
+            ]
+        );
+
+        fs::remove_dir_all(root).expect("remove test fixture");
     }
 
     #[test]

@@ -314,6 +314,7 @@ in
     Unit = {
       Description = "Prompt before flashing stale Silakka54 firmware";
       After = [ "graphical-session.target" ];
+      X-SwitchMethod = "keep-old";
     };
     Service = {
       Type = "oneshot";

@@ -1,0 +1,22 @@
+{
+  "keyboards": [
+    {
+      "id": "silakka54",
+      "name": "Silakka54",
+      "vid": "0xfeed",
+      "pid": "0x1212",
+      "info": "keymap/info.json",
+      "layers": "keymap/keymap.yaml",
+      "current_layer_hid": true
+    },
+    {
+      "id": "logitech-pro-x-tkl",
+      "name": "Logitech PRO X TKL",
+      "vid": "0x046d",
+      "pid": "0xc339",
+      "info": "keymap/qwerty-tkl-info.json",
+      "layers": "keymap/qwerty-tkl.yaml",
+      "current_layer_hid": false
+    }
+  ]
+}

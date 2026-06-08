@@ -39,7 +39,7 @@ let
     dontWrapGApps = true;
 
     meta = {
-      description = "GTK4 layer-shell HUD for Silakka54 layer and held-key reports";
+      description = "GTK4 layer-shell HUD for keyboard current-layer reports";
       mainProgram = "silakka54-layer-viewer";
       platforms = lib.platforms.linux;
     };
@@ -153,6 +153,10 @@ stdenv.mkDerivation {
     install -Dm0644 qmk/silakka54_conroy.uf2 "$out/share/silakka54/firmware/silakka54-conroy.uf2"
     install -Dm0644 ${./keymap.yaml} "$out/share/silakka54/keymap/keymap.yaml"
     install -Dm0644 ${./info.json} "$out/share/silakka54/keymap/info.json"
+    install -Dm0644 ${./qwerty-tkl.yaml} "$out/share/silakka54/keymap/qwerty-tkl.yaml"
+    install -Dm0644 ${./qwerty-tkl-info.json} "$out/share/silakka54/keymap/qwerty-tkl-info.json"
+    install -Dm0644 ${./keyboards.json} "$out/share/silakka54/keyboards.json"
+    install -Dm0644 ${./current-layer-hid.md} "$out/share/silakka54/current-layer-hid.md"
     install -Dm0644 generated/layer-metadata.json "$out/share/silakka54/keymap/layer-metadata.json"
     install -Dm0644 generated/dynamic-keymap.json "$out/share/silakka54/keymap/dynamic-keymap.json"
     install -Dm0644 generated/dynamic-keymap.tsv "$out/share/silakka54/keymap/dynamic-keymap.tsv"
