@@ -82,12 +82,6 @@ let
       }
 
       run_rebuild "$@"
-
-      ${optionalString isLinux ''
-        if [ "$action" = switch ] && [ -z "''${REBUILD_SKIP_SILAKKA54:-}" ]; then
-          ${pkgs.silakka54}/bin/silakka54-sync rebuild-switch || true
-        fi
-      ''}
     '';
 
   inherit (lib)

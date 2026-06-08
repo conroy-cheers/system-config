@@ -2,21 +2,48 @@
   fetchFromGitHub,
   fontconfig,
   gitMinimal,
-  gtk3,
+  gtk4,
+  gtk4-layer-shell,
+  hyprland,
   keymap-drawer,
-  librsvg,
   lib,
   pkg-config,
   python3,
   qmk,
+  rustPlatform,
   rustc,
   stdenv,
+  wrapGAppsHook4,
 }:
 
 let
   silakkaRev = "75d168c5eaea4bdb635313a8fbcdd6d7009b212f";
   vialQmkRev = "888e3804d89dfadc130c2ba7fe4693046fb6883d";
   python = python3.withPackages (ps: [ ps.pyyaml ]);
+  layerViewer = rustPlatform.buildRustPackage {
+    pname = "silakka54-layer-viewer";
+    version = "0.1.0";
+
+    src = lib.cleanSource ./layer-viewer;
+    cargoLock.lockFile = ./layer-viewer/Cargo.lock;
+
+    nativeBuildInputs = [
+      pkg-config
+    ];
+
+    buildInputs = [
+      gtk4
+      gtk4-layer-shell
+    ];
+
+    dontWrapGApps = true;
+
+    meta = {
+      description = "GTK4 layer-shell HUD for Silakka54 layer and held-key reports";
+      mainProgram = "silakka54-layer-viewer";
+      platforms = lib.platforms.linux;
+    };
+  };
 in
 stdenv.mkDerivation {
   pname = "silakka54";
@@ -40,18 +67,25 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     gitMinimal
     keymap-drawer
-    librsvg
     pkg-config
     python
     qmk
     rustc
+    wrapGAppsHook4
   ];
 
   buildInputs = [
-    gtk3
+    gtk4
+    gtk4-layer-shell
   ];
 
   dontConfigure = true;
+
+  preFixup = ''
+    gappsWrapperArgs+=(
+      --prefix PATH : "${lib.makeBinPath [ hyprland ]}"
+    )
+  '';
 
   buildPhase = ''
     runHook preBuild
@@ -97,19 +131,6 @@ stdenv.mkDerivation {
       --keymap-hash "$keymap_hash"
 
     keymap draw -j ${./drawer-info.json} -o generated/silakka54-keymap.svg ${./keymap.yaml}
-    for layer in Base Num Nav Sym; do
-      layer_file=$(echo "$layer" | tr '[:upper:]' '[:lower:]')
-      keymap draw -j ${./drawer-info.json} --select-layers "$layer" -o "layers/$layer_file.svg" ${./keymap.yaml}
-      rsvg-convert -o "layers/$layer_file.png" "layers/$layer_file.svg"
-    done
-
-    substitute ${./layer-viewer.rs} generated/layer-viewer.rs \
-      --replace-fail @asset_dir@ "$out/share/silakka54/keymap"
-
-    rustc generated/layer-viewer.rs \
-      -o silakka54-layer-viewer \
-      $(pkg-config --libs-only-L gtk+-3.0) \
-      $(pkg-config --libs-only-l gtk+-3.0)
 
     substitute ${./sync.rs} generated/silakka54-sync.rs \
       --replace-fail @manifest_path@ "$out/share/silakka54/firmware/manifest.json" \
@@ -153,6 +174,7 @@ stdenv.mkDerivation {
       },
       "silakka54_sync": {
         "query": "0x54",
+        "bootloader_jump": "0x42",
         "version": 1
       },
       "firmware_abi_hash": "$firmware_abi_hash",
@@ -160,12 +182,7 @@ stdenv.mkDerivation {
       "dynamic_keymap": "$out/share/silakka54/keymap/dynamic-keymap.json"
     }
     EOF
-
-    for image in layers/*; do
-      install -Dm0644 "$image" "$out/share/silakka54/keymap/$image"
-    done
-
-    install -Dm0755 silakka54-layer-viewer "$out/bin/silakka54-layer-viewer"
+    install -Dm0755 ${layerViewer}/bin/silakka54-layer-viewer "$out/bin/silakka54-layer-viewer"
     install -Dm0755 silakka54-sync "$out/bin/silakka54-sync"
 
     runHook postInstall

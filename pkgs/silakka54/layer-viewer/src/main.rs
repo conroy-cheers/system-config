@@ -1,0 +1,1350 @@
+use anyhow::{bail, Context, Result};
+use glib::object::Cast;
+use gtk::cairo::{Context as CairoContext, FontSlant, FontWeight};
+use gtk::gdk;
+use gtk::prelude::*;
+use gtk::{Application, ApplicationWindow, DrawingArea};
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer as ShellLayer, LayerShell};
+use serde::Deserialize;
+use serde_yaml::Value;
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::fs::{self, OpenOptions};
+use std::io::{ErrorKind, Read, Write};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::rc::Rc;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
+
+const APP_ID: &str = "dev.corncheese.silakka54.LayerViewer";
+const DEFAULT_VID: &str = "feed";
+const DEFAULT_PID: &str = "1212";
+const KEY_COUNT: usize = 54;
+const KEY_REPORT_BYTES: usize = (KEY_COUNT + 7) / 8;
+const LAYER_REPORT_MAGIC: &[u8] = b"SL54LYR";
+const KEY_REPORT_MAGIC: &[u8] = b"SL54KEY";
+const CONTENT_MIN_X: f64 = 17.0;
+const CONTENT_MIN_Y: f64 = 26.0;
+const CONTENT_WIDTH: f64 = 1095.5;
+const CONTENT_HEIGHT: f64 = 472.0;
+const WINDOW_WIDTH: i32 = 659;
+const WINDOW_HEIGHT: i32 = 284;
+const BOTTOM_MARGIN: i32 = 12;
+const OVERLAY_OPACITY: f64 = 0.60;
+const AUTO_HIDE_DURATION: Duration = Duration::from_secs(3);
+const SUPPRESSED_SUBMAP: &str = "game";
+
+const KEY_GEOMETRY: [KeyGeometry; KEY_COUNT] = [
+    KeyGeometry::square(53.5, 82.5),
+    KeyGeometry::square(132.5, 82.5),
+    KeyGeometry::square(211.5, 72.5),
+    KeyGeometry::square(290.0, 62.5),
+    KeyGeometry::square(368.5, 72.5),
+    KeyGeometry::square(447.5, 82.5),
+    KeyGeometry::square(682.0, 82.5),
+    KeyGeometry::square(760.5, 72.5),
+    KeyGeometry::square(839.0, 62.5),
+    KeyGeometry::square(918.0, 72.5),
+    KeyGeometry::square(997.0, 82.5),
+    KeyGeometry::square(1076.0, 82.5),
+    KeyGeometry::square(53.5, 161.5),
+    KeyGeometry::square(132.5, 161.5),
+    KeyGeometry::square(211.5, 151.5),
+    KeyGeometry::square(290.0, 141.5),
+    KeyGeometry::square(368.5, 151.5),
+    KeyGeometry::square(447.5, 161.5),
+    KeyGeometry::square(682.0, 161.5),
+    KeyGeometry::square(760.5, 151.5),
+    KeyGeometry::square(840.0, 141.5),
+    KeyGeometry::square(918.0, 151.5),
+    KeyGeometry::square(997.0, 161.5),
+    KeyGeometry::square(1076.0, 161.5),
+    KeyGeometry::square(53.5, 240.5),
+    KeyGeometry::square(132.5, 240.5),
+    KeyGeometry::square(211.5, 230.5),
+    KeyGeometry::square(290.0, 220.5),
+    KeyGeometry::square(368.5, 230.5),
+    KeyGeometry::square(447.5, 240.5),
+    KeyGeometry::square(682.0, 240.5),
+    KeyGeometry::square(760.5, 230.5),
+    KeyGeometry::square(840.0, 220.5),
+    KeyGeometry::square(918.0, 230.5),
+    KeyGeometry::square(997.0, 240.5),
+    KeyGeometry::square(1076.0, 240.5),
+    KeyGeometry::square(53.5, 319.0),
+    KeyGeometry::square(132.5, 319.0),
+    KeyGeometry::square(211.5, 309.5),
+    KeyGeometry::square(290.0, 298.5),
+    KeyGeometry::square(368.5, 309.5),
+    KeyGeometry::square(447.5, 319.0),
+    KeyGeometry::square(682.0, 319.0),
+    KeyGeometry::square(760.5, 309.5),
+    KeyGeometry::square(840.0, 298.5),
+    KeyGeometry::square(918.0, 309.5),
+    KeyGeometry::square(997.0, 319.0),
+    KeyGeometry::square(1076.0, 319.0),
+    KeyGeometry::square(303.5, 396.5),
+    KeyGeometry::rotated(398.3, 414.0, 74.0, 74.0, 10.0),
+    KeyGeometry::rotated(492.7, 443.0, 74.5, 109.5, 20.0),
+    KeyGeometry::rotated(636.5, 443.0, 74.5, 109.5, -20.0),
+    KeyGeometry::rotated(730.9, 413.7, 74.0, 74.0, -10.0),
+    KeyGeometry::square(825.0, 396.5),
+];
+
+const CSS: &str = r#"
+window {
+  background-color: transparent;
+}
+"#;
+
+#[derive(Clone)]
+struct KeyLayer {
+    name: String,
+    keys: Vec<String>,
+}
+
+#[derive(Clone, Copy)]
+struct Color {
+    red: f64,
+    green: f64,
+    blue: f64,
+}
+
+impl Color {
+    const fn hex(value: u32) -> Self {
+        Self {
+            red: ((value >> 16) & 0xff) as f64 / 255.0,
+            green: ((value >> 8) & 0xff) as f64 / 255.0,
+            blue: (value & 0xff) as f64 / 255.0,
+        }
+    }
+
+    fn from_rgba(value: &gdk::RGBA) -> Self {
+        Self {
+            red: value.red() as f64,
+            green: value.green() as f64,
+            blue: value.blue() as f64,
+        }
+    }
+
+    fn mix(self, other: Self, amount: f64) -> Self {
+        let amount = amount.clamp(0.0, 1.0);
+        Self {
+            red: self.red + (other.red - self.red) * amount,
+            green: self.green + (other.green - self.green) * amount,
+            blue: self.blue + (other.blue - self.blue) * amount,
+        }
+    }
+
+    fn luminance(self) -> f64 {
+        0.2126 * self.red + 0.7152 * self.green + 0.0722 * self.blue
+    }
+}
+
+struct ThemePalette {
+    text: Color,
+    muted: Color,
+    key: Color,
+    key_dim: Color,
+    accent: Color,
+    layer: Color,
+    outline: Color,
+    inverse_text: Color,
+}
+
+impl ThemePalette {
+    fn from_widget(widget: &DrawingArea) -> Self {
+        let style = widget.style_context();
+        let style_text = Color::from_rgba(&style.color());
+        let text = lookup_theme_color(
+            &style,
+            &[
+                "window_fg_color",
+                "view_fg_color",
+                "card_fg_color",
+                "theme_fg_color",
+                "theme_text_color",
+            ],
+        )
+        .unwrap_or(style_text);
+        let fallback_bg = if text.luminance() > 0.5 {
+            Color::hex(0x101010)
+        } else {
+            Color::hex(0xf5f5f5)
+        };
+        let bg = lookup_theme_color(
+            &style,
+            &[
+                "window_bg_color",
+                "view_bg_color",
+                "theme_bg_color",
+                "theme_base_color",
+            ],
+        )
+        .unwrap_or(fallback_bg);
+        let accent = lookup_theme_color(
+            &style,
+            &[
+                "accent_bg_color",
+                "accent_color",
+                "blue_3",
+                "theme_selected_bg_color",
+                "theme_unfocused_selected_bg_color",
+            ],
+        )
+        .unwrap_or_else(|| bg.mix(text, 0.52));
+        let layer = lookup_theme_color(&style, &["success_bg_color", "success_color", "green_3"])
+            .unwrap_or_else(|| accent.mix(text, 0.20));
+        let key = lookup_theme_color(
+            &style,
+            &["card_bg_color", "popover_bg_color", "headerbar_bg_color"],
+        )
+        .unwrap_or_else(|| bg.mix(text, 0.34));
+        let key_dim = lookup_theme_color(
+            &style,
+            &[
+                "sidebar_bg_color",
+                "headerbar_bg_color",
+                "scrollbar_outline_color",
+            ],
+        )
+        .unwrap_or_else(|| bg.mix(text, 0.18));
+        let outline = lookup_theme_color(
+            &style,
+            &[
+                "scrollbar_outline_color",
+                "headerbar_border_color",
+                "borders",
+            ],
+        )
+        .unwrap_or(accent);
+        let muted = lookup_theme_color(
+            &style,
+            &[
+                "headerbar_fg_color",
+                "sidebar_fg_color",
+                "insensitive_fg_color",
+            ],
+        )
+        .map(|color| color.mix(bg, 0.38))
+        .unwrap_or_else(|| text.mix(bg, 0.48));
+
+        let inverse_text = lookup_theme_color(
+            &style,
+            &[
+                "accent_fg_color",
+                "success_fg_color",
+                "theme_selected_fg_color",
+            ],
+        )
+        .unwrap_or_else(|| {
+            if accent.luminance() > 0.55 {
+                Color::hex(0x080808)
+            } else {
+                Color::hex(0xf7f7f7)
+            }
+        });
+
+        Self {
+            text,
+            muted,
+            key,
+            key_dim,
+            accent,
+            layer,
+            outline,
+            inverse_text,
+        }
+    }
+}
+
+fn lookup_theme_color(style: &gtk::StyleContext, names: &[&str]) -> Option<Color> {
+    names.iter().find_map(|name| {
+        style
+            .lookup_color(name)
+            .map(|color| Color::from_rgba(&color))
+    })
+}
+
+#[derive(Clone, Copy)]
+struct KeyGeometry {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    rotation: f64,
+}
+
+impl KeyGeometry {
+    const fn square(x: f64, y: f64) -> Self {
+        Self::rotated(x, y, 73.0, 73.0, 0.0)
+    }
+
+    const fn rotated(x: f64, y: f64, width: f64, height: f64, rotation: f64) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+            rotation,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct LayoutMetrics {
+    origin_x: f64,
+    origin_y: f64,
+    scale: f64,
+}
+
+#[derive(Clone)]
+struct Args {
+    vid: String,
+    pid: String,
+    path: Option<PathBuf>,
+    keymap_path: PathBuf,
+    simulate_layer: Option<u8>,
+    control_command: Option<ControlCommand>,
+    hidden: bool,
+}
+
+#[derive(Clone)]
+enum ControlCommand {
+    Activity,
+    Hide,
+    Place {
+        monitor: String,
+        left_margin: i32,
+    },
+}
+
+impl ControlCommand {
+    fn message(&self) -> String {
+        match self {
+            Self::Activity => "activity".to_string(),
+            Self::Hide => "hide".to_string(),
+            Self::Place {
+                monitor,
+                left_margin,
+            } => format!("place {monitor} {left_margin}"),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct EventSink {
+    tx: Sender<AppEvent>,
+}
+
+enum AppEvent {
+    Layer(u8),
+    PressedKeys {
+        layer: u8,
+        keys: [u8; KEY_REPORT_BYTES],
+    },
+    Activity,
+    Hide,
+    Place {
+        monitor: String,
+        left_margin: i32,
+    },
+    Monitor(String),
+    Submap(String),
+}
+
+struct UiState {
+    _hold: gtk::gio::ApplicationHoldGuard,
+    window: ApplicationWindow,
+    drawing_area: DrawingArea,
+    layers: Vec<KeyLayer>,
+    current_layer: usize,
+    pressed_keys: [u8; KEY_REPORT_BYTES],
+    visible: bool,
+    auto_hide_enabled: bool,
+    hide_after: Option<Instant>,
+    suppressed_by_submap: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AutoHideDeadlineAction {
+    Unchanged,
+    Clear,
+    Schedule,
+}
+
+#[derive(Deserialize)]
+struct HyprMonitor {
+    name: String,
+    focused: bool,
+}
+
+fn main() -> Result<()> {
+    let args = parse_args()?;
+    if let Some(command) = &args.control_command {
+        let message = if matches!(command, ControlCommand::Activity) && activity_is_suppressed_now()
+        {
+            "hide".to_string()
+        } else {
+            command.message()
+        };
+        if send_control(&message).is_ok() {
+            return Ok(());
+        }
+        if matches!(command, ControlCommand::Hide | ControlCommand::Place { .. }) {
+            return Ok(());
+        }
+    } else if send_control(if activity_is_suppressed_now() {
+        "hide"
+    } else {
+        "activity"
+    })
+    .is_ok()
+    {
+        return Ok(());
+    }
+
+    let layers = load_layers(&args.keymap_path)?;
+    let initial_layer = clamp_layer(args.simulate_layer.unwrap_or(0) as usize, &layers);
+    let (tx, rx) = mpsc::channel();
+    let sink = EventSink { tx };
+    let _socket_guard = start_control_socket(sink.clone())?;
+    watch_hyprland_monitors(sink.clone());
+    if matches!(args.control_command, Some(ControlCommand::Activity)) {
+        sink.send(AppEvent::Activity);
+    }
+
+    if let Some(layer) = args.simulate_layer {
+        sink.send(AppEvent::Layer(layer));
+    } else {
+        let hid_args = args.clone();
+        let hid_sink = sink.clone();
+        thread::spawn(move || watch_layer_devices(hid_args, hid_sink));
+    }
+
+    let rx = Rc::new(RefCell::new(Some(rx)));
+    let app = Application::builder().application_id(APP_ID).build();
+    app.connect_activate(move |app| {
+        let rx = rx
+            .borrow_mut()
+            .take()
+            .expect("application activated more than once");
+        build_ui(app, rx, layers.clone(), initial_layer, !args.hidden);
+    });
+    app.run_with_args(&["silakka54-layer-viewer"]);
+    Ok(())
+}
+
+fn parse_args() -> Result<Args> {
+    let mut args = std::env::args().skip(1);
+    let mut parsed = Args {
+        vid: DEFAULT_VID.to_string(),
+        pid: DEFAULT_PID.to_string(),
+        path: None,
+        keymap_path: packaged_keymap_path(),
+        simulate_layer: None,
+        control_command: None,
+        hidden: true,
+    };
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--vid" => {
+                parsed.vid = normalize_hex_arg(&next_arg(&mut args, "--vid")?);
+            }
+            "--pid" => {
+                parsed.pid = normalize_hex_arg(&next_arg(&mut args, "--pid")?);
+            }
+            "--path" => {
+                parsed.path = Some(PathBuf::from(next_arg(&mut args, "--path")?));
+            }
+            "--keymap" => {
+                parsed.keymap_path = PathBuf::from(next_arg(&mut args, "--keymap")?);
+            }
+            "--simulate-layer" => {
+                parsed.simulate_layer = Some(
+                    next_arg(&mut args, "--simulate-layer")?
+                        .parse()
+                        .context("--simulate-layer must be an integer")?,
+                );
+            }
+            "--activity" => {
+                parsed.control_command = Some(ControlCommand::Activity);
+            }
+            "--hide" => {
+                parsed.control_command = Some(ControlCommand::Hide);
+            }
+            "--place" => {
+                let monitor = next_arg(&mut args, "--place")?;
+                let left_margin = next_arg(&mut args, "--place")?
+                    .parse()
+                    .context("--place LEFT_MARGIN must be an integer")?;
+                parsed.control_command = Some(ControlCommand::Place {
+                    monitor,
+                    left_margin,
+                });
+            }
+            "--hidden" => {
+                parsed.hidden = true;
+            }
+            "--help" | "-h" => {
+                println!(
+                    "Usage: silakka54-layer-viewer [--activity] [--hide] [--place MONITOR LEFT_MARGIN] [--hidden] [--vid 0xfeed] [--pid 0x1212] [--path /dev/hidrawN] [--keymap keymap.yaml] [--simulate-layer N]"
+                );
+                std::process::exit(0);
+            }
+            other => bail!("unknown argument: {other}"),
+        }
+    }
+
+    if parsed.control_command.is_none() && parsed.simulate_layer.is_some() {
+        parsed.hidden = false;
+    }
+
+    Ok(parsed)
+}
+
+fn next_arg(args: &mut impl Iterator<Item = String>, option: &str) -> Result<String> {
+    args.next()
+        .with_context(|| format!("{option} requires a value"))
+}
+
+fn packaged_keymap_path() -> PathBuf {
+    if let Some(path) = std::env::var_os("SILAKKA54_KEYMAP") {
+        return PathBuf::from(path);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(prefix) = exe.parent().and_then(Path::parent) {
+            return prefix.join("share/silakka54/keymap/keymap.yaml");
+        }
+    }
+    PathBuf::from("/run/current-system/sw/share/silakka54/keymap/keymap.yaml")
+}
+
+fn normalize_hex_arg(value: &str) -> String {
+    let trimmed = value.trim_start_matches("0x").trim_start_matches("0X");
+    format!("{:0>4}", trimmed.to_ascii_lowercase())
+}
+
+fn build_ui(
+    app: &Application,
+    rx: Receiver<AppEvent>,
+    layers: Vec<KeyLayer>,
+    current_layer: usize,
+    visible: bool,
+) {
+    let hold = app.hold();
+    let provider = gtk::CssProvider::new();
+    provider.load_from_data(CSS);
+    if let Some(display) = gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .title("Silakka54 Layer Viewer")
+        .default_width(WINDOW_WIDTH)
+        .default_height(WINDOW_HEIGHT)
+        .decorated(false)
+        .resizable(false)
+        .focusable(false)
+        .build();
+    window.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT);
+    window.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT);
+    window.init_layer_shell();
+    window.set_namespace(Some("silakka54-layer-viewer"));
+    window.set_layer(ShellLayer::Overlay);
+    window.set_keyboard_mode(KeyboardMode::None);
+    window.set_exclusive_zone(0);
+    window.set_anchor(Edge::Bottom, true);
+    window.set_margin(Edge::Bottom, BOTTOM_MARGIN);
+    window.set_can_focus(false);
+    window.set_can_target(false);
+
+    let drawing_area = DrawingArea::builder()
+        .content_width(WINDOW_WIDTH)
+        .content_height(WINDOW_HEIGHT)
+        .width_request(WINDOW_WIDTH)
+        .height_request(WINDOW_HEIGHT)
+        .can_target(false)
+        .build();
+
+    window.set_child(Some(&drawing_area));
+
+    let state = Rc::new(RefCell::new(UiState {
+        _hold: hold,
+        window: window.clone(),
+        drawing_area: drawing_area.clone(),
+        layers,
+        current_layer,
+        pressed_keys: [0; KEY_REPORT_BYTES],
+        visible,
+        auto_hide_enabled: false,
+        hide_after: None,
+        suppressed_by_submap: current_hyprland_submap()
+            .is_some_and(|submap| submap_suppresses_activity(&submap)),
+    }));
+
+    {
+        let state = Rc::clone(&state);
+        drawing_area.set_draw_func(move |area, cr, width, height| {
+            draw_keyboard(&state.borrow(), area, cr, width as f64, height as f64);
+        });
+    }
+
+    if let Some(name) = focused_hyprland_monitor() {
+        set_layer_monitor(&window, &name);
+    } else {
+        set_first_monitor(&window);
+    }
+
+    {
+        let state = Rc::clone(&state);
+        glib::timeout_add_local(Duration::from_millis(25), move || {
+            while let Ok(event) = rx.try_recv() {
+                handle_event(&state, event);
+            }
+            let mut state = state.borrow_mut();
+            if state
+                .hide_after
+                .is_some_and(|deadline| Instant::now() >= deadline)
+            {
+                hide_state(&mut state);
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    if visible {
+        window.present();
+    }
+}
+
+fn handle_event(state: &Rc<RefCell<UiState>>, event: AppEvent) {
+    match event {
+        AppEvent::Layer(layer) => set_layer(&mut state.borrow_mut(), layer),
+        AppEvent::PressedKeys { layer, keys } => {
+            set_pressed_keys(&mut state.borrow_mut(), layer, keys)
+        }
+        AppEvent::Activity => activity_state(&mut state.borrow_mut()),
+        AppEvent::Hide => hide_state(&mut state.borrow_mut()),
+        AppEvent::Place {
+            monitor,
+            left_margin,
+        } => {
+            let state = state.borrow();
+            set_layer_placement(&state.window, &monitor, left_margin);
+        }
+        AppEvent::Monitor(name) => {
+            let state = state.borrow();
+            set_layer_monitor(&state.window, &name);
+        }
+        AppEvent::Submap(submap) => {
+            let mut state = state.borrow_mut();
+            state.suppressed_by_submap = submap_suppresses_activity(&submap);
+            if state.suppressed_by_submap {
+                hide_state(&mut state);
+            }
+        }
+    }
+}
+
+fn activity_state(state: &mut UiState) {
+    refresh_submap_suppression(state);
+    if state.suppressed_by_submap {
+        hide_state(state);
+        return;
+    }
+    show_state(state);
+    state.auto_hide_enabled = true;
+    update_auto_hide_deadline(state);
+}
+
+fn show_state(state: &mut UiState) {
+    if !state.visible {
+        state.window.present();
+        state.visible = true;
+    }
+}
+
+fn hide_state(state: &mut UiState) {
+    state.hide_after = None;
+    state.auto_hide_enabled = false;
+    if state.visible {
+        state.window.hide();
+        state.visible = false;
+    }
+}
+
+fn set_layer(state: &mut UiState, layer: u8) {
+    let layer = clamp_layer(layer as usize, &state.layers);
+    if layer == state.current_layer {
+        return;
+    }
+    state.current_layer = layer;
+    state.pressed_keys = [0; KEY_REPORT_BYTES];
+    update_auto_hide_deadline(state);
+    state.drawing_area.queue_draw();
+}
+
+fn set_pressed_keys(state: &mut UiState, layer: u8, keys: [u8; KEY_REPORT_BYTES]) {
+    let pressed_count = pressed_key_count(&keys);
+    state.current_layer = clamp_layer(layer as usize, &state.layers);
+    state.pressed_keys = keys;
+    if pressed_count > 0 {
+        refresh_submap_suppression(state);
+    }
+    if should_open_from_pressed_keys(state.suppressed_by_submap, pressed_count) {
+        show_state(state);
+        state.auto_hide_enabled = true;
+    }
+    update_auto_hide_deadline(state);
+    state.drawing_area.queue_draw();
+}
+
+fn update_auto_hide_deadline(state: &mut UiState) {
+    match auto_hide_deadline_action(
+        state.auto_hide_enabled,
+        state.visible,
+        pressed_key_count(&state.pressed_keys),
+    ) {
+        AutoHideDeadlineAction::Unchanged => {}
+        AutoHideDeadlineAction::Clear => state.hide_after = None,
+        AutoHideDeadlineAction::Schedule => {
+            state.hide_after = Some(Instant::now() + AUTO_HIDE_DURATION);
+        }
+    }
+}
+
+fn auto_hide_deadline_action(
+    auto_hide_enabled: bool,
+    visible: bool,
+    pressed_count: usize,
+) -> AutoHideDeadlineAction {
+    if !auto_hide_enabled {
+        AutoHideDeadlineAction::Unchanged
+    } else if pressed_count > 0 {
+        AutoHideDeadlineAction::Clear
+    } else if visible {
+        AutoHideDeadlineAction::Schedule
+    } else {
+        AutoHideDeadlineAction::Unchanged
+    }
+}
+
+fn should_open_from_pressed_keys(suppressed_by_submap: bool, pressed_count: usize) -> bool {
+    !suppressed_by_submap && pressed_count > 0
+}
+
+fn submap_suppresses_activity(submap: &str) -> bool {
+    submap == SUPPRESSED_SUBMAP
+}
+
+fn activity_is_suppressed_now() -> bool {
+    current_hyprland_submap().is_some_and(|submap| submap_suppresses_activity(&submap))
+}
+
+fn refresh_submap_suppression(state: &mut UiState) {
+    if let Some(submap) = current_hyprland_submap() {
+        state.suppressed_by_submap = submap_suppresses_activity(&submap);
+    }
+}
+
+fn load_layers(path: &Path) -> Result<Vec<KeyLayer>> {
+    let text =
+        fs::read_to_string(path).with_context(|| format!("could not read {}", path.display()))?;
+    let root: Value = serde_yaml::from_str(&text)
+        .with_context(|| format!("could not parse {}", path.display()))?;
+    let layers = root
+        .get("layers")
+        .and_then(Value::as_mapping)
+        .with_context(|| format!("{} does not contain a layers mapping", path.display()))?;
+
+    let mut output = Vec::new();
+    for (name, keys) in layers {
+        let name = scalar_to_string(name).context("layer name must be a scalar")?;
+        let keys = keys
+            .as_sequence()
+            .with_context(|| format!("layer {name} must be a sequence"))?
+            .iter()
+            .map(|value| scalar_to_string(value).context("key label must be a scalar"))
+            .collect::<Result<Vec<_>>>()?;
+        if keys.len() != KEY_COUNT {
+            bail!("layer {name} has {} keys, expected {KEY_COUNT}", keys.len());
+        }
+        output.push(KeyLayer { name, keys });
+    }
+
+    if output.is_empty() {
+        bail!("{} does not define any layers", path.display());
+    }
+    Ok(output)
+}
+
+fn scalar_to_string(value: &Value) -> Result<String> {
+    match value {
+        Value::String(value) => Ok(value.clone()),
+        Value::Number(value) => Ok(value.to_string()),
+        Value::Bool(value) => Ok(value.to_string()),
+        Value::Null => Ok(String::new()),
+        _ => bail!("expected scalar"),
+    }
+}
+
+fn hidraw_paths(args: &Args) -> Vec<PathBuf> {
+    if let Some(path) = &args.path {
+        return vec![path.clone()];
+    }
+
+    let Ok(entries) = fs::read_dir("/sys/class/hidraw") else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            let uevent = entry.path().join("device/uevent");
+            let contents = fs::read_to_string(uevent).ok()?;
+            let needle = format!(":0000{}:0000{}", args.vid, args.pid);
+            contents
+                .to_ascii_lowercase()
+                .contains(&needle)
+                .then(|| PathBuf::from("/dev").join(name.as_ref()))
+        })
+        .collect()
+}
+
+fn watch_layer_devices(args: Args, sink: EventSink) {
+    let active_paths = Arc::new(Mutex::new(HashSet::new()));
+    loop {
+        for path in hidraw_paths(&args) {
+            let mut active = active_paths
+                .lock()
+                .expect("active hidraw path set poisoned");
+            if !active.insert(path.clone()) {
+                continue;
+            }
+            drop(active);
+
+            let reader_sink = sink.clone();
+            let reader_active_paths = Arc::clone(&active_paths);
+            thread::spawn(move || {
+                read_layer_path(&path, reader_sink);
+                reader_active_paths
+                    .lock()
+                    .expect("active hidraw path set poisoned")
+                    .remove(&path);
+            });
+        }
+
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn read_layer_path(path: &Path, sink: EventSink) {
+    let Ok(mut file) = OpenOptions::new().read(true).open(path) else {
+        return;
+    };
+    let mut buffer = [0u8; 64];
+    loop {
+        match file.read(&mut buffer) {
+            Ok(len) if len > 0 => read_report(&buffer[..len], &sink),
+            Ok(_) => thread::sleep(Duration::from_millis(1)),
+            Err(error) if error.kind() == ErrorKind::Interrupted => {}
+            Err(_) => break,
+        }
+    }
+}
+
+fn read_report(buffer: &[u8], sink: &EventSink) {
+    let report = normalize_report(buffer);
+    if report.len() >= 9 && &report[0..7] == LAYER_REPORT_MAGIC && report[7] == 1 {
+        sink.send(AppEvent::Layer(report[8]));
+    } else if report.len() >= 9 + KEY_REPORT_BYTES
+        && &report[0..7] == KEY_REPORT_MAGIC
+        && report[7] == 1
+    {
+        let mut keys = [0u8; KEY_REPORT_BYTES];
+        keys.copy_from_slice(&report[9..9 + KEY_REPORT_BYTES]);
+        sink.send(AppEvent::PressedKeys {
+            layer: report[8],
+            keys,
+        });
+    }
+}
+
+fn normalize_report(buffer: &[u8]) -> &[u8] {
+    if buffer.first() == Some(&0) {
+        &buffer[1..]
+    } else {
+        buffer
+    }
+}
+
+impl EventSink {
+    fn send(&self, event: AppEvent) {
+        self.tx.send(event).ok();
+    }
+}
+
+struct SocketGuard {
+    path: PathBuf,
+}
+
+impl Drop for SocketGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+fn control_socket_path() -> Result<PathBuf> {
+    let runtime = std::env::var_os("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR is not set")?;
+    Ok(PathBuf::from(runtime).join("silakka54-layer-viewer.sock"))
+}
+
+fn send_control(command: &str) -> Result<()> {
+    let path = control_socket_path()?;
+    let mut stream = UnixStream::connect(path)?;
+    stream.write_all(command.as_bytes())?;
+    stream.write_all(b"\n")?;
+    Ok(())
+}
+
+fn start_control_socket(sink: EventSink) -> Result<SocketGuard> {
+    let path = control_socket_path()?;
+    if UnixStream::connect(&path).is_ok() {
+        bail!("silakka54-layer-viewer is already running");
+    }
+    match fs::remove_file(&path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(error).with_context(|| format!("could not remove {}", path.display()))
+        }
+    }
+    let listener =
+        UnixListener::bind(&path).with_context(|| format!("could not bind {}", path.display()))?;
+    thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            handle_control_stream(stream, &sink);
+        }
+    });
+    Ok(SocketGuard { path })
+}
+
+fn handle_control_stream(mut stream: UnixStream, sink: &EventSink) {
+    let mut text = String::new();
+    if stream.read_to_string(&mut text).is_err() {
+        return;
+    }
+    for line in text.lines() {
+        let mut fields = line.split_whitespace();
+        match fields.next() {
+            Some("activity") => sink.send(AppEvent::Activity),
+            Some("hide") => sink.send(AppEvent::Hide),
+            Some("place") => {
+                let Some(monitor) = fields.next() else {
+                    continue;
+                };
+                let Some(left_margin) = fields.next().and_then(|value| value.parse().ok()) else {
+                    continue;
+                };
+                sink.send(AppEvent::Place {
+                    monitor: monitor.to_string(),
+                    left_margin,
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
+fn watch_hyprland_monitors(sink: EventSink) {
+    let Some(path) = hyprland_socket2_path() else {
+        return;
+    };
+    thread::spawn(move || loop {
+        match UnixStream::connect(&path) {
+            Ok(mut stream) => {
+                let mut pending = Vec::new();
+                let mut buffer = [0u8; 4096];
+                loop {
+                    match stream.read(&mut buffer) {
+                        Ok(0) => break,
+                        Ok(len) => {
+                            pending.extend_from_slice(&buffer[..len]);
+                            while let Some(pos) = pending.iter().position(|byte| *byte == b'\n') {
+                                let line = pending.drain(..=pos).collect::<Vec<_>>();
+                                if let Ok(line) = String::from_utf8(line) {
+                                    handle_hyprland_event(line.trim(), &sink);
+                                }
+                            }
+                        }
+                        Err(error) if error.kind() == ErrorKind::Interrupted => {}
+                        Err(_) => break,
+                    }
+                }
+            }
+            Err(_) => thread::sleep(Duration::from_secs(1)),
+        }
+    });
+}
+
+fn hyprland_socket2_path() -> Option<PathBuf> {
+    let runtime = std::env::var_os("XDG_RUNTIME_DIR")?;
+    let signature = std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE")?;
+    Some(
+        PathBuf::from(runtime)
+            .join("hypr")
+            .join(signature)
+            .join(".socket2.sock"),
+    )
+}
+
+fn handle_hyprland_event(line: &str, sink: &EventSink) {
+    if let Some(rest) = line.strip_prefix("focusedmon>>") {
+        if let Some((monitor, _workspace)) = rest.split_once(',') {
+            sink.send(AppEvent::Monitor(monitor.to_string()));
+        }
+    } else if line.starts_with("monitoradded") || line.starts_with("monitorremoved") {
+        if let Some(name) = focused_hyprland_monitor() {
+            sink.send(AppEvent::Monitor(name));
+        }
+    } else if let Some(submap) = line.strip_prefix("submap>>") {
+        sink.send(AppEvent::Submap(submap.to_string()));
+    }
+}
+
+fn current_hyprland_submap() -> Option<String> {
+    if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
+        return None;
+    }
+    let output = Command::new("hyprctl").arg("submap").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout)
+        .ok()
+        .map(|submap| submap.trim().to_string())
+}
+
+fn focused_hyprland_monitor() -> Option<String> {
+    if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
+        return None;
+    }
+    let output = Command::new("hyprctl")
+        .args(["monitors", "-j"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let monitors: Vec<HyprMonitor> = serde_json::from_slice(&output.stdout).ok()?;
+    monitors
+        .into_iter()
+        .find(|monitor| monitor.focused)
+        .map(|monitor| monitor.name)
+}
+
+fn set_layer_monitor(window: &ApplicationWindow, name: &str) {
+    if let Some(monitor) = find_gdk_monitor(name) {
+        window.set_monitor(Some(&monitor));
+    }
+}
+
+fn set_layer_placement(window: &ApplicationWindow, monitor_name: &str, left_margin: i32) {
+    set_layer_monitor(window, monitor_name);
+    window.set_anchor(Edge::Bottom, true);
+    window.set_anchor(Edge::Left, true);
+    window.set_anchor(Edge::Right, false);
+    window.set_margin(Edge::Left, left_margin.max(0));
+}
+
+fn set_first_monitor(window: &ApplicationWindow) {
+    if let Some(display) = gdk::Display::default() {
+        let monitors = display.monitors();
+        if let Some(item) = monitors.item(0) {
+            if let Ok(monitor) = item.downcast::<gdk::Monitor>() {
+                window.set_monitor(Some(&monitor));
+            }
+        }
+    }
+}
+
+fn find_gdk_monitor(name: &str) -> Option<gdk::Monitor> {
+    let display = gdk::Display::default()?;
+    let monitors = display.monitors();
+    for index in 0..monitors.n_items() {
+        let item = monitors.item(index)?;
+        let monitor = item.downcast::<gdk::Monitor>().ok()?;
+        if monitor
+            .connector()
+            .as_deref()
+            .is_some_and(|connector| connector == name)
+        {
+            return Some(monitor);
+        }
+    }
+    None
+}
+
+fn clamp_layer(layer: usize, layers: &[KeyLayer]) -> usize {
+    if layer < layers.len() {
+        layer
+    } else {
+        0
+    }
+}
+
+fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: f64, height: f64) {
+    let metrics = layout_metrics(width, height);
+    let palette = ThemePalette::from_widget(area);
+    let layer = &state.layers[state.current_layer];
+    let layer_names = state
+        .layers
+        .iter()
+        .map(|layer| layer.name.as_str())
+        .collect::<Vec<_>>();
+    for (index, geometry) in KEY_GEOMETRY.iter().enumerate() {
+        draw_key(
+            cr,
+            &metrics,
+            index,
+            geometry,
+            &layer.keys[index],
+            key_is_pressed(state, index),
+            &layer_names,
+            &palette,
+        );
+    }
+}
+
+fn layout_metrics(width: f64, height: f64) -> LayoutMetrics {
+    let scale = (width / CONTENT_WIDTH)
+        .min(height / CONTENT_HEIGHT)
+        .max(0.05);
+    let origin_x = (width - CONTENT_WIDTH * scale) / 2.0 - CONTENT_MIN_X * scale;
+    let origin_y = (height - CONTENT_HEIGHT * scale) / 2.0 - CONTENT_MIN_Y * scale;
+    LayoutMetrics {
+        origin_x,
+        origin_y,
+        scale,
+    }
+}
+
+fn draw_key(
+    cr: &CairoContext,
+    metrics: &LayoutMetrics,
+    index: usize,
+    geometry: &KeyGeometry,
+    label: &str,
+    pressed: bool,
+    layer_names: &[&str],
+    palette: &ThemePalette,
+) {
+    let key_width = geometry.width * metrics.scale;
+    let key_height = geometry.height * metrics.scale;
+    let radius = key_width.min(key_height) * 0.13;
+    cr.save().ok();
+    cr.translate(
+        metrics.origin_x + geometry.x * metrics.scale,
+        metrics.origin_y + geometry.y * metrics.scale,
+    );
+    cr.rotate(geometry.rotation.to_radians());
+    rounded_rect(
+        cr,
+        -key_width / 2.0,
+        -key_height / 2.0,
+        key_width,
+        key_height,
+        radius,
+    );
+    if pressed {
+        set_rgba(cr, palette.accent, 0.96 * OVERLAY_OPACITY);
+    } else if is_layer_label(label, layer_names) {
+        set_rgba(cr, palette.layer, 0.86 * OVERLAY_OPACITY);
+    } else if label == "___" {
+        set_rgba(cr, palette.key_dim, 0.74 * OVERLAY_OPACITY);
+    } else {
+        set_rgba(cr, palette.key, 0.82 * OVERLAY_OPACITY);
+    }
+    cr.fill_preserve().ok();
+    if pressed {
+        set_rgba(cr, palette.accent, OVERLAY_OPACITY);
+        cr.set_line_width(2.8 * metrics.scale);
+    } else {
+        set_rgba(cr, palette.outline, 0.62 * OVERLAY_OPACITY);
+        cr.set_line_width(1.5 * metrics.scale);
+    }
+    cr.stroke().ok();
+
+    let text_color = if pressed || is_layer_label(label, layer_names) {
+        palette.inverse_text
+    } else if label == "___" {
+        palette.muted
+    } else {
+        palette.text
+    };
+    set_rgba(cr, text_color, 0.92 * OVERLAY_OPACITY);
+    draw_centered_text(
+        cr,
+        label,
+        0.0,
+        -key_height * 0.04,
+        key_width.min(key_height) * 0.25,
+        key_width * 0.76,
+    );
+    set_rgba(cr, text_color, 0.36 * OVERLAY_OPACITY);
+    draw_centered_text(
+        cr,
+        &(index + 1).to_string(),
+        0.0,
+        key_height * 0.31,
+        key_width.min(key_height) * 0.11,
+        key_width * 0.70,
+    );
+    cr.restore().ok();
+}
+
+fn draw_centered_text(
+    cr: &CairoContext,
+    text: &str,
+    center_x: f64,
+    center_y: f64,
+    font_size: f64,
+    max_width: f64,
+) {
+    let mut display = text.to_string();
+    let mut size = font_size;
+    loop {
+        cr.select_font_face("Sans", FontSlant::Normal, FontWeight::Bold);
+        cr.set_font_size(size);
+        let Ok(extents) = cr.text_extents(&display) else {
+            return;
+        };
+        if extents.width() <= max_width || size <= font_size * 0.62 {
+            cr.move_to(
+                center_x - extents.width() / 2.0 - extents.x_bearing(),
+                center_y + extents.height() / 2.0,
+            );
+            cr.show_text(&display).ok();
+            return;
+        }
+        if display.chars().count() > 8 {
+            display = format!("{}.", display.chars().take(7).collect::<String>());
+        } else {
+            size *= 0.92;
+        }
+    }
+}
+
+fn rounded_rect(cr: &CairoContext, x: f64, y: f64, w: f64, h: f64, r: f64) {
+    let pi = std::f64::consts::PI;
+    cr.new_sub_path();
+    cr.arc(x + w - r, y + r, r, -pi / 2.0, 0.0);
+    cr.arc(x + w - r, y + h - r, r, 0.0, pi / 2.0);
+    cr.arc(x + r, y + h - r, r, pi / 2.0, pi);
+    cr.arc(x + r, y + r, r, pi, 3.0 * pi / 2.0);
+    cr.close_path();
+}
+
+fn set_rgba(cr: &CairoContext, color: Color, alpha: f64) {
+    cr.set_source_rgba(color.red, color.green, color.blue, alpha);
+}
+
+fn is_layer_label(label: &str, layer_names: &[&str]) -> bool {
+    layer_names.contains(&label)
+}
+
+fn key_is_pressed(state: &UiState, index: usize) -> bool {
+    index < KEY_COUNT && (state.pressed_keys[index / 8] & (1 << (index % 8))) != 0
+}
+
+fn pressed_key_count(keys: &[u8; KEY_REPORT_BYTES]) -> usize {
+    (0..KEY_COUNT)
+        .filter(|index| keys[index / 8] & (1 << (index % 8)) != 0)
+        .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_hide_deadline_clears_while_keys_are_held() {
+        assert_eq!(
+            auto_hide_deadline_action(true, true, 1),
+            AutoHideDeadlineAction::Clear
+        );
+    }
+
+    #[test]
+    fn auto_hide_deadline_schedules_after_all_keys_release() {
+        assert_eq!(
+            auto_hide_deadline_action(true, true, 0),
+            AutoHideDeadlineAction::Schedule
+        );
+    }
+
+    #[test]
+    fn auto_hide_deadline_ignores_inactive_auto_hide() {
+        assert_eq!(
+            auto_hide_deadline_action(false, true, 0),
+            AutoHideDeadlineAction::Unchanged
+        );
+        assert_eq!(
+            auto_hide_deadline_action(false, true, 1),
+            AutoHideDeadlineAction::Unchanged
+        );
+    }
+
+    #[test]
+    fn pressed_keys_open_when_not_suppressed() {
+        assert!(should_open_from_pressed_keys(false, 1));
+    }
+
+    #[test]
+    fn pressed_keys_do_not_open_while_suppressed() {
+        assert!(!should_open_from_pressed_keys(true, 1));
+    }
+
+    #[test]
+    fn empty_pressed_key_reports_do_not_open() {
+        assert!(!should_open_from_pressed_keys(false, 0));
+    }
+
+    #[test]
+    fn only_game_submap_suppresses_activity() {
+        assert!(submap_suppresses_activity("game"));
+        assert!(!submap_suppresses_activity("default"));
+        assert!(!submap_suppresses_activity(""));
+    }
+
+    #[test]
+    fn inner_thumb_gap_is_about_half_a_key_width() {
+        let left_inner_thumb = KEY_GEOMETRY[50];
+        let right_inner_thumb = KEY_GEOMETRY[51];
+        let gap = right_inner_thumb.x
+            - x_axis_half_extent(right_inner_thumb)
+            - left_inner_thumb.x
+            - x_axis_half_extent(left_inner_thumb);
+        let key_widths = gap / KeyGeometry::square(0.0, 0.0).width;
+
+        assert!((key_widths - 0.5).abs() < 0.02);
+    }
+
+    fn x_axis_half_extent(geometry: KeyGeometry) -> f64 {
+        let rotation = geometry.rotation.to_radians();
+        (geometry.width * rotation.cos().abs() + geometry.height * rotation.sin().abs()) / 2.0
+    }
+}

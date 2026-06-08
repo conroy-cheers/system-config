@@ -23,6 +23,7 @@ const ID_DYNAMIC_KEYMAP_GET_KEYCODE: u8 = 0x04;
 const ID_DYNAMIC_KEYMAP_SET_KEYCODE: u8 = 0x05;
 const ID_BOOTLOADER_JUMP: u8 = 0x0B;
 const SILAKKA54_SYNC_QUERY: u8 = 0x54;
+const SILAKKA54_SYNC_BOOTLOADER: u8 = 0x42;
 const SILAKKA54_SYNC_VERSION: u8 = 1;
 const SILAKKA54_SYNC_MAGIC: &[u8] = b"SL54SYN";
 
@@ -141,7 +142,9 @@ fn rebuild_switch_command() -> Result<(), String> {
                 eprintln!("Silakka54 firmware flash deferred.");
             }
         } else {
-            eprintln!("Silakka54 firmware ABI is stale; flashing deferred in noninteractive rebuild.");
+            eprintln!(
+                "Silakka54 firmware ABI is stale; flashing deferred in noninteractive rebuild."
+            );
         }
     }
 
@@ -170,7 +173,9 @@ fn hotplug_command() -> Result<(), String> {
 
 fn prompt_firmware_command() -> Result<(), String> {
     if std::env::var_os("DISPLAY").is_none() && std::env::var_os("WAYLAND_DISPLAY").is_none() {
-        eprintln!("Silakka54 firmware is stale; no graphical session is available, deferring flash.");
+        eprintln!(
+            "Silakka54 firmware is stale; no graphical session is available, deferring flash."
+        );
         return Ok(());
     }
 
@@ -232,6 +237,51 @@ fn flash_firmware_command(yes: bool) -> Result<(), String> {
         return Ok(());
     }
 
+    if request_silakka54_bootloader_jump()? {
+        match wait_for_bootloader_mount(Duration::from_secs(30)) {
+            Ok(mount) => return copy_firmware_and_verify(&mount),
+            Err(error) => eprintln!("Silakka54 bootloader jump did not produce RPI-RP2: {error}"),
+        }
+    }
+
+    if request_vial_bootloader_jump()? {
+        match wait_for_bootloader_mount(Duration::from_secs(30)) {
+            Ok(mount) => return copy_firmware_and_verify(&mount),
+            Err(error) => eprintln!("Vial bootloader jump did not produce RPI-RP2: {error}"),
+        }
+    }
+
+    let mount = wait_for_bootloader_mount(Duration::from_secs(120))?;
+    copy_firmware_and_verify(&mount)
+}
+
+fn request_silakka54_bootloader_jump() -> Result<bool, String> {
+    for path in via_hidraw_paths() {
+        match open_hid(&path) {
+            Ok(mut file) => match silakka54_bootloader_jump(&mut file) {
+                Ok(()) => {
+                    eprintln!("{}: requested Silakka54 bootloader jump", path.display());
+                    return Ok(true);
+                }
+                Err(error) => {
+                    eprintln!(
+                        "{}: Silakka54 bootloader jump unavailable: {error}",
+                        path.display()
+                    );
+                }
+            },
+            Err(error) => {
+                eprintln!(
+                    "{}: could not open HID device for Silakka54 bootloader jump: {error}",
+                    path.display()
+                );
+            }
+        }
+    }
+    Ok(false)
+}
+
+fn request_vial_bootloader_jump() -> Result<bool, String> {
     for path in via_hidraw_paths() {
         match open_hid(&path) {
             Ok(mut file) => {
@@ -243,20 +293,28 @@ fn flash_firmware_command(yes: bool) -> Result<(), String> {
                 ) {
                     Ok(_) => {
                         eprintln!("{}: requested Vial bootloader jump", path.display());
-                        break;
+                        return Ok(true);
                     }
                     Err(error) => {
-                        eprintln!("{}: Vial bootloader jump unavailable: {error}", path.display());
+                        eprintln!(
+                            "{}: Vial bootloader jump unavailable: {error}",
+                            path.display()
+                        );
                     }
                 }
             }
             Err(error) => {
-                eprintln!("{}: could not open HID device for bootloader jump: {error}", path.display());
+                eprintln!(
+                    "{}: could not open HID device for bootloader jump: {error}",
+                    path.display()
+                );
             }
         }
     }
+    Ok(false)
+}
 
-    let mount = wait_for_bootloader_mount(Duration::from_secs(120))?;
+fn copy_firmware_and_verify(mount: &Path) -> Result<(), String> {
     let target = mount.join(
         Path::new(FIRMWARE_PATH)
             .file_name()
@@ -315,7 +373,11 @@ fn device_status(path: &Path, entries: Option<&[KeyEntry]>) -> DeviceStatus {
         status.firmware = firmware_status(&mut file).ok();
     }
 
-    if status.firmware.as_ref().is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH)) {
+    if status
+        .firmware
+        .as_ref()
+        .is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH))
+    {
         if let Some(entries) = entries {
             status.keymap_drift = keymap_drift_for_file(&mut file, entries).ok();
         }
@@ -343,9 +405,14 @@ fn print_device_status(status: &DeviceStatus) {
             };
             println!("  firmware ABI: {} ({abi_state})", firmware.abi_hash_prefix);
             println!("  compiled keymap: {}", firmware.keymap_hash_prefix);
-            println!("  dynamic matrix: {} layers, {} rows, {} cols", firmware.layer_count, firmware.rows, firmware.cols);
+            println!(
+                "  dynamic matrix: {} layers, {} rows, {} cols",
+                firmware.layer_count, firmware.rows, firmware.cols
+            );
         }
-        None if status.via_protocol.is_some() => println!("  firmware ABI: unavailable; full flash required"),
+        None if status.via_protocol.is_some() => {
+            println!("  firmware ABI: unavailable; full flash required")
+        }
         None => println!("  firmware ABI: not checked"),
     }
     match status.keymap_drift {
@@ -404,7 +471,12 @@ fn open_hid(path: &Path) -> io::Result<File> {
 }
 
 fn via_protocol(file: &mut File) -> Result<u16, String> {
-    let response = raw_transaction(file, command_report(ID_GET_PROTOCOL_VERSION), ID_GET_PROTOCOL_VERSION, Duration::from_secs(1))?;
+    let response = raw_transaction(
+        file,
+        command_report(ID_GET_PROTOCOL_VERSION),
+        ID_GET_PROTOCOL_VERSION,
+        Duration::from_secs(1),
+    )?;
     Ok(u16::from_be_bytes([response[1], response[2]]))
 }
 
@@ -428,12 +500,36 @@ fn firmware_status(file: &mut File) -> Result<FirmwareStatus, String> {
     })
 }
 
+fn silakka54_bootloader_jump(file: &mut File) -> Result<(), String> {
+    let mut report = command_report(ID_GET_KEYBOARD_VALUE);
+    report[1] = SILAKKA54_SYNC_BOOTLOADER;
+    report[2] = SILAKKA54_SYNC_VERSION;
+    let response = raw_transaction(
+        file,
+        report,
+        ID_GET_KEYBOARD_VALUE,
+        Duration::from_millis(1000),
+    )?;
+    if response[1] != SILAKKA54_SYNC_BOOTLOADER || response[2] != SILAKKA54_SYNC_VERSION {
+        return Err("firmware did not acknowledge Silakka54 bootloader jump".to_string());
+    }
+    if &response[3..10] != SILAKKA54_SYNC_MAGIC {
+        return Err("firmware sync magic mismatch".to_string());
+    }
+    Ok(())
+}
+
 fn get_keycode(file: &mut File, entry: &KeyEntry) -> Result<u16, String> {
     let mut report = command_report(ID_DYNAMIC_KEYMAP_GET_KEYCODE);
     report[1] = entry.layer;
     report[2] = entry.row;
     report[3] = entry.col;
-    let response = raw_transaction(file, report, ID_DYNAMIC_KEYMAP_GET_KEYCODE, Duration::from_secs(1))?;
+    let response = raw_transaction(
+        file,
+        report,
+        ID_DYNAMIC_KEYMAP_GET_KEYCODE,
+        Duration::from_secs(1),
+    )?;
     Ok(u16::from_be_bytes([response[4], response[5]]))
 }
 
@@ -444,7 +540,13 @@ fn set_keycode(file: &mut File, entry: &KeyEntry) -> Result<(), String> {
     report[3] = entry.col;
     report[4] = (entry.keycode >> 8) as u8;
     report[5] = (entry.keycode & 0xFF) as u8;
-    raw_transaction(file, report, ID_DYNAMIC_KEYMAP_SET_KEYCODE, Duration::from_secs(1)).map(|_| ())
+    raw_transaction(
+        file,
+        report,
+        ID_DYNAMIC_KEYMAP_SET_KEYCODE,
+        Duration::from_secs(1),
+    )
+    .map(|_| ())
 }
 
 fn command_report(command_id: u8) -> [u8; REPORT_LEN] {
@@ -483,7 +585,9 @@ fn raw_transaction(
         }
     }
 
-    Err(format!("timed out waiting for HID response 0x{expected_command:02x}"))
+    Err(format!(
+        "timed out waiting for HID response 0x{expected_command:02x}"
+    ))
 }
 
 fn normalize_report(buffer: &[u8]) -> &[u8] {
@@ -519,21 +623,27 @@ fn read_keymap_entries() -> Result<Vec<KeyEntry>, String> {
         }
         let fields: Vec<_> = line.split('\t').collect();
         if fields.len() != 7 {
-            return Err(format!("{DYNAMIC_KEYMAP_TSV}:{}: expected 7 tab-separated fields", line_number + 1));
+            return Err(format!(
+                "{DYNAMIC_KEYMAP_TSV}:{}: expected 7 tab-separated fields",
+                line_number + 1
+            ));
         }
         let entry = KeyEntry {
             layer: parse_u8(fields[0], line_number + 1)?,
             row: parse_u8(fields[1], line_number + 1)?,
             col: parse_u8(fields[2], line_number + 1)?,
-            keycode: fields[3]
-                .parse()
-                .map_err(|_| format!("{DYNAMIC_KEYMAP_TSV}:{}: invalid keycode", line_number + 1))?,
+            keycode: fields[3].parse().map_err(|_| {
+                format!("{DYNAMIC_KEYMAP_TSV}:{}: invalid keycode", line_number + 1)
+            })?,
             label: fields[5].to_string(),
             qmk: fields[6].to_string(),
         };
         let key = (entry.layer, entry.row, entry.col);
         if seen.insert(key, line_number + 1).is_some() {
-            return Err(format!("{DYNAMIC_KEYMAP_TSV}:{}: duplicate layer,row,col entry", line_number + 1));
+            return Err(format!(
+                "{DYNAMIC_KEYMAP_TSV}:{}: duplicate layer,row,col entry",
+                line_number + 1
+            ));
         }
         entries.push(entry);
     }
@@ -598,7 +708,10 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 }
 
 fn hash_prefix(hash: &str) -> String {
-    hash.chars().take(16).collect::<String>().to_ascii_lowercase()
+    hash.chars()
+        .take(16)
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 fn is_interactive() -> bool {
