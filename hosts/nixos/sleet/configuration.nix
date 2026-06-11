@@ -136,6 +136,10 @@ in
     };
   };
 
+  services.hydra.extraConfig = ''
+    evaluator_max_memory_size = 32768
+  '';
+
   services.authelia.instances.main.settings.session = {
     # Mainsail holds a long-lived Moonraker websocket. Authelia does not see
     # websocket frames as session activity, so a short idle timeout makes
