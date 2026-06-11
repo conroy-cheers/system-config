@@ -1,48 +1,48 @@
-{ lib, config, ... }:
+{
+  lib,
+  config,
+  ...
+}:
 
 {
   flake.hydraJobs =
     let
-      filterEvaluableJobs =
-        jobs: lib.filterAttrs (_: job: lib.isDerivation job && (builtins.tryEval job.drvPath).success) jobs;
+      systems = lib.filter (system: system == "x86_64-linux") config.systems;
 
-      filterEvaluableHostJobs =
-        jobs:
-        lib.filterAttrs (
-          name: _:
-          let
-            evaluatedJob = builtins.tryEval jobs.${name};
-          in
-          evaluatedJob.success
-          && lib.isDerivation evaluatedJob.value
-          && (builtins.tryEval evaluatedJob.value.drvPath).success
-        ) jobs;
+      packageJobs = lib.genAttrs systems (
+        system:
+        let
+          jobs = (config.perSystem system).packages or { };
+          pkgs = (config.perSystem system).pkgs.default;
+          availableJobs = lib.filterAttrs (_: job: lib.meta.availableOn pkgs.stdenv.hostPlatform job) jobs;
+        in
+        lib.getAttrs (builtins.attrNames availableJobs) jobs
+      );
 
-      filterHydraChecks = checks: lib.filterAttrs (name: _: !(lib.hasPrefix "deploy-" name)) checks;
+      checkJobs = lib.genAttrs systems (
+        system:
+        let
+          jobs = (config.perSystem system).checks or { };
+        in
+        lib.getAttrs (builtins.attrNames config.auto.checks.result) jobs
+      );
 
-      perSystemJobs =
-        attr:
-        lib.genAttrs (lib.filter (system: system == "x86_64-linux") config.systems) (
-          system:
-          let
-            jobs = (config.perSystem system).${attr} or { };
-            filteredJobs = if attr == "checks" then filterHydraChecks jobs else jobs;
-          in
-          filterEvaluableJobs filteredJobs
-        );
+      configurationJobs =
+        hosts:
+        let
+          jobs = lib.mapAttrs (_: host: host.configuration.config.system.build.toplevel) hosts;
+        in
+        lib.getAttrs (builtins.attrNames hosts) jobs;
 
       nixosHosts = config.auto.configurations.configurationTypes.nixos.result or { };
-      darwinHosts = lib.attrByPath [ "nix-darwin" ] { } config.auto.configurations.configurationTypes;
+      darwinHosts =
+        (lib.attrByPath [ "nix-darwin" ] { } config.auto.configurations.configurationTypes).result or { };
     in
     {
-      packages = perSystemJobs "packages";
-      checks = perSystemJobs "checks";
+      packages = packageJobs;
+      checks = checkJobs;
 
-      nixosConfigurations = filterEvaluableHostJobs (
-        lib.mapAttrs (_: host: host.configuration.config.system.build.toplevel) nixosHosts
-      );
-      darwinConfigurations = filterEvaluableHostJobs (
-        lib.mapAttrs (_: host: host.configuration.config.system.build.toplevel) (darwinHosts.result or { })
-      );
+      nixosConfigurations = configurationJobs nixosHosts;
+      darwinConfigurations = configurationJobs darwinHosts;
     };
 }
