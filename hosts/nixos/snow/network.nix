@@ -4,7 +4,7 @@
   networking = {
     useDHCP = false;
     useNetworkd = true;
-    nameservers = [ "10.1.0.1" ];
+    nameservers = [ "10.1.1.2" ];
     extraHosts = ''
       10.1.1.120 snow.lan infra-traefik.lan
       10.1.0.203 mqtt.lan
@@ -20,7 +20,12 @@
         "10.1.0.203/22"
       ];
       gateway = [ "10.1.0.1" ];
-      dns = [ "10.1.0.1" ];
+      dns = [ "10.1.1.2" ];
+      domains = [
+        "~lan"
+        "~home.conroycheers.me"
+        "~corncheese.org"
+      ];
       networkConfig = {
         IPv6AcceptRA = true;
         MulticastDNS = true;

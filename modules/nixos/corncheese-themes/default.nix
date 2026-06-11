@@ -46,39 +46,9 @@ in
     {
       corncheese.theming.themeDetails = themeDetails;
 
-      warnings =
-        lib.optional ((inputs.stylix.rev or null) != "525965744b770af79c985ae5c43c65e441dc8b29")
-          "stylix input changed; re-check whether the local kmscon workaround in modules/nixos/corncheese-themes/default.nix is still required.";
-
       fonts = {
         fontconfig.enable = true;
         packages = [ config.stylix.fonts.monospace.package ];
-      };
-
-      services.kmscon.config = {
-        "font-name" = config.stylix.fonts.monospace.name;
-        "font-size" = config.stylix.fonts.sizes.terminal;
-        palette = "custom";
-
-        "palette-black" = formatBase "base00";
-        "palette-red" = formatBase "base08";
-        "palette-green" = formatBase "base0B";
-        "palette-yellow" = formatBase "base0A";
-        "palette-blue" = formatBase "base0D";
-        "palette-magenta" = formatBase "base0E";
-        "palette-cyan" = formatBase "base0C";
-        "palette-light-grey" = formatBase "base05";
-        "palette-dark-grey" = formatBase "base03";
-        "palette-light-red" = formatBase "base08";
-        "palette-light-green" = formatBase "base0B";
-        "palette-light-yellow" = formatBase "base0A";
-        "palette-light-blue" = formatBase "base0D";
-        "palette-light-magenta" = formatBase "base0E";
-        "palette-light-cyan" = formatBase "base0C";
-        "palette-white" = formatBase "base07";
-
-        "palette-background" = formatBase "base00";
-        "palette-foreground" = formatBase "base05";
       };
 
       stylix = {
@@ -102,9 +72,6 @@ in
         };
 
         targets.nvf.enable = lib.mkIf (cfg.theme != null) false;
-
-        # https://github.com/nix-community/stylix/pull/2351
-        targets.kmscon.enable = false;
 
         # targets.btop.enable =
         #   lib.mkIf (settings.themecfg.themeDetails.btopTheme != null) false;

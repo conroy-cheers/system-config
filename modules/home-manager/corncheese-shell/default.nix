@@ -193,8 +193,7 @@ in
       # Direnv
       programs.direnv-instant = {
         enable = true;
-        settings.inline_viewer = true;
-        settings.mux_delay = 0.5;
+        settings.mux_delay = 0;
       };
       programs.direnv = mkIf cfg.direnv {
         enable = true;

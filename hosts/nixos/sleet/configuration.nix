@@ -13,219 +13,6 @@
 let
   ultramojiPackage = inputs.ultramoji-4d.packages.${pkgs.stdenv.hostPlatform.system}.ultramoji-server;
   ultramojiPort = 8765;
-  vllmPackage = pkgs.python3Packages.vllm;
-  vllmModel = "lcu0312/gemma-4-26B-A4B-it-AWQ-4bit";
-  vllmServedModelName = "gemma4-26b-a4b";
-  vllmPort = 8000;
-  vllmMmLimits = {
-    image = 1;
-    audio = 0;
-    video = 0;
-  };
-  openWebuiDefaultModelMetadata = {
-    capabilities = {
-      web_search = true;
-      builtin_tools = true;
-      citations = true;
-      status_updates = true;
-      file_context = true;
-      file_upload = true;
-      vision = true;
-    };
-    defaultFeatureIds = [ "web_search" ];
-  };
-  openWebuiDefaultModelParams = {
-    function_calling = "native";
-    custom_params = {
-      chat_template_kwargs = {
-        enable_thinking = true;
-      };
-    };
-  };
-  openWebuiDefaultSystemPrompt = ''
-    Runtime context:
-    - Current date: {{CURRENT_DATE}}
-    - Current time: {{CURRENT_TIME}}
-    - Current weekday: {{CURRENT_WEEKDAY}}
-
-    Use this runtime context for date-relative questions. Answer in the user's language. If the user's language is ambiguous, answer in English.
-  '';
-  vllmGemma4Bench16k = pkgs.writeShellApplication {
-    name = "bench-vllm-gemma4-16k";
-    runtimeInputs = [
-      vllmPackage
-      pkgs.curl
-      pkgs.gawk
-    ];
-    text = ''
-      : "''${VLLM_BASE_URL:=http://127.0.0.1:${toString vllmPort}}"
-      : "''${VLLM_MODEL:=${vllmServedModelName}}"
-      : "''${VLLM_TOKENIZER:=${vllmModel}}"
-      : "''${VLLM_INPUT_TOKENS:=15360}"
-      : "''${VLLM_OUTPUT_TOKENS:=512}"
-      : "''${VLLM_NUM_PROMPTS:=1}"
-      : "''${VLLM_TEMPERATURE:=0}"
-
-      curl -fsS "''${VLLM_BASE_URL}/health" >/dev/null
-
-      result="$(mktemp)"
-      trap 'rm -f "$result"' EXIT
-
-      vllm bench serve \
-        --backend openai-chat \
-        --base-url "$VLLM_BASE_URL" \
-        --endpoint /v1/chat/completions \
-        --model "$VLLM_MODEL" \
-        --served-model-name "$VLLM_MODEL" \
-        --tokenizer "$VLLM_TOKENIZER" \
-        --dataset-name random \
-        --random-input-len "$VLLM_INPUT_TOKENS" \
-        --random-output-len "$VLLM_OUTPUT_TOKENS" \
-        --random-range-ratio 0.0 \
-        --num-prompts "$VLLM_NUM_PROMPTS" \
-        --request-rate 1 \
-        --max-concurrency 1 \
-        --temperature "$VLLM_TEMPERATURE" \
-        --ignore-eos 2>&1 | tee "$result"
-
-      tpot_ms="$(
-        awk -F: '/Mean TPOT/ {
-          value = $2
-          gsub(/^[ \t]+|[ \t]+$/, "", value)
-          print value
-        }' "$result" | tail -n1
-      )"
-
-      if [[ -n "$tpot_ms" ]]; then
-        awk -v tpot="$tpot_ms" 'BEGIN {
-          if (tpot > 0) {
-            printf "Decode throughput from Mean TPOT: %.2f tok/s\n", 1000.0 / tpot
-          }
-        }'
-      fi
-    '';
-  };
-  vllmGemma4Smoke = pkgs.writeShellApplication {
-    name = "smoke-vllm-gemma4";
-    runtimeInputs = [
-      pkgs.coreutils
-      pkgs.curl
-      pkgs.imagemagick
-      pkgs.jq
-      pkgs.sox
-    ];
-    text = ''
-      : "''${VLLM_BASE_URL:=http://127.0.0.1:${toString vllmPort}}"
-      : "''${VLLM_MODEL:=${vllmServedModelName}}"
-
-      request() {
-        local name="$1"
-        local payload="$2"
-        local response
-
-        response="$(mktemp)"
-        curl -fsS "''${VLLM_BASE_URL}/v1/chat/completions" \
-          -H 'content-type: application/json' \
-          -d "$payload" > "$response"
-
-        jq -e '.choices[0].message.content | type == "string" and length > 0' "$response" >/dev/null
-        printf '%s: ok\n' "$name"
-        rm -f "$response"
-      }
-
-      curl -fsS "''${VLLM_BASE_URL}/health" >/dev/null
-
-      request text "$(
-        jq -cn --arg model "$VLLM_MODEL" '{
-          model: $model,
-          messages: [{role: "user", content: "Reply with exactly: ok"}],
-          max_tokens: 64,
-          temperature: 0
-        }'
-      )"
-
-      thinking_response="$(mktemp)"
-      curl -fsS "''${VLLM_BASE_URL}/v1/chat/completions" \
-        -H 'content-type: application/json' \
-        -d "$(
-          jq -cn --arg model "$VLLM_MODEL" '{
-            model: $model,
-            messages: [{role: "user", content: "Give one short fun fact about Rome."}],
-            max_tokens: 1024,
-            temperature: 0,
-            chat_template_kwargs: {enable_thinking: true}
-          }'
-        )" > "$thinking_response"
-      jq -e '
-        (.choices[0].message.content | type == "string" and length > 0)
-        and (
-          ((.choices[0].message.reasoning_content // .choices[0].message.reasoning // .choices[0].message.thinking // "") | type == "string")
-        )
-      ' "$thinking_response" >/dev/null
-      rm -f "$thinking_response"
-      printf 'thinking: ok\n'
-
-      tmpdir="$(mktemp -d)"
-      trap 'rm -rf "$tmpdir"' EXIT
-
-      magick -size 32x32 xc:red "$tmpdir/red.png"
-      image_b64="$(base64 -w0 "$tmpdir/red.png")"
-      request image "$(
-        jq -cn --arg model "$VLLM_MODEL" --arg image "data:image/png;base64,$image_b64" '{
-          model: $model,
-          messages: [{
-            role: "user",
-            content: [
-              {type: "text", text: "What is the dominant color in this image? Answer with one word."},
-              {type: "image_url", image_url: {url: $image}}
-            ]
-          }],
-          max_tokens: 64,
-          temperature: 0
-        }'
-      )"
-
-      sox -n -r 16000 -c 1 "$tmpdir/tone.wav" synth 0.25 sine 440 vol 0.2
-      audio_b64="$(base64 -w0 "$tmpdir/tone.wav")"
-      audio_response="$(mktemp)"
-      audio_status="$(
-        curl -sS -o "$audio_response" -w '%{http_code}' "''${VLLM_BASE_URL}/v1/chat/completions" \
-          -H 'content-type: application/json' \
-          -d "$(
-        jq -cn --arg model "$VLLM_MODEL" --arg audio "data:audio/wav;base64,$audio_b64" '{
-          model: $model,
-          messages: [{
-            role: "user",
-            content: [
-              {type: "text", text: "Briefly describe this audio."},
-              {type: "audio_url", audio_url: {url: $audio}}
-            ]
-          }],
-          max_tokens: 96,
-          temperature: 0
-        }'
-          )"
-      )"
-      if [ "$audio_status" != 400 ]; then
-        cat "$audio_response"
-        exit 1
-      fi
-      jq -e '.error.message | type == "string" and test("audio"; "i")' "$audio_response" >/dev/null
-      rm -f "$audio_response"
-      printf 'audio-disabled: ok\n'
-    '';
-  };
-  openWebuiPackage = pkgs.open-webui.overridePythonAttrs (oldAttrs: {
-    patches = (oldAttrs.patches or [ ]) ++ [
-      ./open-webui-vllm-reasoning-field.patch
-      ./open-webui-default-model-config-env.patch
-      ./open-webui-default-model-params.patch
-      ./open-webui-default-feature-ids.patch
-      ./open-webui-default-system-prompt-env.patch
-    ];
-  });
-  openWebuiPort = 8180;
-  pandaTurnHost = "turn.home.conroycheers.me";
   pandaTurnPort = 3478;
   pandaTurnUser = "panda-webrtc";
   pandaTurnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
@@ -238,6 +25,7 @@ in
     ./impermanence.nix
     ./network.nix
     ./home-assistant.nix
+    ../corncheese-public-services.nix
     inputs.corncheese-server.nixosModules.corncheese-server
   ];
 
@@ -309,25 +97,23 @@ in
   };
 
   corncheese-server = {
+    topology = {
+      hosts = {
+        sleet.address = "10.1.0.133";
+        snow.address = "10.1.1.120";
+      };
+      ingress.hosts = [
+        "snow"
+      ];
+    };
     ingress.enable = true;
+    _meta.services.panda-turn.endpoint = {
+      scheme = "tcp";
+      port = pandaTurnPort;
+    };
     _meta.ingress.routes = {
       panda.backend.url = lib.mkForce "http://panda.lan";
       moonraker.backend.url = lib.mkForce "http://panda.lan";
-      ultramoji = {
-        host = "ultramoji.corncheese.org";
-        auth.mode = "public";
-        backend.url = "http://127.0.0.1:${toString ultramojiPort}";
-      };
-      vllm = {
-        host = "vllm.corncheese.org";
-        auth.mode = "forwardAuth";
-        backend.url = "http://127.0.0.1:${toString vllmPort}";
-      };
-      openwebui = {
-        host = "openwebui.corncheese.org";
-        auth.mode = "forwardAuth";
-        backend.url = "http://127.0.0.1:${toString openWebuiPort}";
-      };
     };
     auth.authelia = {
       enable = true;
@@ -366,8 +152,8 @@ in
     enable = true;
     realm = "home.conroycheers.me";
     listening-port = pandaTurnPort;
-    listening-ips = [ "127.0.0.1" ];
-    relay-ips = [ "10.1.0.133" ];
+    listening-ips = [ (config.corncheese-server._meta.topology.hostAddress "sleet") ];
+    relay-ips = [ (config.corncheese-server._meta.topology.hostAddress "sleet") ];
     "lt-cred-mech" = true;
     "no-cli" = true;
     "no-udp" = true;
@@ -380,18 +166,6 @@ in
     '';
   };
 
-  services.traefik.dynamicConfigOptions.tcp = {
-    routers.panda-turn = {
-      entryPoints = [ "web-secure" ];
-      rule = "HostSNI(`${pandaTurnHost}`)";
-      service = "panda-turn";
-      tls.certResolver = "default";
-    };
-    services.panda-turn.loadBalancer.servers = [
-      { address = "127.0.0.1:${toString pandaTurnPort}"; }
-    ];
-  };
-
   systemd.services.ultramoji = {
     description = "Ultramoji 4D web app";
     wantedBy = [ "multi-user.target" ];
@@ -399,7 +173,7 @@ in
     wants = [ "network-online.target" ];
 
     serviceConfig = {
-      ExecStart = "${ultramojiPackage}/bin/ultramoji-server --bind 127.0.0.1 --port ${toString ultramojiPort}";
+      ExecStart = "${ultramojiPackage}/bin/ultramoji-server --bind ${config.corncheese-server._meta.topology.serviceListenAddress "ultramoji" "127.0.0.1"} --port ${toString ultramojiPort}";
       Restart = "on-failure";
       RestartSec = "5s";
 
@@ -478,7 +252,7 @@ in
   };
 
   ### Fonts
-  fonts.fontconfig.enable = false;
+  fonts.fontconfig.enable = lib.mkForce false;
 
   hardware.graphics.enable = true;
   hardware.nvidia = {
@@ -494,131 +268,6 @@ in
     "video"
   ];
 
-  services.searx = {
-    enable = true;
-    settings = {
-      use_default_settings = true;
-      server = {
-        bind_address = "127.0.0.1";
-        port = 8888;
-        secret_key = "local-openwebui-searxng";
-      };
-      search.formats = [
-        "html"
-        "json"
-      ];
-    };
-  };
-
-  services.open-webui = {
-    enable = true;
-    package = openWebuiPackage;
-    host = "127.0.0.1";
-    port = openWebuiPort;
-    environment = {
-      ENABLE_OLLAMA_API = "False";
-      ENABLE_LOGIN_FORM = "False";
-      ENABLE_PASSWORD_CHANGE_FORM = "False";
-      ENABLE_PERSISTENT_CONFIG = "False";
-      ENABLE_WEB_SEARCH = "True";
-      WEB_SEARCH_ENGINE = "searxng";
-      SEARXNG_QUERY_URL = "http://127.0.0.1:8888/search?q=<query>";
-      WEB_SEARCH_RESULT_COUNT = "3";
-      BYPASS_WEB_SEARCH_WEB_LOADER = "True";
-      BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL = "True";
-      WEBUI_URL = "https://openwebui.corncheese.org";
-      CORS_ALLOW_ORIGIN = "https://openwebui.corncheese.org";
-      OPENAI_API_BASE_URL = "http://127.0.0.1:${toString vllmPort}/v1";
-      OPENAI_API_KEY = "local-vllm";
-      DEFAULT_MODELS = vllmServedModelName;
-      DEFAULT_MODEL_METADATA = builtins.toJSON openWebuiDefaultModelMetadata;
-      DEFAULT_MODEL_PARAMS = builtins.toJSON openWebuiDefaultModelParams;
-      DEFAULT_SYSTEM_PROMPT = openWebuiDefaultSystemPrompt;
-      WEBUI_AUTH_TRUSTED_EMAIL_HEADER = "Remote-Email";
-      WEBUI_AUTH_TRUSTED_NAME_HEADER = "Remote-Name";
-      WEBUI_AUTH_TRUSTED_GROUPS_HEADER = "Remote-Groups";
-    };
-  };
-
-  users.groups.vllm = { };
-  users.users.vllm = {
-    isSystemUser = true;
-    group = "vllm";
-    extraGroups = [
-      "render"
-      "video"
-    ];
-  };
-
-  systemd.services.vllm-gemma4 = {
-    description = "vLLM Gemma4 26B A4B API server";
-    wantedBy = [ "multi-user.target" ];
-    after = [
-      "network-online.target"
-      "nvidia-persistenced.service"
-    ];
-    wants = [ "network-online.target" ];
-
-    environment = {
-      CUDA_VISIBLE_DEVICES = "0,1";
-      HF_HOME = "/var/lib/vllm/huggingface";
-      HOME = "/var/lib/vllm";
-      VLLM_MOE_USE_DEEP_GEMM = "0";
-      VLLM_USE_DEEP_GEMM = "0";
-    };
-    path = [ pkgs.cudaPackages.cuda_nvcc ];
-
-    serviceConfig = {
-      User = "vllm";
-      Group = "vllm";
-      StateDirectory = "vllm";
-      WorkingDirectory = "/var/lib/vllm";
-      EnvironmentFile = "-/var/lib/vllm/huggingface/token.env";
-      ExecStart = lib.escapeShellArgs [
-        "${vllmPackage}/bin/vllm"
-        "serve"
-        vllmModel
-        "--served-model-name"
-        vllmServedModelName
-        "--host"
-        "127.0.0.1"
-        "--port"
-        (toString vllmPort)
-        "--tensor-parallel-size"
-        "2"
-        "--distributed-executor-backend"
-        "mp"
-        "--attention-backend"
-        "TRITON_ATTN"
-        "--dtype"
-        "float16"
-        "--generation-config"
-        "vllm"
-        "--max-model-len"
-        "16384"
-        "--max-num-batched-tokens"
-        "8192"
-        "--block-size"
-        "32"
-        "--gpu-memory-utilization"
-        "0.88"
-        "--skip-mm-profiling"
-        "--enable-auto-tool-choice"
-        "--tool-call-parser"
-        "gemma4"
-        "--reasoning-parser"
-        "gemma4"
-        "--chat-template"
-        "${vllmPackage.src}/examples/tool_chat_template_gemma4.jinja"
-        "--default-chat-template-kwargs"
-        ''{"enable_thinking": false}''
-        "--limit-mm-per-prompt"
-        (builtins.toJSON vllmMmLimits)
-      ];
-      Restart = "on-failure";
-      RestartSec = "10s";
-    };
-  };
   # environment.sessionVariables = {
   #   # "_JAVA_AWT_WM_NONREPARENTING" = "1";
   #   "XDG_SESSION_TYPE" = "wayland";
@@ -713,8 +362,6 @@ in
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     xdg-utils
-    vllmGemma4Bench16k
-    vllmGemma4Smoke
     wget
   ];
 

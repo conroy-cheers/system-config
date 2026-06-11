@@ -1,47 +1,7 @@
-diff --git a/backend/open_webui/config.py b/backend/open_webui/config.py
-index 8d5cb52bb..5e53a735c 100644
+diff -ruN a/backend/open_webui/config.py b/backend/open_webui/config.py
 --- a/backend/open_webui/config.py
 +++ b/backend/open_webui/config.py
-@@ -168,13 +168,16 @@ class PersistentConfig(Generic[T]):
--    def __init__(self, env_name: str, config_path: str, env_value: T):
-+    def __init__(self, env_name: str, config_path: str, env_value: T, env_override: bool = False):
-         self.env_name = env_name
-         self.config_path = config_path
-         self.env_value = env_value
-+        self.env_override = env_override
-         self.config_value = get_config_value(config_path)
- 
--        if self.config_value is not None and ENABLE_PERSISTENT_CONFIG:
-+        if env_override:
-+            self.value = env_value
-+        elif self.config_value is not None and ENABLE_PERSISTENT_CONFIG:
-             if self.config_path.startswith('oauth.') and not ENABLE_OAUTH_PERSISTENT_CONFIG:
-                 log.info(f"Skipping loading of '{env_name}' as OAuth persistent config is disabled")
-                 self.value = env_value
-             else:
-                 log.info(f"'{env_name}' loaded from the latest database entry")
-                 self.value = self.config_value
-@@ -200,6 +202,10 @@ class PersistentConfig(Generic[T]):
-         return super().__getattribute__(item)
- 
-     def update(self):
-+        if self.env_override:
-+            self.value = self.env_value
-+            return
-+
-         new_value = get_config_value(self.config_path)
-         if new_value is not None:
-             self.value = new_value
-@@ -254,7 +260,7 @@ class AppConfig:
-             raise AttributeError(f"Config key '{key}' not found")
- 
-         # If Redis is available and persistent config is enabled, check for an updated value
--        if self._redis and ENABLE_PERSISTENT_CONFIG:
-+        if self._redis and ENABLE_PERSISTENT_CONFIG and not self._state[key].env_override:
-             redis_key = f'{self._redis_key_prefix}:config:{key}'
-             redis_value = self._redis.get(redis_key)
- 
-@@ -1330,6 +1330,7 @@ DEFAULT_MODEL_METADATA = PersistentConfig(
+@@ -2580,6 +2580,7 @@
      'DEFAULT_MODEL_METADATA',
      'models.default_metadata',
      default_model_metadata,
@@ -49,11 +9,56 @@ index 8d5cb52bb..5e53a735c 100644
  )
  
  try:
-@@ -1342,6 +1343,7 @@ DEFAULT_MODEL_PARAMS = PersistentConfig(
+@@ -2592,6 +2593,7 @@
      'DEFAULT_MODEL_PARAMS',
      'models.default_params',
      default_model_params,
 +    env_override='DEFAULT_MODEL_PARAMS' in os.environ,
  )
  
- DEFAULT_USER_ROLE = PersistentConfig(
+ DEFAULT_USER_ROLE = ConfigVar(
+diff -ruN a/backend/open_webui/internal/config.py b/backend/open_webui/internal/config.py
+--- a/backend/open_webui/internal/config.py
++++ b/backend/open_webui/internal/config.py
+@@ -122,15 +122,18 @@
+ 
+ 
+ class ConfigVar:
+-    __slots__ = ('env_name', 'config_path', 'env_value', 'config_value', 'value')
++    __slots__ = ('env_name', 'config_path', 'env_value', 'config_value', 'env_override', 'value')
+ 
+-    def __init__(self, env_name: str, config_path: str, env_value: Any) -> None:
++    def __init__(self, env_name: str, config_path: str, env_value: Any, env_override: bool = False) -> None:
+         self.env_name = env_name
+         self.config_path = config_path
+         self.env_value = env_value
++        self.env_override = env_override
+         self.config_value = STATE.read(config_path)
+ 
+-        if self.config_value is not None and _persist_enabled:
++        if env_override:
++            self.value = env_value
++        elif self.config_value is not None and _persist_enabled:
+             if config_path.startswith('oauth.') and not _oauth_persist_enabled:
+                 log.info("Skipping DB value for '%s' (OAuth persistence disabled)", env_name)
+                 self.value = env_value
+@@ -158,6 +161,10 @@
+         return super().__getattribute__(item)
+ 
+     def refresh(self) -> None:
++        if self.env_override:
++            self.value = self.env_value
++            return
++
+         current = STATE.read(self.config_path)
+         if current is not None:
+             self.value = current
+@@ -239,7 +246,7 @@
+             raise AttributeError(f"No config key '{name}'")
+ 
+         rc = super().__getattribute__('_rc')
+-        if rc and _persist_enabled:
++        if rc and _persist_enabled and not entries[name].env_override:
+             prefix = super().__getattribute__('_key_prefix')
+             try:
+                 raw = rc.get(f'{prefix}:config:{name}')
