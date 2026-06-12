@@ -27,11 +27,24 @@ in
 
         runtimeInputs = with pkgs; [
           config.services.yabai.package
+          config.services.sketchybar.package
           jq
         ];
 
         text = ''
           set -euo pipefail
+
+          sketchybar_top="$(
+            sketchybar --query bar 2>/dev/null |
+              jq -r '((.height // 0) + (.margin // 0)) | floor' 2>/dev/null ||
+              true
+          )"
+
+          case "$sketchybar_top" in
+            "" | *[!0-9]*)
+              sketchybar_top=36
+              ;;
+          esac
 
           native_json="$(
             /usr/bin/swift -e '
@@ -70,6 +83,7 @@ in
               jq -r \
                 --argjson native "$native_json" \
                 --argjson displays "$(yabai -m query --displays)" \
+                --argjson sketchybarTop "$sketchybar_top" \
                 '
                   .[] as $space
                   | ($displays[] | select(.index == $space.display)) as $display
@@ -78,9 +92,9 @@ in
                       // {"top": 30, "builtin": false}
                     ) as $nativeDisplay
                   | (
-                      if $nativeDisplay.builtin
-                      then 0
-                      else $nativeDisplay.top
+                      if $nativeDisplay.top > $sketchybarTop
+                      then $nativeDisplay.top
+                      else $sketchybarTop
                       end
                     ) as $top
                   | "\($space.index) \($top)"
@@ -116,9 +130,7 @@ in
             "--debounce"
             "120"
           ];
-          KeepAlive = {
-            SuccessfulExit = false;
-          };
+          KeepAlive = true;
           RunAtLoad = true;
           LimitLoadToSessionType = "Aqua";
           StandardOutPath = "/tmp/sketchybar-toggle.log";

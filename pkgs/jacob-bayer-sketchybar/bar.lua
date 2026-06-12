@@ -6,7 +6,7 @@ sbar.bar({
     height = settings.bar.height,
     notch_display_height = settings.bar.notch_display_height,
     notch_offset = settings.bar.notch_offset,
-    color = colors.with_alpha(colors.bar.bg, 0.5),
+    color = colors.with_alpha(colors.bar.bg, settings.bar.visible_alpha),
     topmost = "window",
     sticky = true,
     -- color=colors.transparent,

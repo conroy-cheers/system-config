@@ -9,6 +9,7 @@ return {
     notch_display_height = 38,
     y_offset = 0,
     margin = 6,
+    visible_alpha = 0.5,
     corner_radius = 22,
     padding_left = 2,
     padding_right = 2,
