@@ -475,18 +475,15 @@ fn main() -> Result<()> {
         } else {
             command.message()
         };
-        if send_control(&message).is_ok() {
-            return Ok(());
-        }
-        if matches!(command, ControlCommand::Hide | ControlCommand::Place { .. }) {
-            return Ok(());
-        }
-    } else if send_control(if activity_is_suppressed_now() {
-        "hide"
-    } else {
-        "activity"
-    })
-    .is_ok()
+        let _ = send_control(&message);
+        return Ok(());
+    } else if !args.hidden
+        && send_control(if activity_is_suppressed_now() {
+            "hide"
+        } else {
+            "activity"
+        })
+        .is_ok()
     {
         return Ok(());
     }

@@ -56,17 +56,7 @@ let
     socket="''${XDG_RUNTIME_DIR:?}/keyboard-layer-viewer.sock"
 
     case "$command" in
-      activity)
-        ${lib.getExe' pkgs.systemd "systemctl"} --user start keyboard-layer-viewer.service
-        tries=0
-        while [ ! -S "$socket" ] && [ "$tries" -lt 40 ]; do
-          tries=$((tries + 1))
-          ${lib.getExe' pkgs.coreutils "sleep"} 0.05
-        done
-        ;;
-      hide)
-        ;;
-      refresh-placement)
+      activity | hide | refresh-placement)
         ;;
       place)
         monitor="''${2:?usage: keyboard-layer-viewer-control place MONITOR LEFT_MARGIN}"
@@ -370,6 +360,7 @@ in
     Service = {
       Type = "simple";
       ExecStart = "${keyboardLayerViewer} --profiles ${keyboardLayerViewerProfiles} --hidden";
+      ExecStopPost = "${lib.getExe' pkgs.coreutils "rm"} -f %t/keyboard-layer-viewer.sock";
       Restart = "on-failure";
       RestartSec = 1;
     };
