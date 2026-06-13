@@ -13,9 +13,9 @@ stdenvNoCC.mkDerivation {
   pname = "alientek-dp100-udev-rules";
   version = "0.1.0";
 
-  src = writeText "99-atk-dp100.rules" ''
+  src = writeText "70-atk-dp100.rules" ''
     # 2e3c:af01 ALIENTEK ATK-MDP100
-    ATTRS{idVendor}=="2e3c", ATTRS{idProduct}=="af01", KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="660", GROUP="plugdev", TAG+="uaccess"
+    ATTRS{idVendor}=="2e3c", ATTRS{idProduct}=="af01", KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="plugdev", TAG+="uaccess"
   '';
 
   nativeBuildInputs = [
@@ -29,7 +29,7 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    install -D $src $out/lib/udev/rules.d/99-atk-dp100.rules
+    install -D $src $out/lib/udev/rules.d/70-atk-dp100.rules
     runHook postInstall
   '';
 

@@ -264,6 +264,7 @@ in
   ### udev packages
   services.udev.packages = with pkgs; [
     picoprobe-udev-rules
+    alientek-dp100-udev-rules
   ];
 
   ### Enable touchpad support (enabled default in most desktopManager).
@@ -291,6 +292,9 @@ in
       "plugdev"
       "dialout"
     ];
+  };
+  users.groups = {
+    plugdev = { };
   };
 
   programs.fish.enable = true;
