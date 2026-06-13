@@ -55,6 +55,7 @@ in
       };
       nvidia = mkEnableOption "special nvidia configuration";
       gaming.enable = mkEnableOption "corncheese gaming configuration";
+      silakka54.enable = mkEnableOption "Silakka54 udev and hotplug sync";
     };
   };
 
@@ -152,6 +153,35 @@ in
             ]
         );
       }
+      (lib.mkIf cfg.silakka54.enable {
+        services.udev.packages = [ pkgs.silakka54 ];
+
+        systemd.services.silakka54-hotplug = {
+          description = "Sync Silakka54 dynamic keymap after keyboard hotplug";
+          after = [ "systemd-udevd.service" ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${pkgs.silakka54}/bin/silakka54-sync hotplug";
+          };
+          path = [
+            pkgs.systemd
+          ];
+        };
+
+        system.activationScripts.silakka54-udev-trigger.text = ''
+          ${pkgs.systemd}/bin/udevadm control --reload-rules || true
+          ${pkgs.systemd}/bin/udevadm trigger \
+            --subsystem-match=hidraw \
+            --property-match=ID_VENDOR_ID=feed \
+            --property-match=ID_MODEL_ID=1212 \
+            --action=change || true
+          ${pkgs.systemd}/bin/udevadm trigger \
+            --subsystem-match=input \
+            --property-match=ID_VENDOR_ID=feed \
+            --property-match=ID_MODEL_ID=1212 \
+            --action=change || true
+        '';
+      })
       (lib.mkIf cfg.gaming.enable {
         programs.steam = {
           enable = true;

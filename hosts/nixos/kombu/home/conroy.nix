@@ -114,9 +114,6 @@
     # Bench power supply
     pydp100
 
-    # UVC capture preview and snapshot tools
-    vidcapture
-
     ## Wine
     # winetricks (all versions)
     winetricks

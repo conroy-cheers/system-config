@@ -23,6 +23,7 @@ in
       githubAccess.enable = lib.mkEnableOption "GitHub access token for the Nix daemon";
       remoteBuilders.enable = lib.mkEnableOption "corncheese remote builders";
       tailscale.enable = lib.mkEnableOption "corncheese tailnet";
+      vidcapture.enable = lib.mkEnableOption "UVC capture preview and snapshot tools";
     };
   };
 
@@ -109,6 +110,14 @@ in
       environment.systemPackages = [ pkgs.tailscale ];
       # enable the tailscale service
       services.tailscale.enable = true;
+    })
+    (lib.mkIf cfg.vidcapture.enable {
+      environment.systemPackages = [ pkgs.vidcapture ];
+      services.udev.packages = [ pkgs.vidcapture ];
+      systemd.packages = [ pkgs.vidcapture ];
+      systemd.targets.timers.wants = [
+        "vidcapture-watchdog@video0.timer"
+      ];
     })
   ];
 }

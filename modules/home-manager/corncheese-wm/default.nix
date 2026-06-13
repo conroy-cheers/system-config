@@ -29,6 +29,14 @@ in
     (import ./hyprland/binds.nix { inherit pkgs lib config; })
     (import ./hyprland/scripts.nix { inherit pkgs lib config; })
     (import ./hyprland/rules.nix { inherit pkgs lib config; })
+    (import ./hyprland/keyboard-layer-viewer.nix {
+      inherit
+        pkgs
+        lib
+        config
+        osConfig
+        ;
+    })
     (import ./hyprland/settings.nix {
       inherit
         inputs
@@ -63,6 +71,49 @@ in
       nvidia = mkEnableOption "special nvidia environment options";
       hyprpaper.enable = mkEnableOption "hyprpaper wallpaper manager";
       enableFancyEffects = mkEnableOption "GPU-intensive effects";
+      keyboardLayerViewer = {
+        enable = mkEnableOption "keyboard layer viewer overlay";
+        profiles = mkOption {
+          type =
+            with lib.types;
+            listOf (submodule {
+              options = {
+                id = mkOption {
+                  type = str;
+                  description = "Stable keyboard profile identifier.";
+                };
+                name = mkOption {
+                  type = str;
+                  description = "Human-readable keyboard profile name.";
+                };
+                vid = mkOption {
+                  type = str;
+                  description = "USB vendor ID, formatted as 0x0000.";
+                };
+                pid = mkOption {
+                  type = str;
+                  description = "USB product ID, formatted as 0x0000.";
+                };
+                info = mkOption {
+                  type = str;
+                  description = "Path to keymap-drawer info.json.";
+                };
+                layers = mkOption {
+                  type = str;
+                  description = "Path to keymap YAML.";
+                };
+                currentLayerHid = mkOption {
+                  type = bool;
+                  default = false;
+                  description = "Whether this keyboard reports the active layer over HID.";
+                };
+              };
+            });
+          default = [ ];
+          description = "Keyboard profiles passed to keyboard-layer-viewer.";
+        };
+      };
+      silakka54.enable = mkEnableOption "Silakka54 firmware and keymap sync";
     };
   };
 

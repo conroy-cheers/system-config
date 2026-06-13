@@ -63,6 +63,7 @@
     development = {
       enable = true;
       remoteBuilders.enable = false; # this machine isn't colocated with the corncheese builders
+      vidcapture.enable = true;
     };
     theming = {
       enable = true;
@@ -246,13 +247,6 @@
     picoprobe-udev-rules
     rpi-debug-probe-udev-rules
     alientek-dp100-udev-rules
-    vidcapture
-  ];
-  systemd.packages = with pkgs; [
-    vidcapture
-  ];
-  systemd.targets.timers.wants = [
-    "vidcapture-watchdog@video0.timer"
   ];
 
   ### Enable touchpad support (enabled default in most desktopManager).
