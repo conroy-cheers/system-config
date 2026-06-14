@@ -662,16 +662,15 @@
         "treefmt-nix": "treefmt-nix_4"
       },
       "locked": {
-        "lastModified": 1781177874,
-        "narHash": "sha256-i4N3zmntaJIAxKZ0WVvhI8QNPNq8UPiTBAJ/lo7l4j8=",
-        "owner": "conroy-cheers",
+        "lastModified": 1781161664,
+        "narHash": "sha256-pALZH5SItoXJChOILlncSDlevnrxwaQrCmNVGrcn8ME=",
+        "owner": "Mic92",
         "repo": "direnv-instant",
-        "rev": "1e24eb5db0ab1258ccb1360877ba310dd89e036d",
+        "rev": "57f5385e4c3df324201079553a98dd8e36c83858",
         "type": "github"
       },
       "original": {
-        "owner": "conroy-cheers",
-        "ref": "inline-scroll-region-viewer",
+        "owner": "Mic92",
         "repo": "direnv-instant",
         "type": "github"
       }
