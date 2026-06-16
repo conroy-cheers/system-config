@@ -34,8 +34,8 @@ let
           "-o"
           "tsv"
         ];
-        timeout_ms = 5000;
-        refresh_interval_ms = 0;
+        timeout_ms = 60000;
+        refresh_interval_ms = 1800000;
       };
     };
   };
