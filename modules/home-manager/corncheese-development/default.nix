@@ -648,6 +648,7 @@ in
           # Git
           lazygit
           git-spice
+          inputs.weave.packages.${meta.system}.default
 
           meld # Visual diff tool
           inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
@@ -744,10 +745,64 @@ in
     programs.git = {
       enable = true;
       settings = {
-        merge.tool = "meld";
+        merge = {
+          tool = "meld";
+          weave = {
+            name = "Entity-level semantic merge";
+            driver = "${inputs.weave.packages.${meta.system}.default}/bin/weave-driver %O %A %B %L %P";
+          };
+        };
         mergetool.meld.cmd = ''meld "$LOCAL" "$BASE" "$REMOTE" --output "$MERGED"'';
         diff.algorithm = "patience";
       };
+      attributes = map (extension: "${extension} merge=weave") [
+        "*.ts"
+        "*.tsx"
+        "*.js"
+        "*.mjs"
+        "*.cjs"
+        "*.jsx"
+        "*.py"
+        "*.go"
+        "*.rs"
+        "*.java"
+        "*.c"
+        "*.h"
+        "*.cpp"
+        "*.cc"
+        "*.cxx"
+        "*.hpp"
+        "*.hh"
+        "*.hxx"
+        "*.rb"
+        "*.cs"
+        "*.php"
+        "*.swift"
+        "*.ex"
+        "*.exs"
+        "*.sh"
+        "*.f90"
+        "*.f95"
+        "*.f03"
+        "*.f08"
+        "*.xml"
+        "*.plist"
+        "*.svg"
+        "*.csproj"
+        "*.fsproj"
+        "*.vbproj"
+        "*.json"
+        "*.yaml"
+        "*.yml"
+        "*.toml"
+        "*.md"
+        "*.scala"
+        "*.sc"
+        "*.sbt"
+        "*.kojo"
+        "*.mill"
+        "*.dart"
+      ];
       # TODO: move this to scm module
       ignores =
         let

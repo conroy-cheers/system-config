@@ -322,6 +322,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    weave = {
+      url = "github:ataraxy-labs/weave";
+    };
+
     nvf = {
       url = "github:notashelf/nvf";
       # inputs.nixpkgs.follows = "nixpkgs";
