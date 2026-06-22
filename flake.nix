@@ -317,6 +317,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    tinymux = {
+      url = "github:conroy-cheers/tinymux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";

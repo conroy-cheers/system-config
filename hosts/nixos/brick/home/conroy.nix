@@ -7,7 +7,10 @@
 }:
 
 {
-  imports = [ inputs.wired.homeManagerModules.default ];
+  imports = [
+    inputs.wired.homeManagerModules.default
+    inputs.tinymux.homeManagerModules.default
+  ];
 
   home = {
     username = "conroy";
@@ -123,6 +126,17 @@
   };
 
   programs.colorshell.enable = true;
+
+  programs.tinymux = {
+    enable = true;
+    direnvInstant = {
+      enable = true;
+      package = null;
+      shells = [ "fish" ];
+    };
+  };
+
+  programs.direnv-instant.enableFishIntegration = lib.mkForce false;
 
   wayland.windowManager.hyprland.settings = {
     monitor = [

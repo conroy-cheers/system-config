@@ -3627,6 +3627,7 @@
         "stylix": "stylix",
         "superfile": "superfile",
         "swww": "swww",
+        "tinymux": "tinymux",
         "ultramoji-4d": "ultramoji-4d",
         "vscode-server": "vscode-server",
         "walbridge": "walbridge",
@@ -4202,6 +4203,26 @@
       "original": {
         "owner": "tinted-theming",
         "repo": "base16-zed",
+        "type": "github"
+      }
+    },
+    "tinymux": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1782138231,
+        "narHash": "sha256-AOlOc4tyrC9Q8BjyJCjoGRYcX9PHJXpiFLUWdO+PVvo=",
+        "owner": "conroy-cheers",
+        "repo": "tinymux",
+        "rev": "06069f7641d5c2164dafbdc47f41bbc2c539d500",
+        "type": "github"
+      },
+      "original": {
+        "owner": "conroy-cheers",
+        "repo": "tinymux",
         "type": "github"
       }
     },
