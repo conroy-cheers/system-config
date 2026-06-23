@@ -327,6 +327,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    codex-flake = {
+      url = "github:conroy-cheers/codex-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     weave = {
       url = "github:ataraxy-labs/weave";
     };

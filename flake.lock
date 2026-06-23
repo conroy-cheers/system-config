@@ -434,6 +434,26 @@
         "type": "github"
       }
     },
+    "codex-flake": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1782189417,
+        "narHash": "sha256-gvOp2/Wfu0Kgta1vA4KAeNRgq2XU9zcP9c/OCZXoUwU=",
+        "owner": "conroy-cheers",
+        "repo": "codex-flake",
+        "rev": "08a3ead587232f71faa34cd77a8b0e9516aff537",
+        "type": "github"
+      },
+      "original": {
+        "owner": "conroy-cheers",
+        "repo": "codex-flake",
+        "type": "github"
+      }
+    },
     "colorshell": {
       "inputs": {
         "ags": "ags_2",
@@ -1537,11 +1557,11 @@
         "zon2nix": "zon2nix"
       },
       "locked": {
-        "lastModified": 1781100864,
-        "narHash": "sha256-JgixhXDxFdaBcswZ0006cgYTEgsX2PrC8Q65XetO2Bk=",
+        "lastModified": 1782160152,
+        "narHash": "sha256-XTKRO3N6XlH27Fl35HxmW/MhA1Im5bRG7D+dk8jHous=",
         "owner": "ghostty-org",
         "repo": "ghostty",
-        "rev": "5659cef41f4f2f7a478d0800a11836fa17e64d66",
+        "rev": "65744ffe358d883ae74aa67389dcbfa35f91a551",
         "type": "github"
       },
       "original": {
@@ -2289,11 +2309,11 @@
         "treefmt-nix": "treefmt-nix_5"
       },
       "locked": {
-        "lastModified": 1781140202,
-        "narHash": "sha256-hEIq258CpHUlpCjk4gDf8rTXxWaTEvH30oEWf5BrTFg=",
+        "lastModified": 1782166408,
+        "narHash": "sha256-bAgLlHVh6HEhEKKvmtc7kGAu5d6JGecr0jVdDJdYkCM=",
         "owner": "numtide",
         "repo": "llm-agents.nix",
-        "rev": "bb53759b44fff85eea34903064abe14085e31317",
+        "rev": "8383ddd91648932b480499f886c3c4b288c7d5ad",
         "type": "github"
       },
       "original": {
@@ -3581,6 +3601,7 @@
         "agenix-rekey": "agenix-rekey",
         "agenix-template": "agenix-template",
         "ags": "ags",
+        "codex-flake": "codex-flake",
         "colorshell": "colorshell",
         "corncheese-server": "corncheese-server",
         "deploy-rs": "deploy-rs",

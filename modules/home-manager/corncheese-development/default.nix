@@ -40,24 +40,28 @@ let
 
   codex-wrapped = pkgs.symlinkJoin {
     name = "codex-wrapped";
-    paths = [ inputs.llm-agents.packages.${meta.system}.codex ];
+    paths = [ inputs.codex-flake.packages.${meta.system}.codex ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
 
     postBuild = ''
       wrapProgram $out/bin/codex \
         --prefix PATH : ${
-          lib.makeBinPath [
-            pkgs.ripgrep
-            pkgs.fd
-            pkgs.gnused
-            pkgs.gawk
-            pkgs.jq
-            pkgs.curl
-            pkgs.wget2
-            pkgs.gnutar
-            pkgs.unzip
-            pkgs.just
-          ]
+          lib.makeBinPath (
+            with pkgs;
+            [
+              ripgrep
+              fd
+              gnused
+              gawk
+              jq
+              curl
+              wget2
+              gnutar
+              unzip
+              just
+              bubblewrap
+            ]
+          )
         }
     '';
   };

@@ -91,7 +91,7 @@ let
   '';
   codex-andromeda-wrapped = pkgs.symlinkJoin {
     name = "codex-andromeda-wrapped";
-    paths = [ inputs.llm-agents.packages.${meta.system}.codex ];
+    paths = [ inputs.codex-flake.packages.${meta.system}.codex ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
 
     postBuild = ''
@@ -362,6 +362,11 @@ in
         };
 
         "profile logs-archive-crossaccount" = {
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile abi-deploy" = {
           region = "ap-southeast-2";
           output = "json";
         };
