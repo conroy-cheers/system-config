@@ -84,6 +84,16 @@ let
       run_rebuild "$@"
     '';
 
+  nixDirenvPackage = pkgs.nix-direnv.overrideAttrs (oldAttrs: {
+    preFixup = ''
+      substituteInPlace "$out/share/nix-direnv/direnvrc" \
+        --replace-fail '    ["NIX_BUILD_TOP"]=''${NIX_BUILD_TOP:-__UNSET__}' '    ["NIX_BUILD_TOP"]=''${NIX_BUILD_TOP:-__UNSET__}
+          ["NIX_ATTRS_JSON_FILE"]=''${NIX_ATTRS_JSON_FILE:-__UNSET__}
+          ["NIX_ATTRS_SH_FILE"]=''${NIX_ATTRS_SH_FILE:-__UNSET__}'
+    ''
+    + (oldAttrs.preFixup or "");
+  });
+
   inherit (lib)
     mkEnableOption
     mkOption
@@ -205,6 +215,7 @@ in
 
         nix-direnv = {
           enable = true;
+          package = nixDirenvPackage;
         };
       };
 
