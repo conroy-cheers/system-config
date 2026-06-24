@@ -12,6 +12,7 @@ public final class SketchyBarController: BarController {
     private let transitionQueue = DispatchQueue(label: "sketchybar-toggle.bar-transition")
     private let visibleAlpha = "0.5"
     private let hiddenAlpha = "0.0"
+    private let minimumTextRestoreAlpha = 0.5
     private let animationDuration = "12"
     private let hideDelay: TimeInterval = 0.32
     private var transitionID = 0
@@ -361,7 +362,31 @@ public final class SketchyBarController: BarController {
             return
         }
 
-        targets.append(AlphaTarget(itemName: itemName, property: property, alpha: alpha))
+        targets.append(AlphaTarget(
+            itemName: itemName,
+            property: property,
+            alpha: restoreAlpha(for: property, queriedAlpha: alpha)
+        ))
+    }
+
+    private func restoreAlpha(for property: String, queriedAlpha: String) -> String {
+        guard
+            isTextColorProperty(property),
+            let alpha = Double(queriedAlpha),
+            alpha < minimumTextRestoreAlpha
+        else {
+            return queriedAlpha
+        }
+
+        // SketchyBar can be queried mid-animation; do not preserve that faded
+        // text alpha as the next visible state.
+        return "1.000"
+    }
+
+    private func isTextColorProperty(_ property: String) -> Bool {
+        (property.hasPrefix("icon.") || property.hasPrefix("label."))
+            && property.contains("color")
+            && !property.contains("background")
     }
 
     private func queryJSONObject(arguments: [String]) -> [String: Any]? {

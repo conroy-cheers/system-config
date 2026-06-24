@@ -91,13 +91,20 @@ in
                       ($native[] | select(.uuid == $display.uuid))
                       // {"top": 30, "builtin": false}
                     ) as $nativeDisplay
+                  | ($nativeDisplay.top // 0) as $nativeTop
                   | (
-                      if $nativeDisplay.top > $sketchybarTop
-                      then $nativeDisplay.top
+                      if $nativeTop > $sketchybarTop
+                      then $nativeTop
                       else $sketchybarTop
                       end
-                    ) as $top
-                  | "\($space.index) \($top)"
+                    ) as $desiredTop
+                  | (
+                      if $desiredTop > $nativeTop
+                      then $desiredTop - $nativeTop
+                      else 0
+                      end
+                    ) as $topPadding
+                  | "\($space.index) \($topPadding)"
                 '
           )"
 
