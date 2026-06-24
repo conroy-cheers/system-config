@@ -185,6 +185,7 @@ in
       (lib.mkIf cfg.gaming.enable {
         programs.steam = {
           enable = true;
+          protontricks.enable = true;
           gamescopeSession.enable = true;
           package = pkgs.steam.override {
             extraPkgs =
