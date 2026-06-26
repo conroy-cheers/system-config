@@ -11,6 +11,15 @@ let
   cfg = config.andromeda.development;
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexAndromedaConfigFile = "${codexAndromedaHome}/config.toml";
+  slackMcpReadOnlyTools = [
+    "channels_list"
+    "channels_me"
+    "conversations_history"
+    "conversations_replies"
+    "conversations_search_messages"
+    "conversations_unreads"
+    "users_search"
+  ];
   codexAndromedaConfig = (pkgs.formats.toml { }).generate "codex-andromeda-config.toml" {
     model = "gpt-5.5";
     model_provider = "azure";
@@ -37,6 +46,23 @@ let
         timeout_ms = 60000;
         refresh_interval_ms = 1800000;
       };
+    };
+
+    mcp_servers.slack = {
+      command = "${pkgs.codex-slack-mcp}/bin/codex-slack-mcp";
+      args = [
+        "--transport"
+        "stdio"
+        "--enabled-tools"
+        (lib.concatStringsSep "," slackMcpReadOnlyTools)
+      ];
+      env_vars = [
+        "SLACK_MCP_XOXP_TOKEN"
+        "SLACK_MCP_XOXB_TOKEN"
+      ];
+      default_tools_approval_mode = "prompt";
+      startup_timeout_sec = 10;
+      tool_timeout_sec = 60;
     };
   };
   codexAndromedaMergePython = pkgs.python3.withPackages (pythonPackages: [

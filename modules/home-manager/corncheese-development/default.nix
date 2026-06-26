@@ -13,6 +13,86 @@ let
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   walbridgeRuntimeThemeEnabled = pkgs.stdenv.hostPlatform.isLinux && colorshellEnabled;
 
+  codexHome = "${config.home.homeDirectory}/.codex";
+  codexConfigFile = "${codexHome}/config.toml";
+  slackMcpReadOnlyTools = [
+    "channels_list"
+    "channels_me"
+    "conversations_history"
+    "conversations_replies"
+    "conversations_search_messages"
+    "conversations_unreads"
+    "users_search"
+  ];
+  codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
+    mcp_servers.slack = {
+      command = "${pkgs.codex-slack-mcp}/bin/codex-slack-mcp";
+      args = [
+        "--transport"
+        "stdio"
+        "--enabled-tools"
+        (lib.concatStringsSep "," slackMcpReadOnlyTools)
+      ];
+      env_vars = [
+        "SLACK_MCP_XOXP_TOKEN"
+        "SLACK_MCP_XOXB_TOKEN"
+      ];
+      default_tools_approval_mode = "prompt";
+      startup_timeout_sec = 10;
+      tool_timeout_sec = 60;
+    };
+  };
+  codexMergePython = pkgs.python3.withPackages (pythonPackages: [
+    pythonPackages.tomlkit
+  ]);
+  codexMergeScript = pkgs.writeText "merge-codex-config.py" ''
+    import os
+    import sys
+    from pathlib import Path
+
+    import tomlkit
+
+
+    def merge_config(existing, desired):
+        for key, desired_value in desired.items():
+            if key in existing and mergeable(existing[key], desired_value):
+                merge_config(existing[key], desired_value)
+            else:
+                existing[key] = desired_value
+
+
+    def mergeable(existing_value, desired_value):
+        return hasattr(existing_value, "items") and hasattr(desired_value, "items")
+
+
+    source = Path(sys.argv[1])
+    target = Path(sys.argv[2])
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    desired_config = tomlkit.parse(source.read_text())
+    existing_config = tomlkit.document()
+    if target.exists() or target.is_symlink():
+        try:
+            existing_config = tomlkit.parse(target.read_text())
+        except FileNotFoundError:
+            pass
+
+    if target.is_symlink():
+        target.unlink()
+
+    merge_config(existing_config, desired_config)
+
+    tmp = target.with_name(f"{target.name}.tmp")
+    tmp.write_text(tomlkit.dumps(existing_config))
+    os.replace(tmp, target)
+  '';
+  mergeCodexConfig = pkgs.writeShellScript "merge-codex-config" ''
+    ${codexMergePython}/bin/python \
+      ${codexMergeScript} \
+      ${codexConfig} \
+      "${codexConfigFile}"
+  '';
+
   onePassPath =
     if pkgs.stdenv.hostPlatform.isDarwin then
       ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
@@ -638,6 +718,34 @@ in
         vault = "Private"
         item = "conroy-home"
       '';
+    };
+
+    home.activation.mergeCodexConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      ${mergeCodexConfig}
+    '';
+
+    systemd.user.services.codex-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+      Unit = {
+        Description = "Merge Codex config with Nix-defined configuration";
+        After = [ "default.target" ];
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${mergeCodexConfig}";
+        RemainAfterExit = true;
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+    };
+
+    launchd.agents.codex-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+      enable = true;
+      config = {
+        ProgramArguments = [ "${mergeCodexConfig}" ];
+        ProcessType = "Background";
+        RunAtLoad = true;
+      };
     };
 
     home.packages =
