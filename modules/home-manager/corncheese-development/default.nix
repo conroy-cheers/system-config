@@ -41,6 +41,12 @@ let
       startup_timeout_sec = 10;
       tool_timeout_sec = 60;
     };
+    mcp_servers.ReVa = {
+      command = lib.getExe pkgs.reverse-engineering-assistant;
+      default_tools_approval_mode = "prompt";
+      startup_timeout_sec = 90;
+      tool_timeout_sec = 300;
+    };
   };
   codexMergePython = pkgs.python3.withPackages (pythonPackages: [
     pythonPackages.tomlkit
@@ -139,8 +145,11 @@ let
               gnutar
               unzip
               just
-              bubblewrap
+              reverse-engineering-assistant
             ]
+            ++ (lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+              bubblewrap
+            ])
           )
         }
     '';
@@ -771,6 +780,8 @@ in
           tmux
           claude-code-wrapped
           codex-wrapped
+
+          ghidra
 
           hoppscotch
         ]

@@ -129,8 +129,7 @@ final: prev: {
     };
 
     patches = final.lib.filter (
-      patch:
-      !(final.lib.hasInfix "Install-systemd-service-under-PREFIX.patch" (toString patch))
+      patch: !(final.lib.hasInfix "Install-systemd-service-under-PREFIX.patch" (toString patch))
     ) (oldAttrs.patches or [ ]);
   });
 }

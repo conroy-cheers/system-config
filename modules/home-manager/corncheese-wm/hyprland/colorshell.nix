@@ -13,8 +13,8 @@ let
   walbridgePackage = walbridgePackages.default;
   walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
-  colorshellPackage =
-    (inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs (oldAttrs: {
+  colorshellPackage = (
+    inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs (oldAttrs: {
       postInstall = (oldAttrs.postInstall or "") + ''
         substituteInPlace resources/config/hyprland/runtime.lua \
           --replace-fail '"$HOME/.config"' '"${config.xdg.configHome}"' \
@@ -34,7 +34,8 @@ let
           --sourcedir ./resources \
           --target "$out/share/colorshell/resources.gresource"
       '';
-    }));
+    })
+  );
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     source = ~/.cache/wal/colors-hyprland.conf
 
