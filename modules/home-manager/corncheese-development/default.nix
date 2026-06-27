@@ -15,32 +15,7 @@ let
 
   codexHome = "${config.home.homeDirectory}/.codex";
   codexConfigFile = "${codexHome}/config.toml";
-  slackMcpReadOnlyTools = [
-    "channels_list"
-    "channels_me"
-    "conversations_history"
-    "conversations_replies"
-    "conversations_search_messages"
-    "conversations_unreads"
-    "users_search"
-  ];
   codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
-    mcp_servers.slack = {
-      command = "${pkgs.codex-slack-mcp}/bin/codex-slack-mcp";
-      args = [
-        "--transport"
-        "stdio"
-        "--enabled-tools"
-        (lib.concatStringsSep "," slackMcpReadOnlyTools)
-      ];
-      env_vars = [
-        "SLACK_MCP_XOXP_TOKEN"
-        "SLACK_MCP_XOXB_TOKEN"
-      ];
-      default_tools_approval_mode = "prompt";
-      startup_timeout_sec = 10;
-      tool_timeout_sec = 60;
-    };
     mcp_servers.ReVa = {
       command = lib.getExe pkgs.reverse-engineering-assistant;
       default_tools_approval_mode = "prompt";
@@ -48,6 +23,9 @@ let
       tool_timeout_sec = 300;
     };
   };
+  codexRemovedNixMcpServers = [
+    "slack"
+  ];
   codexMergePython = pkgs.python3.withPackages (pythonPackages: [
     pythonPackages.tomlkit
   ]);
@@ -71,6 +49,12 @@ let
         return hasattr(existing_value, "items") and hasattr(desired_value, "items")
 
 
+    def remove_mcp_server(config, name):
+        mcp_servers = config.get("mcp_servers")
+        if hasattr(mcp_servers, "pop"):
+            mcp_servers.pop(name, None)
+
+
     source = Path(sys.argv[1])
     target = Path(sys.argv[2])
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +71,8 @@ let
         target.unlink()
 
     merge_config(existing_config, desired_config)
+    for removed_mcp_server in sys.argv[3:]:
+        remove_mcp_server(existing_config, removed_mcp_server)
 
     tmp = target.with_name(f"{target.name}.tmp")
     tmp.write_text(tomlkit.dumps(existing_config))
@@ -96,7 +82,8 @@ let
     ${codexMergePython}/bin/python \
       ${codexMergeScript} \
       ${codexConfig} \
-      "${codexConfigFile}"
+      "${codexConfigFile}" \
+      ${lib.escapeShellArgs codexRemovedNixMcpServers}
   '';
 
   onePassPath =
