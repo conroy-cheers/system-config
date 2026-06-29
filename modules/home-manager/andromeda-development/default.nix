@@ -355,6 +355,7 @@ in
 
     home.packages = [
       codex-andromeda-wrapped
+      pkgs.atlassian-cli
     ];
 
     programs.awscli = {
