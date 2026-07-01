@@ -90,6 +90,24 @@ in
       tailscale.enable = true;
       vidcapture.enable = true;
     };
+    virtualisation.vmHost = {
+      enable = true;
+      users = [ "conroy" ];
+      inputPassthrough.enable = true;
+      lookingGlass.enable = true;
+      vfio = {
+        enable = true;
+        iommuKernelParams = [
+          "amd_iommu=on"
+          "iommu=pt"
+        ];
+        # Integrated Granite Ridge GPU + HDMI audio for Windows guest passthrough.
+        pciIds = [
+          "1002:13c0"
+          "1002:1640"
+        ];
+      };
+    };
     theming = {
       enable = true;
       theme = "catppuccin";
