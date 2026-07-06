@@ -1,7 +1,6 @@
 {
   lib,
   pkgs,
-  config,
   modulesPath,
   ...
 }:
@@ -36,10 +35,6 @@
       })
     ];
     kernelParams = [ "preempt=full" ];
-  };
-
-  hardware.amdgpu = {
-    opencl.enable = true;
   };
 
   swapDevices = [ ];

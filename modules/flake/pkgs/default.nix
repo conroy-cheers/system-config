@@ -91,6 +91,11 @@
             allowUnfree = true;
             cudaSupport = true;
           };
+          withCuda86 = mkPkgs {
+            allowUnfree = true;
+            cudaSupport = true;
+            cudaCapabilities = [ "8.6" ];
+          };
           withCuda60 = mkPkgs {
             allowUnfree = true;
             allowUnsupportedSystem = true;

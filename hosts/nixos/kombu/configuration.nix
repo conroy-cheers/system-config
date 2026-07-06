@@ -15,6 +15,7 @@
     inputs.hardware.nixosModules.common-cpu-amd
     inputs.hardware.nixosModules.common-pc-ssd
     inputs.hardware.nixosModules.common-gpu-amd
+    (inputs.hardware + "/common/gpu/nvidia/ampere")
     ./hardware-configuration.nix
     ./disko.nix
     inputs.impermanence.nixosModules.impermanence
