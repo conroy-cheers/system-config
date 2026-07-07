@@ -49,6 +49,7 @@
     wm = {
       enable = true;
       hyprpaper.enable = true;
+      enableFancyEffects = true;
     };
     desktop = {
       enable = true;
@@ -81,8 +82,8 @@
   wayland.windowManager.hyprland.settings = {
     monitor = [
       {
-        output = "DP-1";
-        mode = "3440x1440@100";
+        output = "DP-6";
+        mode = "3440x1440@160";
         position = "0x0";
         scale = 1;
       }

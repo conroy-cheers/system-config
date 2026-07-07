@@ -16,18 +16,18 @@ in
     settings = {
       fans = [
         {
-          id = "exhaust_top";
+          id = "intake_gpu";
           hwmon = {
             platform = "it8613-isa-*";
-            rpmChannel = 2;
+            rpmChannel = 3;
           };
-          curve = "intake_cpu_curve";
+          curve = "intake_gpu_curve";
         }
         {
           id = "intake_cpu";
           hwmon = {
             platform = "it8613-isa-*";
-            rpmChannel = 3;
+            rpmChannel = 2;
           };
           curve = "intake_cpu_curve";
         }
@@ -40,6 +40,13 @@ in
             index = 1;
           };
         }
+        {
+          id = "gpu_temp";
+          nvidia = {
+            device = "nvidia-10DE25B8-0100";
+            index = 1;
+          };
+        }
       ];
       curves = [
         {
@@ -49,7 +56,18 @@ in
             steps = [
               { "30" = 0; }
               { "40" = 50; }
-              { "85" = 255; }
+              { "95" = 255; }
+            ];
+          };
+        }
+        {
+          id = "intake_gpu_curve";
+          linear = {
+            sensor = "gpu_temp";
+            steps = [
+              { "30" = 0; }
+              { "40" = 50; }
+              { "90" = 255; }
             ];
           };
         }
