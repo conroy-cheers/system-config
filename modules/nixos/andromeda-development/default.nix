@@ -9,6 +9,12 @@
 with lib;
 let
   cfg = config.andromeda.development;
+  nixCacheCfNetrcPath = config.age.secrets."andromeda.nix-cache-cf.netrc".path;
+  determinateNixdConfig = pkgs.writeText "andromeda-determinate-config.json" (
+    builtins.toJSON {
+      authentication.additionalNetrcSources = [ nixCacheCfNetrcPath ];
+    }
+  );
 in
 {
   imports = [
@@ -45,6 +51,10 @@ in
       age.secrets = {
         "andromeda.aws-cache.credentials" = {
           rekeyFile = lib.repoSecret "andromeda/aws-cache/credentials.age";
+        };
+        "andromeda.nix-cache-cf.netrc" = {
+          rekeyFile = lib.repoSecret "andromeda/nix-cache-cf/netrc.age";
+          mode = "0400";
         };
         "andromeda.aws-experiments.key" = mkIf cfg.remoteBuilders.enable {
           rekeyFile = lib.repoSecret "andromeda/aws-experiments/key.age";
@@ -84,7 +94,11 @@ in
       nix = mkMerge [
         {
           settings = {
-            substituters = [ "s3://andromedarobotics-artifacts?region=ap-southeast-2" ];
+            netrc-file = nixCacheCfNetrcPath;
+            substituters = [
+              "https://nix-cache-cf.dromeda.com.au"
+              "s3://andromedarobotics-artifacts?region=ap-southeast-2"
+            ];
             trusted-public-keys = [
               "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
             ];
@@ -101,6 +115,10 @@ in
           region = ap-southeast-2
         ''}"
       ];
+
+      environment.etc."determinate/config.json".source = determinateNixdConfig;
+
+      systemd.services.nix-daemon.restartTriggers = [ determinateNixdConfig ];
     })
     (mkIf cfg.nixDaemonSecrets.enable {
       andromeda.development.nixDaemonSecrets.nixSandboxKeys.target = "/sops/keys.txt";
