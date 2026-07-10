@@ -11,6 +11,37 @@ let
   cfg = config.andromeda.development;
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexAndromedaConfigFile = "${codexAndromedaHome}/config.toml";
+  codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
+  codexAzureWorkaroundLastCheckedVersion = "0.144.1";
+  # Remove this catalog override and namespace rename after openai/codex#31882 is fixed.
+  codexAzureModelCatalog = pkgs.runCommand "codex-andromeda-azure-model-catalog.json" { } ''
+    source=${codexPackage.src}/codex-rs/models-manager/models.json
+
+    matched="$(${pkgs.jq}/bin/jq \
+      '[.models[] | select(.slug | test("^gpt-5\\.6-(sol|terra|luna)$"))] | length' \
+      "$source")"
+    if [ "$matched" -ne 3 ]; then
+      echo "expected three GPT-5.6 models in the bundled Codex catalog, found $matched" >&2
+      exit 1
+    fi
+
+    ${pkgs.jq}/bin/jq \
+      '(.models[] | select(.slug | test("^gpt-5\\.6-(sol|terra|luna)$")) | .use_responses_lite) = false' \
+      "$source" > "$out"
+  '';
+  # A live GitHub fetch cannot be part of pure flake evaluation, so check on activation instead.
+  checkCodexAzureWorkaround = pkgs.writeShellScript "check-codex-azure-workaround" ''
+    issue="$(${pkgs.curl}/bin/curl \
+      --fail \
+      --location \
+      --max-time 5 \
+      --silent \
+      https://api.github.com/repos/openai/codex/issues/31882 || true)"
+
+    if [ "$(${pkgs.jq}/bin/jq -r '.state // empty' <<< "$issue")" = "closed" ]; then
+      echo "warning: openai/codex#31882 is closed; re-check and remove the codex-andromeda Azure GPT-5.6 workaround" >&2
+    fi
+  '';
   slackMcpReadOnlyTools = [
     "channels_list"
     "channels_me"
@@ -21,10 +52,13 @@ let
     "users_search"
   ];
   codexAndromedaConfig = (pkgs.formats.toml { }).generate "codex-andromeda-config.toml" {
-    model = "gpt-5.5";
+    model = "gpt-5.6-sol";
+    model_catalog_json = "${codexAzureModelCatalog}";
     model_provider = "azure";
-    model_reasoning_effort = "medium";
+    model_reasoning_effort = "high";
     personality = "pragmatic";
+
+    features.multi_agent_v2.tool_namespace = "agents";
 
     model_providers.azure = {
       name = "Azure OpenAI";
@@ -117,7 +151,7 @@ let
   '';
   codex-andromeda-wrapped = pkgs.symlinkJoin {
     name = "codex-andromeda-wrapped";
-    paths = [ inputs.codex-flake.packages.${meta.system}.codex ];
+    paths = [ codexPackage ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
 
     postBuild = ''
@@ -196,6 +230,12 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    warnings = lib.optional (lib.versionOlder codexAzureWorkaroundLastCheckedVersion codexPackage.version) ''
+      codex-andromeda uses the Azure GPT-5.6 workaround for openai/codex#31882, but Codex
+      ${codexPackage.version} is newer than the last checked version
+      ${codexAzureWorkaroundLastCheckedVersion}. Re-check whether the workaround is still needed.
+    '';
+
     age.secrets."andromeda.aws-home-config.credentials" = {
       rekeyFile = lib.repoSecret "andromeda/aws-home-config/credentials.age";
     };
@@ -253,6 +293,15 @@ in
     home.activation.mergeCodexAndromedaConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ${mergeCodexAndromedaConfig}
     '';
+
+    home.activation.checkCodexAzureWorkaround =
+      lib.hm.dag.entryAfter
+        [
+          "mergeCodexAndromedaConfig"
+        ]
+        ''
+          ${checkCodexAzureWorkaround}
+        '';
 
     systemd.user.services.codex-andromeda-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
       Unit = {
