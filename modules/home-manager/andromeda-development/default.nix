@@ -389,6 +389,15 @@ in
             Port = 22;
             IdentityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
           };
+          "acacia banksia" = {
+            header = "Host acacia banksia";
+            User = "root";
+            IdentitiesOnly = true;
+            IdentityFile = "${config.home.homeDirectory}/.ssh/andromeda_infra.id_ed25519.pub";
+            ControlMaster = "auto";
+            ControlPath = "${config.home.homeDirectory}/.cache/ssh-control/%C";
+            ControlPersist = "4h";
+          };
           "*" = {
             ForwardAgent = false;
             HashKnownHosts = true;
