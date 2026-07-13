@@ -93,6 +93,7 @@ let
       "~/.1password/agent.sock";
   homeJumpHosts = [
     "pve"
+    "snow"
     "bigbrain"
     "sleet"
     "alexandria"
