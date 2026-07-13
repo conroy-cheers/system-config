@@ -441,11 +441,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783659966,
-        "narHash": "sha256-uOiXBAID78Lx1F0/Q5P/f1yESx69TlXY+5sCPr/c3aA=",
+        "lastModified": 1783950294,
+        "narHash": "sha256-HieBehraMBPYYN/CPX2npBd9epk3F9IHkbQFkLeSY2s=",
         "owner": "conroy-cheers",
         "repo": "codex-flake",
-        "rev": "2d1fe18ade5196d958c0a5a88eb18cba5ee4f1b8",
+        "rev": "d3acaff81d0d49ed00e7bf72e7e197121c8151a9",
         "type": "github"
       },
       "original": {
