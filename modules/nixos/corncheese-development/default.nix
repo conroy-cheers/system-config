@@ -11,6 +11,7 @@ let
 in
 {
   imports = [
+    ./nebula.nix
     ./virtualisation.nix
     "${inputs.vscode-server}/modules/vscode-server"
     # Determinate
