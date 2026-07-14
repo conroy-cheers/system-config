@@ -12,6 +12,8 @@ let
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexAndromedaConfigFile = "${codexAndromedaHome}/config.toml";
   codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
+  andromedaShellHook =
+    inputs.andromeda-shell-config.packages.${pkgs.stdenv.hostPlatform.system}.andromeda-shell-hook;
   codexAzureWorkaroundLastCheckedVersion = "0.144.1";
   # Remove this catalog override and namespace rename after openai/codex#31882 is fixed.
   codexAzureModelCatalog = pkgs.runCommand "codex-andromeda-azure-model-catalog.json" { } ''
@@ -412,9 +414,24 @@ in
     };
 
     home.packages = [
+      andromedaShellHook
       codex-andromeda-wrapped
       pkgs.atlassian-cli
     ];
+
+    # The dispatcher must run after direnv or direnv-instant has selected the
+    # checkout-provided driver.
+    programs.bash.initExtra = lib.mkAfter ''
+      eval "$(${andromedaShellHook}/bin/andromeda-shell-hook hook bash)"
+    '';
+
+    programs.zsh.initContent = lib.mkAfter ''
+      eval "$(${andromedaShellHook}/bin/andromeda-shell-hook hook zsh)"
+    '';
+
+    programs.fish.interactiveShellInit = lib.mkAfter ''
+      ${andromedaShellHook}/bin/andromeda-shell-hook hook fish | source
+    '';
 
     programs.awscli = {
       enable = true;

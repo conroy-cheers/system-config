@@ -317,6 +317,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    andromeda-shell-config = {
+      url = "git+ssh://git@github.com/andromeda-robotic/shell-config.git";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     tinymux = {
       url = "github:conroy-cheers/tinymux";
       inputs.nixpkgs.follows = "nixpkgs";

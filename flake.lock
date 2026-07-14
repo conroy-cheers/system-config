@@ -205,6 +205,26 @@
         "type": "github"
       }
     },
+    "andromeda-shell-config": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784035324,
+        "narHash": "sha256-Xd/6tWm1YQCWyna81ulww31YpS/HUS4r3RQfgG0sZds=",
+        "ref": "refs/heads/main",
+        "rev": "827b34dadc530d5dfc81fc79229dbd67a62e9536",
+        "revCount": 3,
+        "type": "git",
+        "url": "ssh://git@github.com/andromeda-robotic/shell-config.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/andromeda-robotic/shell-config.git"
+      }
+    },
     "aquamarine": {
       "inputs": {
         "hyprutils": [
@@ -3601,6 +3621,7 @@
         "agenix-rekey": "agenix-rekey",
         "agenix-template": "agenix-template",
         "ags": "ags",
+        "andromeda-shell-config": "andromeda-shell-config",
         "codex-flake": "codex-flake",
         "colorshell": "colorshell",
         "corncheese-server": "corncheese-server",
