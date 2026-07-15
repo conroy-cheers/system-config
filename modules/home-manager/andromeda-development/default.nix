@@ -62,6 +62,8 @@ let
 
     features.multi_agent_v2.tool_namespace = "agents";
 
+    mcp_servers.atlassian.url = "https://mcp.atlassian.com/v1/mcp/authv2";
+
     model_providers.azure = {
       name = "Azure OpenAI";
       base_url = "https://andromeda-developer-au.openai.azure.com/openai/v1";

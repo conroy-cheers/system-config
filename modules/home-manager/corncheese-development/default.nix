@@ -24,6 +24,7 @@ let
     };
   };
   codexRemovedNixMcpServers = [
+    "atlassian"
     "slack"
   ];
   codexMergePython = pkgs.python3.withPackages (pythonPackages: [
