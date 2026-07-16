@@ -122,6 +122,10 @@ in
       enable = true;
       filebrowserQuantum.enable = true;
     };
+    matrix = {
+      enable = true;
+      bridges.enable = true;
+    };
     games = {
       minecraft.enable = true;
     };
@@ -154,13 +158,11 @@ in
 
   services.coturn = {
     enable = true;
-    realm = "home.conroycheers.me";
     listening-port = pandaTurnPort;
     listening-ips = [ (config.corncheese-server._meta.topology.hostAddress "sleet") ];
     relay-ips = [ (config.corncheese-server._meta.topology.hostAddress "sleet") ];
     "lt-cred-mech" = true;
     "no-cli" = true;
-    "no-udp" = true;
     "no-tls" = true;
     "no-dtls" = true;
     extraConfig = ''

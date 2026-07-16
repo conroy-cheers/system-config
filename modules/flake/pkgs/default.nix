@@ -102,6 +102,9 @@
             cudaSupport = true;
             cudaCapabilities = [ "6.0" ];
             cudaForwardCompat = false;
+            # `sleet`'s encrypted Mautrix-Meta bridge still requires libolm.
+            # Remove this when the upstream package no longer depends on it.
+            permittedInsecurePackages = [ "olm-3.2.16" ];
           };
           withRocm = mkPkgs {
             allowUnfree = true;
