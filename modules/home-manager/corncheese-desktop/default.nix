@@ -307,7 +307,7 @@ in
       in
       {
         home.packages = with pkgs; [
-          plex-desktop
+          plezy
         ];
 
         xdg.configFile."plex-mpv-shim/mpv.conf" = {
