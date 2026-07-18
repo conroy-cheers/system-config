@@ -140,7 +140,12 @@ in
       ''
     );
 
-    services.hyprpaper = mkIf (cfg.hyprpaper.enable && !colorshellEnabled) { enable = true; };
+    services.hyprpaper = mkIf (cfg.hyprpaper.enable && !colorshellEnabled) {
+      enable = true;
+      settings = {
+        splash = false;
+      };
+    };
 
     gtk = {
       enable = true;
