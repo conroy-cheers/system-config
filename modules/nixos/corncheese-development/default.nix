@@ -70,6 +70,7 @@ in
           experimental-features = [
             "nix-command"
             "flakes"
+            "ca-derivations"
           ];
 
           eval-cores = 0;
