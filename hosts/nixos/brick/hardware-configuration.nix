@@ -26,22 +26,17 @@
     ];
     initrd.kernelModules = [ ];
     kernelModules = [
+      "k10temp"
       "kvm-amd"
       "it87"
     ];
     extraModulePackages = [
-      # https://github.com/NixOS/nixpkgs/pull/459648
-      (config.boot.kernelPackages.it87.overrideAttrs {
-        version = "unstable-2025-10-06";
-        src = pkgs.fetchFromGitHub {
-          owner = "frankcrawford";
-          repo = "it87";
-          rev = "60d9def80d65e7e34a73e6f32d8677ad5bfa58a9";
-          hash = "sha256-xlUyq1DQFBCvAs9DP6i1ose+6e+nmmXFRyuzRXCg+Ko=";
-        };
-      })
+      config.boot.kernelPackages.it87
     ];
-    kernelParams = [ "preempt=full" ];
+    kernelParams = [
+      "preempt=full"
+      "amd_pstate=active"
+    ];
   };
 
   swapDevices = [ ];
