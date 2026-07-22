@@ -50,6 +50,10 @@
       enable = true;
       hyprpaper.enable = true;
       enableFancyEffects = true;
+      keyboardLayerViewer = {
+        enable = true;
+      };
+      silakka54.enable = true;
     };
     desktop = {
       enable = true;

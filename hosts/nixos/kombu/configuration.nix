@@ -73,6 +73,7 @@
     wm = {
       enable = true;
       gaming.enable = true;
+      silakka54.enable = true;
     };
   };
 
