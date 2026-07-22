@@ -78,16 +78,7 @@
       enableFancyEffects = true;
       keyboardLayerViewer = {
         enable = true;
-        profiles = [
-          {
-            id = "logitech-pro-x-tkl";
-            name = "Logitech PRO X TKL";
-            vid = "0x046d";
-            pid = "0xc339";
-            info = "${../keyboard-layer-viewer/qwerty-tkl-info.json}";
-            layers = "${../keyboard-layer-viewer/qwerty-tkl.yaml}";
-          }
-        ];
+        profiles = [ ];
       };
       silakka54.enable = true;
     };
