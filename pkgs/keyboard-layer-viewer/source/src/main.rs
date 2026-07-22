@@ -350,7 +350,13 @@ struct EventSink {
 
 enum AppEvent {
     Layer { profile: usize, layer: u8 },
-    Touch { profile: usize },
+    Key {
+        profile: usize,
+        device: PathBuf,
+        code: u16,
+        pressed: bool,
+    },
+    InputDisconnected { device: PathBuf },
     Activity,
     Hide,
     Place { monitor: String, left_margin: i32 },
@@ -369,6 +375,7 @@ struct UiState {
     visible: bool,
     auto_hide_enabled: bool,
     hide_after: Option<Instant>,
+    held_keys: HashSet<(PathBuf, u16)>,
     suppressed_by_submap: bool,
 }
 
@@ -404,6 +411,7 @@ struct KeyboardProfileConfig {
 #[derive(Debug, PartialEq, Eq)]
 enum AutoHideDeadlineAction {
     Unchanged,
+    Clear,
     Schedule,
 }
 
@@ -720,6 +728,7 @@ fn build_ui(
         visible,
         auto_hide_enabled: false,
         hide_after: None,
+        held_keys: HashSet::new(),
         suppressed_by_submap: current_hyprland_submap()
             .is_some_and(|submap| submap_suppresses_activity(&submap)),
     }));
@@ -769,7 +778,15 @@ fn build_ui(
 fn handle_event(state: &Rc<RefCell<UiState>>, event: AppEvent) {
     match event {
         AppEvent::Layer { profile, layer } => set_layer(&mut state.borrow_mut(), profile, layer),
-        AppEvent::Touch { profile } => touch_profile(&mut state.borrow_mut(), profile),
+        AppEvent::Key {
+            profile,
+            device,
+            code,
+            pressed,
+        } => key_profile(&mut state.borrow_mut(), profile, device, code, pressed),
+        AppEvent::InputDisconnected { device } => {
+            input_disconnected(&mut state.borrow_mut(), &device)
+        }
         AppEvent::Activity => activity_state(&mut state.borrow_mut()),
         AppEvent::Hide => hide_state(&mut state.borrow_mut()),
         AppEvent::Place {
@@ -869,6 +886,30 @@ fn touch_profile(state: &mut UiState, profile: usize) {
     }
 }
 
+fn key_profile(state: &mut UiState, profile: usize, device: PathBuf, code: u16, pressed: bool) {
+    let key = (device, code);
+    if pressed {
+        if profile >= state.profiles.len() {
+            return;
+        }
+        state.held_keys.insert(key);
+        touch_profile(state, profile);
+    } else {
+        state.held_keys.remove(&key);
+        update_auto_hide_deadline(state);
+    }
+}
+
+fn input_disconnected(state: &mut UiState, device: &Path) {
+    let held_before = state.held_keys.len();
+    state
+        .held_keys
+        .retain(|(held_device, _)| held_device != device);
+    if state.held_keys.len() != held_before {
+        update_auto_hide_deadline(state);
+    }
+}
+
 fn update_window_title(state: &UiState) {
     let profile = &state.profiles[state.active_profile];
     state
@@ -894,6 +935,8 @@ fn state_status(state: &UiState) -> String {
         },
         "visible": state.visible,
         "auto_hide_enabled": state.auto_hide_enabled,
+        "held_keys": state.held_keys.len(),
+        "layer_held": profile.current_layer != 0,
         "suppressed_by_submap": state.suppressed_by_submap,
     })
     .to_string()
@@ -901,19 +944,34 @@ fn state_status(state: &UiState) -> String {
 }
 
 fn update_auto_hide_deadline(state: &mut UiState) {
-    match auto_hide_deadline_action(state.auto_hide_enabled, state.visible) {
+    match auto_hide_deadline_action(
+        state.auto_hide_enabled,
+        state.visible,
+        input_is_held(
+            state.held_keys.len(),
+            state.profiles[state.active_profile].current_layer,
+        ),
+    ) {
         AutoHideDeadlineAction::Unchanged => {}
+        AutoHideDeadlineAction::Clear => state.hide_after = None,
         AutoHideDeadlineAction::Schedule => {
             state.hide_after = Some(Instant::now() + AUTO_HIDE_DURATION);
         }
     }
 }
 
+fn input_is_held(held_keys: usize, current_layer: usize) -> bool {
+    held_keys != 0 || current_layer != 0
+}
+
 fn auto_hide_deadline_action(
     auto_hide_enabled: bool,
     visible: bool,
+    input_held: bool,
 ) -> AutoHideDeadlineAction {
-    if !auto_hide_enabled {
+    if input_held {
+        AutoHideDeadlineAction::Clear
+    } else if !auto_hide_enabled {
         AutoHideDeadlineAction::Unchanged
     } else if visible {
         AutoHideDeadlineAction::Schedule
@@ -1279,25 +1337,41 @@ fn read_input_path(profile: usize, path: &Path, sink: EventSink) {
         match file.read(&mut buffer) {
             Ok(len) if len > 0 => {
                 for event in buffer[..len].chunks_exact(INPUT_EVENT_SIZE) {
-                    if input_event_is_key_activity(event) {
-                        sink.send(AppEvent::Touch { profile });
+                    if let Some((code, pressed)) = input_key_event(event) {
+                        sink.send(AppEvent::Key {
+                            profile,
+                            device: path.to_path_buf(),
+                            code,
+                            pressed,
+                        });
                     }
                 }
             }
-            Ok(_) => thread::sleep(Duration::from_millis(1)),
+            Ok(_) => break,
             Err(error) if error.kind() == ErrorKind::Interrupted => {}
             Err(_) => break,
         }
     }
+    sink.send(AppEvent::InputDisconnected {
+        device: path.to_path_buf(),
+    });
 }
 
-fn input_event_is_key_activity(event: &[u8]) -> bool {
+fn input_key_event(event: &[u8]) -> Option<(u16, bool)> {
     if event.len() < INPUT_EVENT_SIZE {
-        return false;
+        return None;
     }
     let event_type = u16::from_ne_bytes([event[16], event[17]]);
+    if event_type != EV_KEY {
+        return None;
+    }
+    let code = u16::from_ne_bytes([event[18], event[19]]);
     let value = i32::from_ne_bytes([event[20], event[21], event[22], event[23]]);
-    event_type == EV_KEY && value > 0
+    match value {
+        0 => Some((code, false)),
+        1 | 2 => Some((code, true)),
+        _ => None,
+    }
 }
 
 fn normalize_report(buffer: &[u8]) -> &[u8] {
@@ -1960,7 +2034,7 @@ mod tests {
     #[test]
     fn auto_hide_deadline_schedules_for_visible_activity() {
         assert_eq!(
-            auto_hide_deadline_action(true, true),
+            auto_hide_deadline_action(true, true, false),
             AutoHideDeadlineAction::Schedule
         );
     }
@@ -1968,9 +2042,24 @@ mod tests {
     #[test]
     fn auto_hide_deadline_ignores_inactive_auto_hide() {
         assert_eq!(
-            auto_hide_deadline_action(false, true),
+            auto_hide_deadline_action(false, true, false),
             AutoHideDeadlineAction::Unchanged
         );
+    }
+
+    #[test]
+    fn auto_hide_deadline_clears_while_a_key_is_held() {
+        assert_eq!(
+            auto_hide_deadline_action(true, true, true),
+            AutoHideDeadlineAction::Clear
+        );
+    }
+
+    #[test]
+    fn physical_keys_and_non_base_layers_count_as_held_input() {
+        assert!(!input_is_held(0, 0));
+        assert!(input_is_held(1, 0));
+        assert!(input_is_held(0, 1));
     }
 
     #[test]
@@ -2021,6 +2110,25 @@ mod tests {
         assert!(!udev_data_has_keyboard(
             "E:ID_INPUT=1\nE:ID_INPUT_KEY=1\nE:ID_INPUT_MOUSE=1\n"
         ));
+    }
+
+    #[test]
+    fn input_key_events_include_presses_repeats_and_releases() {
+        let mut event = [0u8; INPUT_EVENT_SIZE];
+        event[16..18].copy_from_slice(&EV_KEY.to_ne_bytes());
+        event[18..20].copy_from_slice(&42u16.to_ne_bytes());
+
+        event[20..24].copy_from_slice(&1i32.to_ne_bytes());
+        assert_eq!(input_key_event(&event), Some((42, true)));
+
+        event[20..24].copy_from_slice(&2i32.to_ne_bytes());
+        assert_eq!(input_key_event(&event), Some((42, true)));
+
+        event[20..24].copy_from_slice(&0i32.to_ne_bytes());
+        assert_eq!(input_key_event(&event), Some((42, false)));
+
+        event[16..18].copy_from_slice(&0u16.to_ne_bytes());
+        assert_eq!(input_key_event(&event), None);
     }
 
     #[test]

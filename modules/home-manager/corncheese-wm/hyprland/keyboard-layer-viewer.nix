@@ -133,27 +133,6 @@ in
           ];
           extraConfig = lib.mkAfter ''
             local keyboard_layer_viewer_control = ${luaString keyboardLayerViewerControl}
-            local keyboard_layer_viewer_ready = true
-
-            local function keyboard_layer_viewer_activity()
-              if not keyboard_layer_viewer_ready then
-                return
-              end
-
-              keyboard_layer_viewer_ready = false
-              hl.exec_cmd(keyboard_layer_viewer_control .. " refresh-placement; " .. keyboard_layer_viewer_control .. " activity")
-              hl.timer(function()
-                keyboard_layer_viewer_ready = true
-              end, { timeout = 250, type = "oneshot" })
-            end
-
-            for keycode = 8, 255 do
-              hl.bind("code:" .. keycode, keyboard_layer_viewer_activity, {
-                non_consuming = true,
-                transparent = true,
-                ignore_mods = true,
-              })
-            end
 
             hl.on("keybinds.submap", function(submap)
               if submap == "game" then
