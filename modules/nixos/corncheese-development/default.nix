@@ -117,9 +117,6 @@ in
       environment.systemPackages = [ pkgs.vidcapture ];
       services.udev.packages = [ pkgs.vidcapture ];
       systemd.packages = [ pkgs.vidcapture ];
-      systemd.targets.timers.wants = [
-        "vidcapture-watchdog@video0.timer"
-      ];
     })
   ];
 }
