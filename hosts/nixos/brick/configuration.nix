@@ -183,6 +183,9 @@ in
   #   useXkbConfig = true; # use xkbOptions in tty.
   # };
 
+  # Use nixpkgs Nix on brick while other hosts keep the shared Determinate module.
+  determinate.enable = false;
+
   # Arrow 24 replaced arrow::util::span with std::span, but the Ceph 20
   # compatibility patch in this nixpkgs revision still uses the old name.
   nixpkgs.overlays = [

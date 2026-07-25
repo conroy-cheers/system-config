@@ -17,8 +17,6 @@ final: prev: {
     };
   };
 
-  nix = inputs.determinate.inputs.nix.packages.${prev.stdenv.hostPlatform.system}.default;
-
   nix-monitored = inputs.nix-monitored.packages.${prev.stdenv.hostPlatform.system}.default.override {
     nix = final.nix;
     nix-output-monitor = final.nix-output-monitor;

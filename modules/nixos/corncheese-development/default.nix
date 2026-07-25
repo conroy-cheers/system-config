@@ -29,6 +29,26 @@ in
   };
 
   config = lib.mkMerge [
+    {
+      # Keep the Determinate module and the selected Nix package in lockstep.
+      # Hosts choose between Determinate and nixpkgs Nix with this one option.
+      nixpkgs.overlays = [
+        (_final: prev: {
+          nix =
+            if config.determinate.enable then
+              inputs.determinate.inputs.nix.packages.${prev.stdenv.hostPlatform.system}.default
+            else
+              prev.nix;
+        })
+      ];
+      nix.package = lib.mkDefault pkgs.nix;
+      assertions = [
+        {
+          assertion = config.nix.package.drvPath == pkgs.nix.drvPath;
+          message = "nix.package must be selected through determinate.enable";
+        }
+      ];
+    }
     (lib.mkIf (cfg.enable || cfg.githubAccess.enable) {
       age.secrets = {
         "corncheese.github.token" = {
@@ -72,7 +92,8 @@ in
             "flakes"
             "ca-derivations"
           ];
-
+        }
+        // lib.optionalAttrs config.determinate.enable {
           eval-cores = 0;
         };
       };

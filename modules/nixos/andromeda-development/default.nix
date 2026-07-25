@@ -116,9 +116,11 @@ in
         ''}"
       ];
 
-      environment.etc."determinate/config.json".source = determinateNixdConfig;
+      environment.etc."determinate/config.json" = mkIf config.determinate.enable {
+        source = determinateNixdConfig;
+      };
 
-      systemd.services.nix-daemon.restartTriggers = [ determinateNixdConfig ];
+      systemd.services.nix-daemon.restartTriggers = optional config.determinate.enable determinateNixdConfig;
     })
     (mkIf cfg.nixDaemonSecrets.enable {
       andromeda.development.nixDaemonSecrets.nixSandboxKeys.target = "/sops/keys.txt";
