@@ -136,6 +136,7 @@ in
         };
       };
     };
+    silakka54.enable = true;
     wm = {
       enable = true;
       audio = {
@@ -144,7 +145,6 @@ in
       };
       nvidia = false;
       gaming.enable = true;
-      silakka54.enable = true;
     };
   };
 

@@ -8,6 +8,7 @@
 
 let
   cfg = config.corncheese.wm;
+  silakka54Cfg = config.corncheese.silakka54;
   keyboardLayerViewerCfg = cfg.keyboardLayerViewer;
   luaString = builtins.toJSON;
   hyprlandPackage = osConfig.programs.hyprland.package or pkgs.hyprland;
@@ -28,7 +29,7 @@ let
   keyboardLayerViewerProfiles = pkgs.writeText "keyboard-layer-viewer-profiles.json" (
     builtins.toJSON {
       keyboards = map profileToJson (
-        lib.optionals cfg.silakka54.enable [
+        lib.optionals silakka54Cfg.enable [
           {
             id = "silakka54";
             name = "Silakka54";
@@ -88,17 +89,6 @@ let
     esac
   '';
 
-  silakka54FirmwarePrompt = pkgs.writeShellScript "silakka54-firmware-prompt" ''
-    export PATH=${
-      lib.makeBinPath [
-        pkgs.silakka54
-        pkgs.zenity
-        pkgs.coreutils
-        pkgs.systemd
-      ]
-    }:$PATH
-    exec silakka54-sync prompt-firmware
-  '';
 in
 {
   config = lib.mkIf cfg.enable (
@@ -179,36 +169,6 @@ in
           };
           Install = {
             WantedBy = [ "graphical-session.target" ];
-          };
-        };
-      })
-
-      (lib.mkIf cfg.silakka54.enable {
-        home.packages = [ pkgs.silakka54 ];
-
-        systemd.user.services.silakka54-firmware-prompt = {
-          Unit = {
-            Description = "Prompt before flashing stale Silakka54 firmware";
-            After = [ "graphical-session.target" ];
-            X-SwitchMethod = "keep-old";
-          };
-          Service = {
-            Type = "oneshot";
-            ExecStart = "${silakka54FirmwarePrompt}";
-          };
-        };
-
-        systemd.user.services.silakka54-sync = {
-          Unit = {
-            Description = "Reconcile Silakka54 keymap after Home Manager activation";
-            After = [ "default.target" ];
-          };
-          Service = {
-            Type = "oneshot";
-            ExecStart = "${lib.getExe pkgs.silakka54} rebuild-switch";
-          };
-          Install = {
-            WantedBy = [ "default.target" ];
           };
         };
       })

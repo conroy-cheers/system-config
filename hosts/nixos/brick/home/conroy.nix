@@ -71,6 +71,7 @@
         };
       };
     };
+    silakka54.enable = true;
     wm = {
       enable = true;
       nvidia = false;
@@ -80,7 +81,6 @@
         enable = true;
         profiles = [ ];
       };
-      silakka54.enable = true;
     };
     desktop = {
       enable = true;

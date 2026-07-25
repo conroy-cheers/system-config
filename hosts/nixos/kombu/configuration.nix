@@ -70,10 +70,10 @@
       enable = true;
       theme = "catppuccin";
     };
+    silakka54.enable = true;
     wm = {
       enable = true;
       gaming.enable = true;
-      silakka54.enable = true;
     };
   };
 

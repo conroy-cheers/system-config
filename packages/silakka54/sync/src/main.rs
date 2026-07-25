@@ -1,42 +1,33 @@
-use std::collections::BTreeMap;
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Write};
-use std::os::fd::AsRawFd;
+use hidapi::{HidApi, HidDevice};
+use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::CString;
+use std::fs::{self, File};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const VID: &str = "feed";
-const PID: &str = "1212";
+const VID: u16 = 0xfeed;
+const PID: u16 = 0x1212;
+const RAW_USAGE_PAGE: u16 = 0xff60;
+const RAW_USAGE: u16 = 0x0061;
 const MANIFEST_PATH: &str = "@manifest_path@";
 const FIRMWARE_PATH: &str = "@firmware_path@";
 const DYNAMIC_KEYMAP_TSV: &str = "@dynamic_keymap_tsv@";
 const EXPECTED_ABI_HASH: &str = "@firmware_abi_hash@";
 const EXPECTED_KEYMAP_HASH: &str = "@keymap_hash@";
 const REPORT_LEN: usize = 32;
-const POLLIN: i16 = 0x0001;
 
 const ID_GET_PROTOCOL_VERSION: u8 = 0x01;
 const ID_GET_KEYBOARD_VALUE: u8 = 0x02;
 const ID_DYNAMIC_KEYMAP_GET_KEYCODE: u8 = 0x04;
 const ID_DYNAMIC_KEYMAP_SET_KEYCODE: u8 = 0x05;
-const ID_BOOTLOADER_JUMP: u8 = 0x0B;
+const ID_BOOTLOADER_JUMP: u8 = 0x0b;
 const SILAKKA54_SYNC_QUERY: u8 = 0x54;
 const SILAKKA54_SYNC_BOOTLOADER: u8 = 0x42;
 const SILAKKA54_SYNC_VERSION: u8 = 1;
 const SILAKKA54_SYNC_MAGIC: &[u8] = b"SL54SYN";
-
-#[repr(C)]
-struct PollFd {
-    fd: i32,
-    events: i16,
-    revents: i16,
-}
-
-unsafe extern "C" {
-    fn poll(fds: *mut PollFd, nfds: usize, timeout: i32) -> i32;
-}
 
 #[derive(Clone, Debug)]
 struct KeyEntry {
@@ -46,6 +37,18 @@ struct KeyEntry {
     keycode: u16,
     label: String,
     qmk: String,
+}
+
+#[derive(Clone, Debug)]
+struct DeviceDescriptor {
+    path: CString,
+    display_name: String,
+}
+
+impl DeviceDescriptor {
+    fn id(&self) -> Vec<u8> {
+        self.path.as_bytes().to_vec()
+    }
 }
 
 #[derive(Debug)]
@@ -59,11 +62,26 @@ struct FirmwareStatus {
 
 #[derive(Debug)]
 struct DeviceStatus {
-    path: PathBuf,
+    name: String,
     via_protocol: Option<u16>,
     firmware: Option<FirmwareStatus>,
     keymap_drift: Option<usize>,
     error: Option<String>,
+}
+
+trait HidTransport {
+    fn write(&self, data: &[u8]) -> Result<usize, String>;
+    fn read_timeout(&self, data: &mut [u8], timeout_ms: i32) -> Result<usize, String>;
+}
+
+impl HidTransport for HidDevice {
+    fn write(&self, data: &[u8]) -> Result<usize, String> {
+        HidDevice::write(self, data).map_err(|error| error.to_string())
+    }
+
+    fn read_timeout(&self, data: &mut [u8], timeout_ms: i32) -> Result<usize, String> {
+        HidDevice::read_timeout(self, data, timeout_ms).map_err(|error| error.to_string())
+    }
 }
 
 fn main() -> ExitCode {
@@ -76,6 +94,7 @@ fn main() -> ExitCode {
         "hotplug" => hotplug_command(),
         "rebuild-switch" => rebuild_switch_command(),
         "prompt-firmware" => prompt_firmware_command(),
+        "watch" => watch_command(),
         "--help" | "-h" | "help" => {
             print_help();
             Ok(())
@@ -94,14 +113,14 @@ fn main() -> ExitCode {
 
 fn print_help() {
     println!(
-        "Usage: silakka54-sync <status|sync-keymap|flash-firmware|hotplug|rebuild-switch|prompt-firmware>"
+        "Usage: silakka54-sync <status|sync-keymap|flash-firmware|hotplug|rebuild-switch|prompt-firmware|watch>"
     );
 }
 
 fn status_command() -> Result<(), String> {
-    let statuses = collect_statuses(false)?;
+    let statuses = collect_statuses()?;
     if statuses.is_empty() {
-        println!("Silakka54: no connected hidraw devices for {VID}:{PID}");
+        println!("Silakka54: no connected raw HID devices for {VID:04x}:{PID:04x}");
         return Ok(());
     }
 
@@ -119,7 +138,7 @@ fn rebuild_switch_command() -> Result<(), String> {
         return Ok(());
     }
 
-    let statuses = collect_statuses(false)?;
+    let statuses = collect_statuses()?;
     if statuses.is_empty() {
         return Ok(());
     }
@@ -152,15 +171,15 @@ fn rebuild_switch_command() -> Result<(), String> {
 }
 
 fn hotplug_command() -> Result<(), String> {
-    let statuses = collect_statuses(false)?;
+    let statuses = collect_statuses()?;
     if statuses.is_empty() {
         return Ok(());
     }
 
-    let has_stale_keymap = statuses
+    if statuses
         .iter()
-        .any(|status| firmware_is_current(status) && status.keymap_drift.unwrap_or(0) > 0);
-    if has_stale_keymap {
+        .any(|status| firmware_is_current(status) && status.keymap_drift.unwrap_or(0) > 0)
+    {
         sync_keymap_command()?;
     }
 
@@ -171,6 +190,31 @@ fn hotplug_command() -> Result<(), String> {
     Ok(())
 }
 
+fn watch_command() -> Result<(), String> {
+    let mut previous = BTreeSet::new();
+    loop {
+        match via_devices() {
+            Ok(devices) => {
+                let current: BTreeSet<_> = devices.iter().map(DeviceDescriptor::id).collect();
+                if should_reconcile(&previous, &current) {
+                    thread::sleep(Duration::from_millis(500));
+                    if let Err(error) = hotplug_command() {
+                        eprintln!("silakka54-sync: hotplug reconciliation failed: {error}");
+                    }
+                }
+                previous = current;
+            }
+            Err(error) => eprintln!("silakka54-sync: HID enumeration failed: {error}"),
+        }
+        thread::sleep(Duration::from_secs(1));
+    }
+}
+
+fn should_reconcile(previous: &BTreeSet<Vec<u8>>, current: &BTreeSet<Vec<u8>>) -> bool {
+    !current.is_empty() && current.iter().any(|id| !previous.contains(id))
+}
+
+#[cfg(target_os = "linux")]
 fn prompt_firmware_command() -> Result<(), String> {
     if std::env::var_os("DISPLAY").is_none() && std::env::var_os("WAYLAND_DISPLAY").is_none() {
         eprintln!(
@@ -179,14 +223,13 @@ fn prompt_firmware_command() -> Result<(), String> {
         return Ok(());
     }
 
-    let message = "Firmware is stale for the connected Silakka54 half.";
     let status = Command::new("zenity")
         .args([
             "--question",
             "--title",
             "Silakka54 firmware",
             "--text",
-            message,
+            "Firmware is stale for the connected Silakka54 half.",
             "--ok-label",
             "Flash now",
             "--cancel-label",
@@ -203,26 +246,50 @@ fn prompt_firmware_command() -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn prompt_firmware_command() -> Result<(), String> {
+    let script = r#"button returned of (display dialog "Firmware is stale for the connected Silakka54 half." with title "Silakka54 firmware" buttons {"Skip this time", "Flash now"} default button "Flash now")"#;
+    let output = Command::new("/usr/bin/osascript")
+        .args(["-e", script])
+        .output()
+        .map_err(|error| format!("failed to run macOS firmware prompt: {error}"))?;
+
+    if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "Flash now" {
+        flash_firmware_command(true)
+    } else {
+        eprintln!("Silakka54 firmware flash skipped from graphical prompt.");
+        Ok(())
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn prompt_firmware_command() -> Result<(), String> {
+    Err("graphical firmware prompts are unsupported on this platform".to_string())
+}
+
 fn sync_keymap_command() -> Result<(), String> {
     let entries = read_keymap_entries()?;
-    let paths = via_hidraw_paths();
-    if paths.is_empty() {
-        println!("Silakka54: no connected VIA-capable hidraw devices for {VID}:{PID}");
+    let devices = via_devices()?;
+    if devices.is_empty() {
+        println!("Silakka54: no connected VIA-capable HID devices for {VID:04x}:{PID:04x}");
         return Ok(());
     }
 
     let mut changed_total = 0usize;
-    for path in paths {
-        match sync_keymap_for_path(&path, &entries) {
+    for descriptor in devices {
+        match sync_keymap_for_device(&descriptor, &entries) {
             Ok(changed) => {
                 changed_total += changed;
                 if changed == 0 {
-                    println!("{}: keymap already current", path.display());
+                    println!("{}: keymap already current", descriptor.display_name);
                 } else {
-                    println!("{}: wrote {changed} differing keycodes", path.display());
+                    println!(
+                        "{}: wrote {changed} differing keycodes",
+                        descriptor.display_name
+                    );
                 }
             }
-            Err(error) => eprintln!("{}: keymap sync failed: {error}", path.display()),
+            Err(error) => eprintln!("{}: keymap sync failed: {error}", descriptor.display_name),
         }
     }
 
@@ -256,59 +323,55 @@ fn flash_firmware_command(yes: bool) -> Result<(), String> {
 }
 
 fn request_silakka54_bootloader_jump() -> Result<bool, String> {
-    for path in via_hidraw_paths() {
-        match open_hid(&path) {
-            Ok(mut file) => match silakka54_bootloader_jump(&mut file) {
+    for descriptor in via_devices()? {
+        match open_hid(&descriptor) {
+            Ok(device) => match silakka54_bootloader_jump(&device) {
                 Ok(()) => {
-                    eprintln!("{}: requested Silakka54 bootloader jump", path.display());
+                    eprintln!(
+                        "{}: requested Silakka54 bootloader jump",
+                        descriptor.display_name
+                    );
                     return Ok(true);
                 }
-                Err(error) => {
-                    eprintln!(
-                        "{}: Silakka54 bootloader jump unavailable: {error}",
-                        path.display()
-                    );
-                }
+                Err(error) => eprintln!(
+                    "{}: Silakka54 bootloader jump unavailable: {error}",
+                    descriptor.display_name
+                ),
             },
-            Err(error) => {
-                eprintln!(
-                    "{}: could not open HID device for Silakka54 bootloader jump: {error}",
-                    path.display()
-                );
-            }
+            Err(error) => eprintln!(
+                "{}: could not open HID device for Silakka54 bootloader jump: {error}",
+                descriptor.display_name
+            ),
         }
     }
     Ok(false)
 }
 
 fn request_vial_bootloader_jump() -> Result<bool, String> {
-    for path in via_hidraw_paths() {
-        match open_hid(&path) {
-            Ok(mut file) => {
-                match raw_transaction(
-                    &mut file,
-                    command_report(ID_BOOTLOADER_JUMP),
-                    ID_BOOTLOADER_JUMP,
-                    Duration::from_millis(500),
-                ) {
-                    Ok(_) => {
-                        eprintln!("{}: requested Vial bootloader jump", path.display());
-                        return Ok(true);
-                    }
-                    Err(error) => {
-                        eprintln!(
-                            "{}: Vial bootloader jump unavailable: {error}",
-                            path.display()
-                        );
-                    }
+    for descriptor in via_devices()? {
+        match open_hid(&descriptor) {
+            Ok(device) => match raw_transaction(
+                &device,
+                command_report(ID_BOOTLOADER_JUMP),
+                ID_BOOTLOADER_JUMP,
+                Duration::from_millis(500),
+            ) {
+                Ok(_) => {
+                    eprintln!(
+                        "{}: requested Vial bootloader jump",
+                        descriptor.display_name
+                    );
+                    return Ok(true);
                 }
-            }
-            Err(error) => {
-                eprintln!(
-                    "{}: could not open HID device for bootloader jump: {error}",
-                    path.display()
-                );
-            }
+                Err(error) => eprintln!(
+                    "{}: Vial bootloader jump unavailable: {error}",
+                    descriptor.display_name
+                ),
+            },
+            Err(error) => eprintln!(
+                "{}: could not open HID device for bootloader jump: {error}",
+                descriptor.display_name
+            ),
         }
     }
     Ok(false)
@@ -322,55 +385,70 @@ fn copy_firmware_and_verify(mount: &Path) -> Result<(), String> {
     );
     fs::copy(FIRMWARE_PATH, &target)
         .map_err(|error| format!("failed to copy UF2 to {}: {error}", target.display()))?;
-    sync_mount(&mount)?;
+    sync_firmware_copy(&target)?;
     println!("Copied firmware UF2 to {}", target.display());
 
     let deadline = Instant::now() + Duration::from_secs(60);
     while Instant::now() < deadline {
         thread::sleep(Duration::from_secs(1));
-        let statuses = collect_statuses(false)?;
-        if statuses.iter().any(firmware_is_current) {
-            println!("Silakka54 firmware ABI verified after reconnect.");
-            return Ok(());
+        match collect_statuses() {
+            Ok(statuses) if statuses.iter().any(firmware_is_current) => {
+                println!("Silakka54 firmware ABI verified after reconnect.");
+                return Ok(());
+            }
+            Ok(_) => {}
+            Err(error) => eprintln!("Waiting for Silakka54 to reconnect: {error}"),
         }
     }
 
     Err("firmware was copied, but the keyboard did not reconnect with the expected ABI".to_string())
 }
 
-fn collect_statuses(include_drift: bool) -> Result<Vec<DeviceStatus>, String> {
-    let entries = if include_drift {
-        Some(read_keymap_entries()?)
-    } else {
-        Some(read_keymap_entries().unwrap_or_default())
-    };
-    let mut statuses = Vec::new();
-    for path in hidraw_paths() {
-        statuses.push(device_status(&path, entries.as_deref()));
+fn sync_firmware_copy(target: &Path) -> Result<(), String> {
+    match File::open(target).and_then(|file| file.sync_all()) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(format!("failed to flush {}: {error}", target.display())),
     }
-    Ok(statuses)
+
+    let status = Command::new("sync")
+        .status()
+        .map_err(|error| format!("failed to flush firmware volume: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("sync exited with {status}"))
+    }
 }
 
-fn device_status(path: &Path, entries: Option<&[KeyEntry]>) -> DeviceStatus {
+fn collect_statuses() -> Result<Vec<DeviceStatus>, String> {
+    let entries = read_keymap_entries().unwrap_or_default();
+    raw_hid_devices()?
+        .iter()
+        .map(|descriptor| Ok(device_status(descriptor, &entries)))
+        .collect()
+}
+
+fn device_status(descriptor: &DeviceDescriptor, entries: &[KeyEntry]) -> DeviceStatus {
     let mut status = DeviceStatus {
-        path: path.to_path_buf(),
+        name: descriptor.display_name.clone(),
         via_protocol: None,
         firmware: None,
         keymap_drift: None,
         error: None,
     };
 
-    let mut file = match open_hid(path) {
-        Ok(file) => file,
+    let device = match open_hid(descriptor) {
+        Ok(device) => device,
         Err(error) => {
-            status.error = Some(error.to_string());
+            status.error = Some(error);
             return status;
         }
     };
 
-    status.via_protocol = via_protocol(&mut file).ok();
+    status.via_protocol = via_protocol(&device).ok();
     if status.via_protocol.is_some() {
-        status.firmware = firmware_status(&mut file).ok();
+        status.firmware = firmware_status(&device).ok();
     }
 
     if status
@@ -378,16 +456,14 @@ fn device_status(path: &Path, entries: Option<&[KeyEntry]>) -> DeviceStatus {
         .as_ref()
         .is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH))
     {
-        if let Some(entries) = entries {
-            status.keymap_drift = keymap_drift_for_file(&mut file, entries).ok();
-        }
+        status.keymap_drift = keymap_drift_for_device(&device, entries).ok();
     }
 
     status
 }
 
 fn print_device_status(status: &DeviceStatus) {
-    println!("Device: {}", status.path.display());
+    println!("Device: {}", status.name);
     if let Some(error) = &status.error {
         println!("  error: {error}");
         return;
@@ -433,46 +509,60 @@ fn firmware_is_stale(status: &DeviceStatus) -> bool {
     status.error.is_none() && status.via_protocol.is_some() && !firmware_is_current(status)
 }
 
-fn hidraw_paths() -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir("/sys/class/hidraw") else {
-        return Vec::new();
-    };
-    let needle = format!(":0000{}:0000{}", VID, PID);
-    let mut paths: Vec<_> = entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            let uevent = fs::read_to_string(entry.path().join("device/uevent")).ok()?;
-            if uevent.to_ascii_lowercase().contains(&needle) {
-                Some(PathBuf::from("/dev").join(name.as_ref()))
-            } else {
-                None
+fn raw_hid_devices() -> Result<Vec<DeviceDescriptor>, String> {
+    let api = HidApi::new().map_err(|error| format!("failed to initialize HIDAPI: {error}"))?;
+    let matching: Vec<_> = api
+        .device_list()
+        .filter(|device| device.vendor_id() == VID && device.product_id() == PID)
+        .collect();
+    let has_usage_match = matching
+        .iter()
+        .any(|device| device.usage_page() == RAW_USAGE_PAGE && device.usage() == RAW_USAGE);
+
+    let mut devices: Vec<_> = matching
+        .into_iter()
+        .filter(|device| {
+            !has_usage_match
+                || (device.usage_page() == RAW_USAGE_PAGE && device.usage() == RAW_USAGE)
+        })
+        .map(|device| {
+            let product = device.product_string().unwrap_or("Silakka54");
+            DeviceDescriptor {
+                path: device.path().to_owned(),
+                display_name: format!(
+                    "{} (interface {}, {})",
+                    product,
+                    device.interface_number(),
+                    device.path().to_string_lossy()
+                ),
             }
         })
         .collect();
-    paths.sort();
-    paths
+    devices.sort_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
+    Ok(devices)
 }
 
-fn via_hidraw_paths() -> Vec<PathBuf> {
-    hidraw_paths()
+fn via_devices() -> Result<Vec<DeviceDescriptor>, String> {
+    Ok(raw_hid_devices()?
         .into_iter()
-        .filter(|path| {
-            open_hid(path)
-                .and_then(|mut file| via_protocol(&mut file).map_err(io::Error::other))
+        .filter(|descriptor| {
+            open_hid(descriptor)
+                .and_then(|device| via_protocol(&device))
                 .is_ok()
         })
-        .collect()
+        .collect())
 }
 
-fn open_hid(path: &Path) -> io::Result<File> {
-    OpenOptions::new().read(true).write(true).open(path)
+fn open_hid(descriptor: &DeviceDescriptor) -> Result<HidDevice, String> {
+    HidApi::new()
+        .map_err(|error| format!("failed to initialize HIDAPI: {error}"))?
+        .open_path(&descriptor.path)
+        .map_err(|error| error.to_string())
 }
 
-fn via_protocol(file: &mut File) -> Result<u16, String> {
+fn via_protocol(device: &dyn HidTransport) -> Result<u16, String> {
     let response = raw_transaction(
-        file,
+        device,
         command_report(ID_GET_PROTOCOL_VERSION),
         ID_GET_PROTOCOL_VERSION,
         Duration::from_secs(1),
@@ -480,11 +570,16 @@ fn via_protocol(file: &mut File) -> Result<u16, String> {
     Ok(u16::from_be_bytes([response[1], response[2]]))
 }
 
-fn firmware_status(file: &mut File) -> Result<FirmwareStatus, String> {
+fn firmware_status(device: &dyn HidTransport) -> Result<FirmwareStatus, String> {
     let mut report = command_report(ID_GET_KEYBOARD_VALUE);
     report[1] = SILAKKA54_SYNC_QUERY;
     report[2] = SILAKKA54_SYNC_VERSION;
-    let response = raw_transaction(file, report, ID_GET_KEYBOARD_VALUE, Duration::from_secs(1))?;
+    let response = raw_transaction(
+        device,
+        report,
+        ID_GET_KEYBOARD_VALUE,
+        Duration::from_secs(1),
+    )?;
     if response[1] != SILAKKA54_SYNC_QUERY || response[2] != SILAKKA54_SYNC_VERSION {
         return Err("firmware did not answer Silakka54 sync query".to_string());
     }
@@ -500,12 +595,12 @@ fn firmware_status(file: &mut File) -> Result<FirmwareStatus, String> {
     })
 }
 
-fn silakka54_bootloader_jump(file: &mut File) -> Result<(), String> {
+fn silakka54_bootloader_jump(device: &dyn HidTransport) -> Result<(), String> {
     let mut report = command_report(ID_GET_KEYBOARD_VALUE);
     report[1] = SILAKKA54_SYNC_BOOTLOADER;
     report[2] = SILAKKA54_SYNC_VERSION;
     let response = raw_transaction(
-        file,
+        device,
         report,
         ID_GET_KEYBOARD_VALUE,
         Duration::from_millis(1000),
@@ -519,13 +614,13 @@ fn silakka54_bootloader_jump(file: &mut File) -> Result<(), String> {
     Ok(())
 }
 
-fn get_keycode(file: &mut File, entry: &KeyEntry) -> Result<u16, String> {
+fn get_keycode(device: &dyn HidTransport, entry: &KeyEntry) -> Result<u16, String> {
     let mut report = command_report(ID_DYNAMIC_KEYMAP_GET_KEYCODE);
     report[1] = entry.layer;
     report[2] = entry.row;
     report[3] = entry.col;
     let response = raw_transaction(
-        file,
+        device,
         report,
         ID_DYNAMIC_KEYMAP_GET_KEYCODE,
         Duration::from_secs(1),
@@ -533,15 +628,15 @@ fn get_keycode(file: &mut File, entry: &KeyEntry) -> Result<u16, String> {
     Ok(u16::from_be_bytes([response[4], response[5]]))
 }
 
-fn set_keycode(file: &mut File, entry: &KeyEntry) -> Result<(), String> {
+fn set_keycode(device: &dyn HidTransport, entry: &KeyEntry) -> Result<(), String> {
     let mut report = command_report(ID_DYNAMIC_KEYMAP_SET_KEYCODE);
     report[1] = entry.layer;
     report[2] = entry.row;
     report[3] = entry.col;
     report[4] = (entry.keycode >> 8) as u8;
-    report[5] = (entry.keycode & 0xFF) as u8;
+    report[5] = (entry.keycode & 0xff) as u8;
     raw_transaction(
-        file,
+        device,
         report,
         ID_DYNAMIC_KEYMAP_SET_KEYCODE,
         Duration::from_secs(1),
@@ -556,24 +651,25 @@ fn command_report(command_id: u8) -> [u8; REPORT_LEN] {
 }
 
 fn raw_transaction(
-    file: &mut File,
+    device: &dyn HidTransport,
     report: [u8; REPORT_LEN],
     expected_command: u8,
     timeout: Duration,
 ) -> Result<[u8; REPORT_LEN], String> {
-    file.write_all(&report)
-        .map_err(|error| format!("hid write failed: {error}"))?;
+    let mut output = [0u8; REPORT_LEN + 1];
+    output[1..].copy_from_slice(&report);
+    device
+        .write(&output)
+        .map_err(|error| format!("HID write failed: {error}"))?;
 
     let deadline = Instant::now() + timeout;
     let mut buffer = [0u8; REPORT_LEN + 1];
     while Instant::now() < deadline {
         let remaining = deadline.saturating_duration_since(Instant::now());
-        if !poll_readable(file, remaining.min(Duration::from_millis(100)))? {
-            continue;
-        }
-        let len = file
-            .read(&mut buffer)
-            .map_err(|error| format!("hid read failed: {error}"))?;
+        let timeout_ms = remaining.min(Duration::from_millis(100)).as_millis().max(1) as i32;
+        let len = device
+            .read_timeout(&mut buffer, timeout_ms)
+            .map_err(|error| format!("HID read failed: {error}"))?;
         if len == 0 {
             continue;
         }
@@ -591,25 +687,11 @@ fn raw_transaction(
 }
 
 fn normalize_report(buffer: &[u8]) -> &[u8] {
-    if buffer.first() == Some(&0) {
+    if buffer.len() > REPORT_LEN && buffer.first() == Some(&0) {
         &buffer[1..]
     } else {
         buffer
     }
-}
-
-fn poll_readable(file: &File, timeout: Duration) -> Result<bool, String> {
-    let timeout_ms = timeout.as_millis().min(i32::MAX as u128) as i32;
-    let mut poll_fd = PollFd {
-        fd: file.as_raw_fd(),
-        events: POLLIN,
-        revents: 0,
-    };
-    let result = unsafe { poll(&mut poll_fd, 1, timeout_ms) };
-    if result < 0 {
-        return Err(io::Error::last_os_error().to_string());
-    }
-    Ok(result > 0 && (poll_fd.revents & POLLIN) != 0)
 }
 
 fn read_keymap_entries() -> Result<Vec<KeyEntry>, String> {
@@ -656,20 +738,25 @@ fn parse_u8(value: &str, line_number: usize) -> Result<u8, String> {
         .map_err(|_| format!("{DYNAMIC_KEYMAP_TSV}:{line_number}: invalid u8 value"))
 }
 
-fn keymap_drift_for_file(file: &mut File, entries: &[KeyEntry]) -> Result<usize, String> {
+fn keymap_drift_for_device(
+    device: &dyn HidTransport,
+    entries: &[KeyEntry],
+) -> Result<usize, String> {
     let mut drift = 0usize;
     for entry in entries {
-        let current = get_keycode(file, entry)?;
-        if current != entry.keycode {
+        if get_keycode(device, entry)? != entry.keycode {
             drift += 1;
         }
     }
     Ok(drift)
 }
 
-fn sync_keymap_for_path(path: &Path, entries: &[KeyEntry]) -> Result<usize, String> {
-    let mut file = open_hid(path).map_err(|error| error.to_string())?;
-    let firmware = firmware_status(&mut file)?;
+fn sync_keymap_for_device(
+    descriptor: &DeviceDescriptor,
+    entries: &[KeyEntry],
+) -> Result<usize, String> {
+    let device = open_hid(descriptor)?;
+    let firmware = firmware_status(&device)?;
     if firmware.abi_hash_prefix != hash_prefix(EXPECTED_ABI_HASH) {
         return Err(format!(
             "firmware ABI {} does not match expected {}; not writing dynamic keymap",
@@ -680,11 +767,11 @@ fn sync_keymap_for_path(path: &Path, entries: &[KeyEntry]) -> Result<usize, Stri
 
     let mut changed = 0usize;
     for entry in entries {
-        let current = get_keycode(&mut file, entry)?;
+        let current = get_keycode(&device, entry)?;
         if current != entry.keycode {
             eprintln!(
                 "{}: L{} R{} C{} {} {}: 0x{current:04x} -> 0x{:04x}",
-                path.display(),
+                descriptor.display_name,
                 entry.layer,
                 entry.row,
                 entry.col,
@@ -692,7 +779,7 @@ fn sync_keymap_for_path(path: &Path, entries: &[KeyEntry]) -> Result<usize, Stri
                 entry.qmk,
                 entry.keycode
             );
-            set_keycode(&mut file, entry)?;
+            set_keycode(&device, entry)?;
             changed += 1;
         }
     }
@@ -715,10 +802,8 @@ fn hash_prefix(hash: &str) -> String {
 }
 
 fn is_interactive() -> bool {
-    unsafe extern "C" {
-        fn isatty(fd: i32) -> i32;
-    }
-    unsafe { isatty(0) == 1 && isatty(1) == 1 }
+    use std::io::IsTerminal;
+    io::stdin().is_terminal() && io::stdout().is_terminal()
 }
 
 fn ask_yes_no(prompt: &str) -> Result<bool, String> {
@@ -734,6 +819,7 @@ fn ask_yes_no(prompt: &str) -> Result<bool, String> {
     Ok(matches!(answer.trim(), "y" | "Y" | "yes" | "YES" | "Yes"))
 }
 
+#[cfg(target_os = "linux")]
 fn request_user_prompt() -> Result<(), String> {
     let status = Command::new("systemctl")
         .args([
@@ -751,6 +837,16 @@ fn request_user_prompt() -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn request_user_prompt() -> Result<(), String> {
+    prompt_firmware_command()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn request_user_prompt() -> Result<(), String> {
+    Err("firmware prompts are unsupported on this platform".to_string())
+}
+
 fn wait_for_bootloader_mount(timeout: Duration) -> Result<PathBuf, String> {
     eprintln!("Waiting for RPI-RP2 bootloader mount. Put the connected Silakka54 half into bootloader mode if needed.");
     let deadline = Instant::now() + timeout;
@@ -765,37 +861,121 @@ fn wait_for_bootloader_mount(timeout: Duration) -> Result<PathBuf, String> {
 
 fn find_bootloader_mount() -> Option<PathBuf> {
     let user = std::env::var("USER").unwrap_or_else(|_| "conroy".to_string());
-    for path in [
-        format!("/run/media/{user}/RPI-RP2"),
-        format!("/media/{user}/RPI-RP2"),
-        "/mnt/RPI-RP2".to_string(),
-    ] {
-        let path = PathBuf::from(path);
-        if path.is_dir() {
-            return Some(path);
-        }
+    let candidates = [
+        PathBuf::from(format!("/run/media/{user}/RPI-RP2")),
+        PathBuf::from(format!("/media/{user}/RPI-RP2")),
+        PathBuf::from("/mnt/RPI-RP2"),
+        PathBuf::from("/Volumes/RPI-RP2"),
+    ];
+    if let Some(path) = find_existing_mount(candidates.iter()) {
+        return Some(path);
     }
 
     let mounts = fs::read_to_string("/proc/mounts").ok()?;
-    for line in mounts.lines() {
-        let mount = line.split_whitespace().nth(1)?;
-        let mount = mount.replace("\\040", " ");
+    mounts.lines().find_map(|line| {
+        let mount = line.split_whitespace().nth(1)?.replace("\\040", " ");
         let path = PathBuf::from(mount);
-        if path.file_name().is_some_and(|name| name == "RPI-RP2") && path.is_dir() {
-            return Some(path);
-        }
-    }
-    None
+        is_bootloader_mount(&path).then_some(path)
+    })
 }
 
-fn sync_mount(path: &Path) -> Result<(), String> {
-    let status = Command::new("sync")
-        .arg(path)
-        .status()
-        .map_err(|error| format!("failed to sync {}: {error}", path.display()))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("sync {} exited with {status}", path.display()))
+fn find_existing_mount<'a>(paths: impl Iterator<Item = &'a PathBuf>) -> Option<PathBuf> {
+    paths
+        .filter(|path| is_bootloader_mount(path))
+        .cloned()
+        .next()
+}
+
+fn is_bootloader_mount(path: &Path) -> bool {
+    path.is_dir() && path.file_name().is_some_and(|name| name == "RPI-RP2")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+    use std::sync::Mutex;
+
+    #[derive(Default)]
+    struct MockTransport {
+        writes: Mutex<Vec<Vec<u8>>>,
+        reads: Mutex<VecDeque<Vec<u8>>>,
+    }
+
+    impl HidTransport for MockTransport {
+        fn write(&self, data: &[u8]) -> Result<usize, String> {
+            self.writes.lock().unwrap().push(data.to_vec());
+            Ok(data.len())
+        }
+
+        fn read_timeout(&self, data: &mut [u8], _timeout_ms: i32) -> Result<usize, String> {
+            let Some(response) = self.reads.lock().unwrap().pop_front() else {
+                return Ok(0);
+            };
+            data[..response.len()].copy_from_slice(&response);
+            Ok(response.len())
+        }
+    }
+
+    #[test]
+    fn transaction_adds_zero_report_id() {
+        let transport = MockTransport::default();
+        let mut response = vec![0; REPORT_LEN];
+        response[0] = ID_GET_PROTOCOL_VERSION;
+        transport.reads.lock().unwrap().push_back(response);
+
+        raw_transaction(
+            &transport,
+            command_report(ID_GET_PROTOCOL_VERSION),
+            ID_GET_PROTOCOL_VERSION,
+            Duration::from_millis(10),
+        )
+        .unwrap();
+
+        let writes = transport.writes.lock().unwrap();
+        assert_eq!(writes[0].len(), REPORT_LEN + 1);
+        assert_eq!(writes[0][0], 0);
+        assert_eq!(writes[0][1], ID_GET_PROTOCOL_VERSION);
+    }
+
+    #[test]
+    fn transaction_accepts_leading_report_id() {
+        let transport = MockTransport::default();
+        let mut response = vec![0; REPORT_LEN + 1];
+        response[1] = ID_GET_PROTOCOL_VERSION;
+        transport.reads.lock().unwrap().push_back(response);
+
+        let result = raw_transaction(
+            &transport,
+            command_report(ID_GET_PROTOCOL_VERSION),
+            ID_GET_PROTOCOL_VERSION,
+            Duration::from_millis(10),
+        )
+        .unwrap();
+        assert_eq!(result[0], ID_GET_PROTOCOL_VERSION);
+    }
+
+    #[test]
+    fn watcher_reconciles_only_new_devices() {
+        let first = BTreeSet::from([b"first".to_vec()]);
+        let both = BTreeSet::from([b"first".to_vec(), b"second".to_vec()]);
+        assert!(should_reconcile(&BTreeSet::new(), &first));
+        assert!(!should_reconcile(&first, &first));
+        assert!(should_reconcile(&first, &both));
+        assert!(!should_reconcile(&both, &BTreeSet::new()));
+    }
+
+    #[test]
+    fn mount_detection_requires_expected_volume_name() {
+        let root = std::env::temp_dir().join(format!("silakka54-sync-test-{}", std::process::id()));
+        let expected = root.join("RPI-RP2");
+        let other = root.join("OTHER");
+        fs::create_dir_all(&expected).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        assert_eq!(
+            find_existing_mount([&other, &expected].into_iter()),
+            Some(expected.clone())
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }

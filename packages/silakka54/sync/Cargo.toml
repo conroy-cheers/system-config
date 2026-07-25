@@ -1,0 +1,13 @@
+[package]
+name = "silakka54-sync"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hidapi = { version = "2.6.5", default-features = false }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+hidapi = { version = "2.6.5", default-features = false, features = ["linux-shared-hidraw"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+hidapi = { version = "2.6.5", default-features = false, features = ["macos-shared-device"] }

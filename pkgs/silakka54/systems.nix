@@ -1,3 +1,3 @@
 { hostPlatform, ... }:
 
-hostPlatform.isLinux
+hostPlatform.isLinux || hostPlatform.isDarwin

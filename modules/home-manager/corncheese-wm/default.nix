@@ -113,7 +113,6 @@ in
           description = "Keyboard profiles passed to keyboard-layer-viewer.";
         };
       };
-      silakka54.enable = mkEnableOption "Silakka54 firmware and keymap sync";
     };
   };
 

@@ -70,6 +70,7 @@ in
       scm = {
         git.enable = true;
       };
+      silakka54.enable = true;
       theming = {
         enable = true;
         theme = "catppuccin";
