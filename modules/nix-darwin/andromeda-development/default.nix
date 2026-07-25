@@ -61,19 +61,9 @@ in
           chown -R root:wheel "$AWS_DIR"
         '';
 
-      nix = mkMerge [
-        {
-          envVars = {
-            AWS_DEFAULT_REGION = "ap-southeast-2";
-          };
-          settings = {
-            extra-substituters = [ "s3://andromedarobotics-artifacts?region=ap-southeast-2" ];
-            extra-trusted-public-keys = [
-              "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
-            ];
-          };
-        }
-      ];
+      nix.envVars = {
+        AWS_DEFAULT_REGION = "ap-southeast-2";
+      };
     })
     (mkIf cfg.nixDaemonSecrets.enable {
       # AWS secrets creds for nix-daemon

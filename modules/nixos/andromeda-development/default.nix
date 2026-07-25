@@ -97,7 +97,6 @@ in
             netrc-file = nixCacheCfNetrcPath;
             substituters = [
               "https://nix-cache-cf.dromeda.com.au"
-              "s3://andromedarobotics-artifacts?region=ap-southeast-2"
             ];
             trusted-public-keys = [
               "nix-cache.dromeda.com.au-1:x4QtHKlCwaG6bVGvlzgNng+x7WgZCZc7ctrjlz6sDHg="
