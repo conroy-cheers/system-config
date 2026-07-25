@@ -13,28 +13,48 @@ let
   walbridgePackage = walbridgePackages.default;
   walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
+  colorshellAgsJsPackage =
+    inputs.colorshell.passthru.inputs.ags.packages.${pkgs.stdenv.hostPlatform.system}.ags.jsPackage;
   colorshellPackage = (
-    inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs (oldAttrs: {
-      postInstall = (oldAttrs.postInstall or "") + ''
-        substituteInPlace resources/config/hyprland/runtime.lua \
-          --replace-fail '"$HOME/.config"' '"${config.xdg.configHome}"' \
-          --replace-fail '"$HOME/.cache"' '"${config.xdg.cacheHome}"' \
-          --replace-fail '"$HOME/.local/share"' '"${config.xdg.dataHome}"' \
-          --replace-fail '"$HOME/.local/state"' '"${config.xdg.stateHome}"'
+    inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs (
+      finalAttrs: oldAttrs: {
+        src = oldAttrs.src.overrideAttrs (oldSrcAttrs: {
+          postPatch = (oldSrcAttrs.postPatch or "") + ''
+            substituteInPlace pnpm-lock.yaml \
+              --replace-fail "../../../..${colorshellAgsJsPackage}" "./ags-js-lib" \
+              --replace-fail "${colorshellAgsJsPackage}" "./ags-js-lib"
+            substituteInPlace package.json \
+              --replace-fail "${colorshellAgsJsPackage}" "./ags-js-lib"
+            cp -r ${colorshellAgsJsPackage} ags-js-lib
+          '';
+        });
 
-        substituteInPlace resources/config/hyprland/environment.conf \
-          --replace-fail '$HOME/.config' '${config.xdg.configHome}' \
-          --replace-fail '$HOME/.cache' '${config.xdg.cacheHome}' \
-          --replace-fail '$HOME/.local/share' '${config.xdg.dataHome}' \
-          --replace-fail '$HOME/.local/state' '${config.xdg.stateHome}'
+        pnpmDeps = oldAttrs.pnpmDeps.overrideAttrs {
+          src = finalAttrs.src;
+        };
+        npmDeps = finalAttrs.pnpmDeps;
 
-        printf '%s\n' 'nixos-xdg-home-2026-05-24' > resources/config/hyprland/.last-updated
+        postInstall = (oldAttrs.postInstall or "") + ''
+          substituteInPlace resources/config/hyprland/runtime.lua \
+            --replace-fail '"$HOME/.config"' '"${config.xdg.configHome}"' \
+            --replace-fail '"$HOME/.cache"' '"${config.xdg.cacheHome}"' \
+            --replace-fail '"$HOME/.local/share"' '"${config.xdg.dataHome}"' \
+            --replace-fail '"$HOME/.local/state"' '"${config.xdg.stateHome}"'
 
-        glib-compile-resources resources.gresource.xml \
-          --sourcedir ./resources \
-          --target "$out/share/colorshell/resources.gresource"
-      '';
-    })
+          substituteInPlace resources/config/hyprland/environment.conf \
+            --replace-fail '$HOME/.config' '${config.xdg.configHome}' \
+            --replace-fail '$HOME/.cache' '${config.xdg.cacheHome}' \
+            --replace-fail '$HOME/.local/share' '${config.xdg.dataHome}' \
+            --replace-fail '$HOME/.local/state' '${config.xdg.stateHome}'
+
+          printf '%s\n' 'nixos-xdg-home-2026-05-24' > resources/config/hyprland/.last-updated
+
+          glib-compile-resources resources.gresource.xml \
+            --sourcedir ./resources \
+            --target "$out/share/colorshell/resources.gresource"
+        '';
+      }
+    )
   );
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     source = ~/.cache/wal/colors-hyprland.conf
