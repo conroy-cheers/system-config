@@ -4255,11 +4255,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785072766,
-        "narHash": "sha256-iMWhn/8pKO0djqXSLG0PiMO3bpOMBXLg7Vgj6OTXudE=",
+        "lastModified": 1785076348,
+        "narHash": "sha256-MzpyAIlVh0kAQbhyJQ00O52QNeZbzoNrUZXS0CXzbAo=",
         "owner": "conroy-cheers",
         "repo": "tinymux",
-        "rev": "0e1994fc60e0db0eba42834e8fae59a7456c1ca6",
+        "rev": "79580069fbb425eaf4b228f332863b5e5bb94942",
         "type": "github"
       },
       "original": {

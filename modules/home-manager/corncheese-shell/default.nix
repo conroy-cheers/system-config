@@ -94,25 +94,6 @@ let
     + (oldAttrs.preFixup or "");
   });
 
-  tinymuxPackage =
-    let
-      package = inputs.tinymux.packages.${pkgs.stdenv.hostPlatform.system}.tinymux;
-    in
-    package.overrideAttrs (oldAttrs: {
-      nativeCheckInputs = (oldAttrs.nativeCheckInputs or [ ]) ++ [
-        pkgs.direnv
-        inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default
-      ];
-      checkPhase = ''
-        runHook preCheck
-        export ZIG_GLOBAL_CACHE_DIR="$TMPDIR/zig-global-cache"
-        export ZIG_LOCAL_CACHE_DIR="$TMPDIR/zig-local-cache"
-        zig build test -Dghostty-src=.nix-ghostty --summary all
-        python3 tests/spec/tinymux_contract.py --tinymux "$out/bin/tinymux" --persistent-only
-        runHook postCheck
-      '';
-    });
-
   inherit (lib)
     mkEnableOption
     mkOption
@@ -231,7 +212,10 @@ in
       };
       programs.tinymux = {
         enable = lib.mkDefault true;
-        package = lib.mkDefault tinymuxPackage;
+        session = {
+          enable = lib.mkDefault (builtins.elem "fish" cfg.shells);
+          shells = lib.mkDefault [ "fish" ];
+        };
         direnvInstant = {
           enable = lib.mkDefault cfg.direnv;
           package = lib.mkDefault null;
@@ -357,28 +341,6 @@ in
         enable = true;
         package = pkgs.fish;
         interactiveShellInit = lib.mkMerge [
-          (mkIf config.programs.tinymux.enable (
-            lib.mkBefore ''
-              function __tinymux_bootstrap_session
-                status is-interactive; or return 1
-                test -t 0; and test -t 1; or return 1
-                set -q TINYMUX; and return 1
-                test "$TINYMUX_DISABLE" = 1; and return 1
-                set -q TMUX; and return 1
-                set -q ZELLIJ; and return 1
-                set -q KITTY_LISTEN_ON; and return 1
-                test "$TERM_PROGRAM" = WezTerm; and return 1
-                return 0
-              end
-
-              if __tinymux_bootstrap_session
-                set -l __tinymux_fish_args --interactive
-                status is-login; and set -a __tinymux_fish_args --login
-                exec ${config.programs.tinymux.package}/bin/tinymux session -- ${pkgs.fish}/bin/fish $__tinymux_fish_args
-              end
-              functions -e __tinymux_bootstrap_session
-            ''
-          ))
           (mkIf cfg.direnv ''
             # Erase direnv's vendor fish hooks — direnv-instant replaces them.
             # The vendor_conf.d/direnv.fish registers these before config.fish runs.
