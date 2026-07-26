@@ -1,12 +1,188 @@
+diff --git a/docs/benchmarks.md b/docs/benchmarks.md
+index 4c731c5d8d0bb60729a56ddcba3f036b5b1613be..756f854cacfab889309738af9ce2fd41e2199f5e 100644
+--- a/docs/benchmarks.md
++++ b/docs/benchmarks.md
+@@ -87,0 +88,19 @@ baseline on the same machine.
++
++## Before/After Raw-Mode Gate
++
++Architectural changes to the raw path should be measured against the previous
++binary on the same machine. Record both runs with identical full-profile
++arguments, then compare them:
++
++```sh
++python3 tests/benchmarks/tinymux_bench.py --tinymux ./tinymux-before \
++  --profile full --modes raw --json /tmp/tinymux-before.json
++python3 tests/benchmarks/tinymux_bench.py --tinymux ./tinymux-after \
++  --profile full --modes raw --json /tmp/tinymux-after.json
++python3 tests/benchmarks/compare_raw.py \
++  /tmp/tinymux-before.json /tmp/tinymux-after.json
++```
++
++The gate rejects a raw throughput median more than 5% slower than baseline, or
++a worst cadence gap/input-echo latency more than 2 ms above baseline. Both JSON
++files must contain the same raw workloads; missing candidate results also fail.
+diff --git a/docs/persistent-session.md b/docs/persistent-session.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..c6a88f906dba618afd84414b78d9ba50986ba6b7
+--- /dev/null
++++ b/docs/persistent-session.md
+@@ -0,0 +1,62 @@
++# Persistent Session Architecture
++
++Tinymux owns one main PTY for the lifetime of a terminal tab. With no
++auxiliary pane, main output is written directly to the outer terminal so the
++terminal retains native scrolling and its normal output performance. A bounded
++shadow journal advances the VT model in event-loop budgets and is fully caught
++up before a split transition.
++
++## State machine
++
++```text
++RAW -- pane.run --> SHADOW BARRIER --> COMPOSED(generation)
++ ^                                         |
++ +--------- IN-PLACE HANDOFF <-------------+
++```
++
++Opening a split drains ready main output, catches up the shadow model, creates
++the auxiliary PTY, and resizes the main PTY to the reduced tmux-style geometry.
++Tinymux then composes both panes on the outer terminal's current screen buffer.
++It does not enter an alternate screen on behalf of the split.
++
++Closing a split drains pre-resize output, destroys the auxiliary PTY, expands
++the main PTY, and repaints every primary or alternate screen buffer touched by
++composition. The repaint uses cursor-addressed writes inside synchronized
++updates. It never replays history, emits linefeeds to manufacture native
++scrollback, or waits for application-specific prompt markers. Once the main
++terminal modes and screen state have been restored, future output resumes raw
++passthrough.
++
++The main application may enter or leave its own alternate screen while a split
++is visible. Those application-owned switches are mirrored to the outer
++terminal, and both touched buffers are reconciled before raw handoff.
++
++## Scrollback and host effects
++
++Native scrollback is guaranteed in raw mode. While composed, Tinymux emits only
++standard top-origin scrolling-region operations; terminals may retain those
++lines in native history, but Tinymux's pane history is authoritative until the
++split closes. Closing a split does not replay that history.
++
++Main-pane BEL, title, OSC 7, and OSC 133 effects are forwarded while composed.
++Auxiliary panes cannot publish host-level title, cwd, or prompt effects.
++
++## Control API
++
++The native surface is deliberately generic:
++
++```text
++tinymux pane run [--rows N] -- command ...
++tinymux pane close GENERATION
++tinymux pane status
++```
++
++There is one auxiliary slot. A busy `run` is rejected, and a stale generation
++close is a successful no-op. Pane roles, replacement policies, argv inspection,
++and direnv-specific lifecycle behavior are not part of the architecture. The
++tmux `split-window` and `kill-pane` shim maps onto the same operations.
++
++Malformed requests and normal busy/stale conditions are client errors. Once a
++valid terminal transition begins, an inability to resize, render, or reconcile
++is fatal: Tinymux performs best-effort terminal cleanup and exits nonzero rather
++than continuing from an uncertain physical-terminal state.
+diff --git a/docs/subset.md b/docs/subset.md
+index b8d0a7d7515891cd273e7c8ec1ccb21787124bcf..c181c8588ad34d9669ba0c84008419087a5b803d 100644
+--- a/docs/subset.md
++++ b/docs/subset.md
+@@ -7,0 +8,5 @@ but is not required for v1.
++The fixed two-pane CLI described below is the original v1 surface. Persistent
++`tinymux session` operation starts with one raw-passthrough main pane and creates
++one auxiliary pane through the control API. Its composition and handoff
++contract is defined in `persistent-session.md`.
++
+@@ -71,0 +77,6 @@ but is not required for v1.
++- `TERM-012` REQUIRED for persistent sessions: opening or closing an auxiliary
++  pane does not create or destroy an outer alternate screen for that pane;
++  application-owned primary/alternate transitions remain mirrored.
++- `TERM-013` REQUIRED for persistent sessions: closing an auxiliary pane uses
++  cursor-addressed reconciliation and does not replay pane history or emit
++  linefeeds to manufacture outer scrollback.
+diff --git a/modules/home-manager/tinymux.nix b/modules/home-manager/tinymux.nix
+index 5cf9579c0b81178593edb17bb692744344e8b518..20da1b5f4f311d22c6408cbc99c5f7fcaf93f33e 100644
+--- a/modules/home-manager/tinymux.nix
++++ b/modules/home-manager/tinymux.nix
+@@ -25,0 +26,16 @@ in
++    session = {
++      enable = mkEnableOption "a persistent tinymux session for interactive shells";
++
++      shells = mkOption {
++        type = types.listOf (types.enum [ "fish" ]);
++        default = [ "fish" ];
++        description = "Interactive shells bootstrapped inside a persistent tinymux session.";
++      };
++
++      externalMuxPolicy = mkOption {
++        type = types.enum [ "skip" "nest" ];
++        default = "skip";
++        description = "Whether to skip bootstrap when another supported multiplexer is active.";
++      };
++    };
++
+@@ -59,5 +75,29 @@ in
+-    programs.fish.interactiveShellInit = mkIf
+-      (cfg.direnvInstant.enable && elem "fish" cfg.direnvInstant.shells)
+-      (lib.mkAfter ''
+-        ${wrapper} hook fish | source
+-      '');
++    programs.fish.interactiveShellInit = lib.mkMerge [
++      (mkIf (cfg.session.enable && elem "fish" cfg.session.shells) (lib.mkBefore ''
++        function __tinymux_bootstrap_session
++          status is-interactive; or return 1
++          test -t 0; and test -t 1; or return 1
++          set -q TINYMUX; and return 1
++          test "$TINYMUX_DISABLE" = 1; and return 1
++          ${lib.optionalString (cfg.session.externalMuxPolicy == "skip") ''
++            set -q TMUX; and return 1
++            set -q ZELLIJ; and return 1
++            set -q KITTY_LISTEN_ON; and return 1
++            test "$TERM_PROGRAM" = WezTerm; and return 1
++          ''}
++          return 0
++        end
++
++        if __tinymux_bootstrap_session
++          set -l __tinymux_fish_args --interactive
++          status is-login; and set -a __tinymux_fish_args --login
++          exec ${cfg.package}/bin/tinymux session -- ${pkgs.fish}/bin/fish $__tinymux_fish_args
++        end
++        functions -e __tinymux_bootstrap_session
++      ''))
++      (mkIf
++        (cfg.direnvInstant.enable && elem "fish" cfg.direnvInstant.shells)
++        (lib.mkAfter ''
++          ${wrapper} hook fish | source
++        ''))
++    ];
 diff --git a/src/main.zig b/src/main.zig
-index da4a2bf..1798b64 100644
+index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362e5373ac1 100644
 --- a/src/main.zig
 +++ b/src/main.zig
-@@ -37,0 +38,3 @@ const deferred_raw_state_limit: usize = 64 * 1024 * 1024;
-+const split_main_output_limit: usize = 64 * 1024 * 1024;
-+const direnv_prompt_wait_timeout_ns: i128 = 2 * std.time.ns_per_s;
-+const prompt_protocol_prefix = "\x1b]133;";
-@@ -205,0 +209,10 @@ pub fn main() !void {
+@@ -16,2 +15,0 @@ const exit_drain_ms: i64 = 50;
+-const raw_transition_drain_ms: i64 = 120;
+-const raw_transition_idle_ms: i32 = 10;
+@@ -37,0 +36,7 @@ const deferred_raw_state_limit: usize = 64 * 1024 * 1024;
++const deferred_raw_catchup_bytes: usize = 1024 * 1024;
++const deferred_raw_catchup_ns: i128 = 1 * std.time.ns_per_ms;
++const deferred_raw_catchup_delay_ns: i128 = 25 * std.time.ns_per_ms;
++const deferred_raw_catchup_slice: usize = 256 * 1024;
++const deferred_raw_bulk_threshold: usize = 16 * 1024 * 1024;
++const deferred_raw_bulk_catchup_bytes: usize = 8 * 1024 * 1024;
++const deferred_raw_bulk_catchup_ns: i128 = 6 * std.time.ns_per_ms;
+@@ -51,2 +56 @@ const synchronized_update_end = "\x1b[?2026l";
+-const enter_canvas = "\x1b[?1049h\x1b[?1002h\x1b[?1006h\x1b[?25l\x1b[H\x1b[2J";
+-const leave_canvas = restore_terminal_sequence ++ "\x1b[?1049l";
++const mux_mouse_enable = "\x1b[?1002h\x1b[?1006h";
+@@ -205,0 +210,10 @@ pub fn main() !void {
 +    if (args.len >= 2 and std.mem.eql(u8, args[1], "pane")) {
 +        const code = runNativeControlClient(alloc, args[1..]) catch |err| blk: {
 +            var stderr = std.fs.File.stderr().writer(&.{});
@@ -17,62 +193,32 @@ index da4a2bf..1798b64 100644
 +        return;
 +    }
 +
-@@ -234,0 +248,4 @@ fn printUsage(err: anyerror) !void {
+@@ -234,0 +249,4 @@ fn printUsage(err: anyerror) !void {
 +        \\  tinymux session [--no-tmux-compat] -- <main-argv...>
-+        \\  tinymux pane run [--role direnv|manual] [--replace=same-role] [--rows <n>] -- <argv...>
++        \\  tinymux pane run [--rows <n>] -- <argv...>
 +        \\  tinymux pane close <generation>
 +        \\  tinymux pane status
-@@ -243,0 +261 @@ fn printUsage(err: anyerror) !void {
+@@ -243,0 +262 @@ fn printUsage(err: anyerror) !void {
 +        \\  session             run one seamless multiplexer for the main process lifetime
-@@ -318,0 +337 @@ const Config = struct {
+@@ -318,0 +338 @@ const Config = struct {
 +    session: bool = false,
-@@ -325,0 +345,5 @@ fn parseArgs(args: []const []const u8) !Config {
+@@ -325,0 +346,5 @@ fn parseArgs(args: []const []const u8) !Config {
 +    if (i < args.len and std.mem.eql(u8, args[i], "session")) {
 +        config.session = true;
 +        config.seamless = true;
 +        i += 1;
 +    }
-@@ -361,0 +386 @@ fn parseArgs(args: []const []const u8) !Config {
+@@ -361,0 +387 @@ fn parseArgs(args: []const []const u8) !Config {
 +    if (config.session and config.handoff_state != null) return error.SessionDoesNotUseHandoff;
-@@ -756,0 +782 @@ const tmux_control_magic = "TINYMUX_TMUX_CONTROL_1";
+@@ -756,0 +783 @@ const tmux_control_magic = "TINYMUX_TMUX_CONTROL_1";
 +const native_control_magic = "TINYMUX_CONTROL_2";
-@@ -759,0 +786,3 @@ const max_control_items: usize = 4096;
+@@ -759,0 +787,3 @@ const max_control_items: usize = 4096;
 +const max_control_request: usize = 16 * 1024 * 1024;
 +const max_control_connections: usize = 16;
 +const control_connection_timeout_ns: i128 = 2 * std.time.ns_per_s;
-@@ -763,0 +793,39 @@ const SplitWindowCommand = struct {
-+
-+    fn paneRole(self: SplitWindowCommand) PaneRole {
-+        for (self.argv) |arg| {
-+            if (std.mem.indexOf(u8, std.fs.path.basename(arg), "direnv-instant") != null) {
-+                return .direnv;
-+            }
-+        }
-+        return .tmux_compat;
-+    }
-+};
-+
-+const PaneRole = enum {
-+    direnv,
-+    manual,
-+    tmux_compat,
-+
-+    fn parse(value: []const u8) !PaneRole {
-+        if (std.mem.eql(u8, value, "direnv")) return .direnv;
-+        if (std.mem.eql(u8, value, "manual")) return .manual;
-+        return error.UnsupportedPaneRole;
-+    }
-+};
-+
-+const ReplacePolicy = enum {
-+    reject,
-+    same_role,
-+};
-+
+@@ -765,0 +796,11 @@ const SplitWindowCommand = struct {
 +const PaneRunCommand = struct {
 +    rows: u16,
-+    role: PaneRole,
-+    replace: ReplacePolicy,
 +    argv: []const []const u8,
 +};
 +
@@ -80,13 +226,13 @@ index da4a2bf..1798b64 100644
 +    pane_run: PaneRunCommand,
 +    pane_close: u64,
 +    pane_status,
-@@ -786,0 +855,48 @@ fn parseTmuxCommand(args: []const []const u8) !TmuxCommand {
++};
++
+@@ -786,0 +828,36 @@ fn parseTmuxCommand(args: []const []const u8) !TmuxCommand {
 +fn parseNativeCommand(args: []const []const u8) !NativeCommand {
 +    if (args.len < 2 or !std.mem.eql(u8, args[0], "pane")) return error.UnsupportedControlCommand;
 +    if (std.mem.eql(u8, args[1], "run")) {
 +        var rows = default_split_rows;
-+        var role: PaneRole = .manual;
-+        var replace: ReplacePolicy = .reject;
 +        var i: usize = 2;
 +        while (i < args.len) {
 +            const arg = args[i];
@@ -98,14 +244,6 @@ index da4a2bf..1798b64 100644
 +                if (i >= args.len) return error.MissingSplitRows;
 +                rows = try parseTmuxRows(args[i]);
 +                i += 1;
-+            } else if (std.mem.eql(u8, arg, "--role")) {
-+                i += 1;
-+                if (i >= args.len) return error.MissingPaneRole;
-+                role = try PaneRole.parse(args[i]);
-+                i += 1;
-+            } else if (std.mem.eql(u8, arg, "--replace=same-role")) {
-+                replace = .same_role;
-+                i += 1;
 +            } else {
 +                return error.UnsupportedPaneOption;
 +            }
@@ -113,8 +251,6 @@ index da4a2bf..1798b64 100644
 +        if (i >= args.len) return error.MissingSplitCommand;
 +        return .{ .pane_run = .{
 +            .rows = rows,
-+            .role = role,
-+            .replace = replace,
 +            .argv = args[i..],
 +        } };
 +    }
@@ -129,9 +265,9 @@ index da4a2bf..1798b64 100644
 +    return error.UnsupportedControlCommand;
 +}
 +
-@@ -845,0 +962 @@ const TmuxRuntime = struct {
+@@ -845,0 +923 @@ const TmuxRuntime = struct {
 +    session_id: []const u8,
-@@ -853,5 +970,21 @@ const TmuxRuntime = struct {
+@@ -853,5 +931,21 @@ const TmuxRuntime = struct {
 -        const dir_path = try std.fmt.allocPrint(
 -            alloc,
 -            "{s}/tinymux-{d}-{d}",
@@ -158,14 +294,14 @@ index da4a2bf..1798b64 100644
 +        const dir_name = try std.fmt.allocPrint(alloc, "tinymux-{s}", .{session_id});
 +        defer alloc.free(dir_name);
 +        const dir_path = try std.fs.path.join(alloc, &.{ runtime_root, dir_name });
-@@ -860 +993 @@ const TmuxRuntime = struct {
+@@ -860 +954 @@ const TmuxRuntime = struct {
 -        try std.fs.makeDirAbsolute(dir_path);
 +        try posix.mkdir(dir_path, 0o700);
-@@ -877,0 +1011 @@ const TmuxRuntime = struct {
+@@ -877,0 +972 @@ const TmuxRuntime = struct {
 +            .session_id = session_id,
-@@ -890,0 +1025 @@ const TmuxRuntime = struct {
+@@ -890,0 +986 @@ const TmuxRuntime = struct {
 +        alloc.free(self.session_id);
-@@ -894,0 +1030,17 @@ const TmuxRuntime = struct {
+@@ -894,0 +991,17 @@ const TmuxRuntime = struct {
 +fn ensurePrivateRuntimeDir(path: []const u8) bool {
 +    posix.mkdir(path, 0o700) catch |err| switch (err) {
 +        error.PathAlreadyExists => {},
@@ -183,9 +319,9 @@ index da4a2bf..1798b64 100644
 +    auxiliary,
 +};
 +
-@@ -899,0 +1052 @@ fn applyTinymuxEnv(
+@@ -899,0 +1013 @@ fn applyTinymuxEnv(
 +    role: TinymuxEnvRole,
-@@ -901,0 +1055,9 @@ fn applyTinymuxEnv(
+@@ -901,0 +1016,9 @@ fn applyTinymuxEnv(
 +
 +    if (role != .main_session) {
 +        // Host integration belongs only to the persistent main shell. Nested
@@ -195,17 +331,17 @@ index da4a2bf..1798b64 100644
 +        _ = env.remove("GHOSTTY_SHELL_INTEGRATION_XDG_DIR");
 +    }
 +
-@@ -902,0 +1065,2 @@ fn applyTinymuxEnv(
+@@ -902,0 +1026,2 @@ fn applyTinymuxEnv(
 +        try env.put("TINYMUX_SESSION_ID", rt.session_id);
 +        try env.put("TINYMUX_CONTROL", rt.socket_path);
-@@ -903,0 +1068 @@ fn applyTinymuxEnv(
+@@ -903,0 +1029 @@ fn applyTinymuxEnv(
 +        try env.put("TINYMUX_SHIM_DIR", rt.dir_path);
-@@ -985,0 +1151,2 @@ const SocketReader = struct {
+@@ -985,0 +1112,2 @@ const SocketReader = struct {
 +const ControlProtocol = enum { tmux_v1, native_v2 };
 +
-@@ -986,0 +1154 @@ const ControlRequest = struct {
+@@ -986,0 +1115 @@ const ControlRequest = struct {
 +    protocol: ControlProtocol,
-@@ -995 +1163,7 @@ const ControlRequest = struct {
+@@ -995 +1124,7 @@ const ControlRequest = struct {
 -        if (!std.mem.eql(u8, magic, tmux_control_magic)) return error.InvalidControlMagic;
 +        const control_protocol: ControlProtocol =
 +            if (std.mem.eql(u8, magic, tmux_control_magic))
@@ -214,7 +350,7 @@ index da4a2bf..1798b64 100644
 +                .native_v2
 +            else
 +                return error.InvalidControlMagic;
-@@ -1026 +1200,43 @@ const ControlRequest = struct {
+@@ -1026 +1161,43 @@ const ControlRequest = struct {
 -        return .{ .cwd = cwd, .argv = argv, .env = env };
 +        return .{ .protocol = control_protocol, .cwd = cwd, .argv = argv, .env = env };
 +    }
@@ -259,7 +395,7 @@ index da4a2bf..1798b64 100644
 +        if (reader.index != data.len) return error.TrailingControlData;
 +
 +        return .{ .protocol = control_protocol, .cwd = cwd, .argv = argv, .env = env };
-@@ -1037,0 +1254,45 @@ const ControlRequest = struct {
+@@ -1037,0 +1215,45 @@ const ControlRequest = struct {
 +const ControlBufferReader = struct {
 +    data: []const u8,
 +    index: usize = 0,
@@ -305,7 +441,7 @@ index da4a2bf..1798b64 100644
 +    }
 +};
 +
-@@ -1074,2 +1335,8 @@ fn writeControlResponse(fd: posix.fd_t, ok: bool, message: []const u8) void {
+@@ -1074,2 +1296,8 @@ fn writeControlResponse(fd: posix.fd_t, ok: bool, message: []const u8) void {
 -fn writeShimRequest(alloc: std.mem.Allocator, fd: posix.fd_t, args: []const []const u8) !void {
 -    try protocol.writeAll(fd, tmux_control_magic ++ "\n");
 +fn writeControlRequest(
@@ -316,10 +452,10 @@ index da4a2bf..1798b64 100644
 +) !void {
 +    try protocol.writeAll(fd, magic);
 +    try protocol.writeAll(fd, "\n");
-@@ -1106 +1373 @@ fn runTmuxShim(alloc: std.mem.Allocator, args: []const []const u8) !u8 {
+@@ -1106 +1334 @@ fn runTmuxShim(alloc: std.mem.Allocator, args: []const []const u8) !u8 {
 -    try writeShimRequest(alloc, stream.handle, args);
 +    try writeControlRequest(alloc, stream.handle, tmux_control_magic, args);
-@@ -1117,0 +1385,27 @@ fn runTmuxShim(alloc: std.mem.Allocator, args: []const []const u8) !u8 {
+@@ -1117,0 +1346,27 @@ fn runTmuxShim(alloc: std.mem.Allocator, args: []const []const u8) !u8 {
 +fn runNativeControlClient(alloc: std.mem.Allocator, args: []const []const u8) !u8 {
 +    const socket_path = posix.getenv("TINYMUX_CONTROL") orelse
 +        posix.getenv("TINYMUX_TMUX_SOCKET") orelse {
@@ -347,14 +483,189 @@ index da4a2bf..1798b64 100644
 +    return 0;
 +}
 +
-@@ -1682,0 +1977,36 @@ const Pane = struct {
-+    fn terminalStateWithoutCursor(self: *Pane, alloc: std.mem.Allocator) ![]u8 {
+@@ -1263,0 +1519,169 @@ const PlainCursorState = struct {
++const ScreenSwitchMirror = struct {
++    const State = enum { ground, escape, csi };
++
++    state: State = .ground,
++    bytes: [32]u8 = undefined,
++    len: usize = 0,
++
++    fn reset(self: *ScreenSwitchMirror) void {
++        self.state = .ground;
++        self.len = 0;
++    }
++
++    fn startEscape(self: *ScreenSwitchMirror) void {
++        self.state = .escape;
++        self.len = 1;
++        self.bytes[0] = 0x1b;
++    }
++
++    fn feed(
++        self: *ScreenSwitchMirror,
++        alloc: std.mem.Allocator,
++        input: []const u8,
++        out: *std.ArrayList(u8),
++        primary_touched: *bool,
++        alternate_touched: *bool,
++    ) !void {
++        for (input) |byte| {
++            switch (self.state) {
++                .ground => if (byte == 0x1b) self.startEscape(),
++                .escape => {
++                    if (byte == '[') {
++                        self.bytes[1] = byte;
++                        self.len = 2;
++                        self.state = .csi;
++                    } else if (byte == 0x1b) {
++                        self.startEscape();
++                    } else {
++                        self.reset();
++                    }
++                },
++                .csi => {
++                    if (self.len >= self.bytes.len) {
++                        self.reset();
++                        if (byte == 0x1b) self.startEscape();
++                        continue;
++                    }
++                    self.bytes[self.len] = byte;
++                    self.len += 1;
++                    if (byte < 0x40 or byte > 0x7e) continue;
++
++                    const sequence = self.bytes[0..self.len];
++                    const target: ?bool = if (std.mem.eql(u8, sequence, "\x1b[?47h") or
++                        std.mem.eql(u8, sequence, "\x1b[?1047h") or
++                        std.mem.eql(u8, sequence, "\x1b[?1049h"))
++                        true
++                    else if (std.mem.eql(u8, sequence, "\x1b[?47l") or
++                        std.mem.eql(u8, sequence, "\x1b[?1047l") or
++                        std.mem.eql(u8, sequence, "\x1b[?1049l"))
++                        false
++                    else
++                        null;
++                    if (target) |alternate| {
++                        try out.appendSlice(alloc, sequence);
++                        if (alternate) alternate_touched.* = true else primary_touched.* = true;
++                    }
++                    self.reset();
++                },
++            }
++        }
++    }
++};
++
++const HostEffectMirror = struct {
++    const State = enum { ground, escape, osc, osc_escape, osc_discard, osc_discard_escape };
++
++    state: State = .ground,
++    bytes: [4096]u8 = undefined,
++    len: usize = 0,
++
++    fn reset(self: *HostEffectMirror) void {
++        self.state = .ground;
++        self.len = 0;
++    }
++
++    fn startEscape(self: *HostEffectMirror) void {
++        self.state = .escape;
++        self.len = 1;
++        self.bytes[0] = 0x1b;
++    }
++
++    fn append(self: *HostEffectMirror, byte: u8) bool {
++        if (self.len >= self.bytes.len) return false;
++        self.bytes[self.len] = byte;
++        self.len += 1;
++        return true;
++    }
++
++    fn forwardOsc(self: *HostEffectMirror, alloc: std.mem.Allocator, out: *std.ArrayList(u8)) !void {
++        if (self.len < 4) return;
++        const body_end = if (self.bytes[self.len - 1] == 0x07) self.len - 1 else self.len - 2;
++        const body = self.bytes[2..body_end];
++        const separator = std.mem.indexOfScalar(u8, body, ';') orelse return;
++        const selector = body[0..separator];
++        if (std.mem.eql(u8, selector, "0") or
++            std.mem.eql(u8, selector, "2") or
++            std.mem.eql(u8, selector, "7") or
++            std.mem.eql(u8, selector, "133"))
++        {
++            try out.appendSlice(alloc, self.bytes[0..self.len]);
++        }
++    }
++
++    fn feed(self: *HostEffectMirror, alloc: std.mem.Allocator, input: []const u8, out: *std.ArrayList(u8)) !void {
++        for (input) |byte| {
++            switch (self.state) {
++                .ground => if (byte == 0x07) {
++                    try out.append(alloc, byte);
++                } else if (byte == 0x1b) {
++                    self.startEscape();
++                },
++                .escape => {
++                    if (byte == ']') {
++                        _ = self.append(byte);
++                        self.state = .osc;
++                    } else if (byte == 0x1b) {
++                        self.startEscape();
++                    } else {
++                        self.reset();
++                    }
++                },
++                .osc => {
++                    if (!self.append(byte)) {
++                        self.state = .osc_discard;
++                        continue;
++                    }
++                    if (byte == 0x07) {
++                        try self.forwardOsc(alloc, out);
++                        self.reset();
++                    } else if (byte == 0x1b) {
++                        self.state = .osc_escape;
++                    }
++                },
++                .osc_escape => {
++                    if (!self.append(byte)) {
++                        self.state = .osc_discard;
++                        continue;
++                    }
++                    if (byte == '\\') {
++                        try self.forwardOsc(alloc, out);
++                        self.reset();
++                    } else if (byte != 0x1b) {
++                        self.state = .osc;
++                    }
++                },
++                .osc_discard => if (byte == 0x07) {
++                    self.reset();
++                } else if (byte == 0x1b) {
++                    self.state = .osc_discard_escape;
++                },
++                .osc_discard_escape => if (byte == '\\') {
++                    self.reset();
++                } else if (byte != 0x1b) {
++                    self.state = .osc_discard;
++                },
++            }
++        }
++    }
++};
++
+@@ -1683,8 +2107,32 @@ const Pane = struct {
+-    fn replayHistory(self: *Pane, alloc: std.mem.Allocator, selection: vt.Selection) ![]u8 {
+-        var raw: std.Io.Writer.Allocating = .init(alloc);
+-        defer raw.deinit();
+-        var formatter: vt.formatter.TerminalFormatter = .init(&self.term, .{ .emit = .vt });
+-        formatter.content = .{ .selection = selection };
+-        formatter.extra = .styles;
+-        try raw.writer.print("{f}", .{formatter});
+-        return alloc.dupe(u8, raw.writer.buffered());
++    fn terminalModes(self: *Pane, alloc: std.mem.Allocator) ![]u8 {
 +        var out: std.Io.Writer.Allocating = .init(alloc);
 +        defer out.deinit();
 +
-+        // Restoring tab stops and margins may move the cursor. Keep the
-+        // position established by replaying the main shell's raw bytes.
-+        try out.writer.writeAll("\x1b7");
 +        var terminal_formatter: vt.formatter.TerminalFormatter = .init(&self.term, .{ .emit = .vt });
 +        terminal_formatter.content = .none;
 +        terminal_formatter.extra = .{
@@ -367,38 +678,67 @@ index da4a2bf..1798b64 100644
 +            .screen = .none,
 +        };
 +        try out.writer.print("{f}", .{terminal_formatter});
-+        try out.writer.writeAll("\x1b8");
++        var filtered: std.ArrayList(u8) = .empty;
++        defer filtered.deinit(alloc);
++        try appendWithoutScreenSwitchModes(alloc, &filtered, out.writer.buffered());
++        return alloc.dupe(u8, filtered.items);
++    }
++
++    fn screenState(self: *Pane, alloc: std.mem.Allocator) ![]u8 {
++        var out: std.Io.Writer.Allocating = .init(alloc);
++        defer out.deinit();
 +
 +        var screen_formatter: vt.formatter.TerminalFormatter = .init(&self.term, .{ .emit = .vt });
 +        screen_formatter.content = .none;
 +        screen_formatter.extra = .none;
-+        screen_formatter.extra.screen = .{
-+            .cursor = false,
-+            .style = true,
-+            .hyperlink = true,
-+            .protection = true,
-+            .kitty_keyboard = true,
-+            .charsets = true,
-+        };
++        screen_formatter.extra.screen = .all;
 +        try out.writer.print("{f}", .{screen_formatter});
 +        return alloc.dupe(u8, out.writer.buffered());
+@@ -1714,0 +2163,26 @@ const Pane = struct {
++fn appendWithoutScreenSwitchModes(
++    alloc: std.mem.Allocator,
++    out: *std.ArrayList(u8),
++    input: []const u8,
++) !void {
++    const sequences = [_][]const u8{
++        "\x1b[?47h",   "\x1b[?47l",
++        "\x1b[?1047h", "\x1b[?1047l",
++        "\x1b[?1049h", "\x1b[?1049l",
++    };
++    var offset: usize = 0;
++    while (offset < input.len) {
++        var skipped = false;
++        for (sequences) |sequence| {
++            if (std.mem.startsWith(u8, input[offset..], sequence)) {
++                offset += sequence.len;
++                skipped = true;
++                break;
++            }
++        }
++        if (skipped) continue;
++        try out.append(alloc, input[offset]);
++        offset += 1;
 +    }
++}
 +
-@@ -2880,0 +3211,3 @@ const App = struct {
+@@ -2271 +2744,0 @@ const Compositor = struct {
+-        if (!layout.split_visible) return;
+@@ -2880,0 +3354,2 @@ const App = struct {
 +    split_generation: ?u64 = null,
-+    split_role: ?PaneRole = null,
 +    next_split_generation: u64 = 1,
-@@ -2886,0 +3220,7 @@ const App = struct {
-+    split_main_output: std.ArrayList(u8) = .empty,
-+    split_main_output_complete: bool = true,
-+    direnv_prompt_wait_started_ns: ?i128 = null,
-+    direnv_prompt_wait_offset: usize = 0,
-+    direnv_closing: bool = false,
-+    main_prompt_protocol_seen: bool = false,
-+    main_prompt_prefix_match: usize = 0,
-@@ -2898,0 +3239 @@ const App = struct {
+@@ -2886,0 +3362,6 @@ const App = struct {
++    deferred_main_offset: usize = 0,
++    deferred_catchup_due_ns: ?i128 = null,
++    screen_switch_mirror: ScreenSwitchMirror = .{},
++    host_effect_mirror: HostEffectMirror = .{},
++    outer_primary_touched: bool = false,
++    outer_alternate_touched: bool = false,
+@@ -2897 +3377,0 @@ const App = struct {
+-    split_replay_anchor: ?*vt.Pin = null,
+@@ -2899 +3379 @@ const App = struct {
+-    outer_canvas_active: bool = false,
 +    control_connections: std.ArrayList(ControlConnection) = .empty,
-@@ -2904 +3245,8 @@ const App = struct {
+@@ -2904 +3384,8 @@ const App = struct {
 -            try TmuxRuntime.init(alloc)
 +            TmuxRuntime.init(alloc) catch |err| blk: {
 +                var stderr = std.fs.File.stderr().writer(&.{});
@@ -408,7 +748,7 @@ index da4a2bf..1798b64 100644
 +                ) catch {};
 +                break :blk null;
 +            }
-@@ -2928 +3276,7 @@ const App = struct {
+@@ -2928 +3415,7 @@ const App = struct {
 -        try applyTinymuxEnv(alloc, &main_env, if (tmux_runtime) |*runtime| runtime else null, "%0");
 +        try applyTinymuxEnv(
 +            alloc,
@@ -417,23 +757,30 @@ index da4a2bf..1798b64 100644
 +            "%0",
 +            if (config.session) .main_session else .nested_main,
 +        );
-@@ -2968,0 +3323,3 @@ const App = struct {
+@@ -2968,0 +3462,2 @@ const App = struct {
 +            .split_generation = if (split_pane != null) 1 else null,
-+            .split_role = if (split_pane != null) .manual else null,
 +            .next_split_generation = if (split_pane != null) 2 else 1,
-@@ -2976,0 +3334 @@ const App = struct {
+@@ -2976,0 +3472 @@ const App = struct {
 +            .control_connections = .empty,
-@@ -2988,0 +3347 @@ const App = struct {
-+        self.split_main_output.deinit(self.alloc);
-@@ -2989,0 +3349,2 @@ const App = struct {
+@@ -2984 +3479,0 @@ const App = struct {
+-        self.clearSplitReplayAnchor();
+@@ -2989,0 +3485,2 @@ const App = struct {
 +        for (self.control_connections.items) |*connection| connection.deinit(self.alloc);
 +        self.control_connections.deinit(self.alloc);
-@@ -3010,0 +3372 @@ const App = struct {
-+            try self.finishDirenvCloseIfReady();
-@@ -3015 +3377 @@ const App = struct {
+@@ -2996,3 +3493,3 @@ const App = struct {
+-            try self.recordSplitReplayAnchor();
+-            try self.enterOuterCanvas();
+-            try self.writeInitialComposedCanvas();
++            self.beginOuterComposition();
++            try protocol.writeAll(stdout_fd, mux_mouse_enable);
++            self.terminal_restore_needed = true;
+@@ -2999,0 +3497,2 @@ const App = struct {
++            try self.compositor.render(self.layout, self.main_pane, self.split_pane);
++            self.render_scheduler.rendered(std.time.nanoTimestamp());
+@@ -3015 +3514 @@ const App = struct {
 -            var fds_storage: [4]posix.pollfd = undefined;
 +            var fds_storage: [4 + max_control_connections]posix.pollfd = undefined;
-@@ -3043,0 +3406,11 @@ const App = struct {
+@@ -3043,0 +3543,11 @@ const App = struct {
 +            const control_connections_start = count;
 +            const polled_control_connections = self.control_connections.items.len;
 +            for (self.control_connections.items) |connection| {
@@ -445,12 +792,12 @@ index da4a2bf..1798b64 100644
 +                count += 1;
 +            }
 +
-@@ -3049,2 +3422,2 @@ const App = struct {
+@@ -3049,2 +3559,2 @@ const App = struct {
 -                if (fds_storage[index].revents != 0) {
 -                    try self.readControl();
 +                if (fds_storage[index].revents & posix.POLL.IN != 0) {
 +                    try self.acceptControlConnections();
-@@ -3054 +3427,11 @@ const App = struct {
+@@ -3054 +3564,11 @@ const App = struct {
 -            if (fds_storage[stdin_index].revents != 0) {
 +            var control_offset = polled_control_connections;
 +            while (control_offset > 0) {
@@ -463,58 +810,195 @@ index da4a2bf..1798b64 100644
 +            self.expireControlConnections(std.time.nanoTimestamp());
 +
 +            if (fds_storage[stdin_index].revents & posix.POLL.IN != 0) {
-@@ -3093,0 +3477 @@ const App = struct {
-+            try self.finishDirenvCloseIfReady();
-@@ -3184,0 +3569 @@ const App = struct {
+@@ -3092,0 +3613,4 @@ const App = struct {
++            // Raw output wins the current turn. Catch the shadow model up on
++            // the next otherwise-idle turn so sustained passthrough retains
++            // direct-path throughput and interactive gaps still converge.
++            if (pane_stats.bytes == 0) self.advanceDeferredMainState();
+@@ -3110,0 +3635,11 @@ const App = struct {
++    fn beginOuterComposition(self: *App) void {
++        self.screen_switch_mirror.reset();
++        self.host_effect_mirror.reset();
++        self.outer_primary_touched = false;
++        self.outer_alternate_touched = false;
++        switch (self.main_pane.term.screens.active_key) {
++            .primary => self.outer_primary_touched = true,
++            .alternate => self.outer_alternate_touched = true,
++        }
++    }
++
+@@ -3116,0 +3652,11 @@ const App = struct {
++        if (!self.composed and self.deferredMainStateLen() > 0) {
++            const due = self.deferred_catchup_due_ns orelse now_ns;
++            if (now_ns >= due) return 0;
++            const remaining_ns = due - now_ns;
++            const remaining_ms: i32 = @intCast(@max(
++                @as(i128, 1),
++                @divTrunc(remaining_ns + std.time.ns_per_ms - 1, std.time.ns_per_ms),
++            ));
++            timeout = @min(timeout, remaining_ms);
++        }
++
+@@ -3133,5 +3679 @@ const App = struct {
+-        if (self.outer_canvas_active) {
+-            out.appendSlice(self.alloc, leave_canvas) catch {};
+-            self.outer_canvas_active = false;
+-            self.terminal_restore_needed = false;
+-        } else if (self.terminal_restore_needed) {
++        if (self.terminal_restore_needed) {
+@@ -3144,38 +3685,0 @@ const App = struct {
+-    fn enterOuterCanvas(self: *App) !void {
+-        try protocol.writeAll(stdout_fd, enter_canvas);
+-        self.outer_canvas_active = true;
+-        self.terminal_restore_needed = true;
+-    }
+-
+-    fn leaveOuterCanvas(self: *App, out: *std.ArrayList(u8)) !void {
+-        try out.appendSlice(self.alloc, leave_canvas);
+-        self.outer_canvas_active = false;
+-        self.terminal_restore_needed = true;
+-    }
+-
+-    fn writeInitialComposedCanvas(self: *App) !void {
+-        var out: std.ArrayList(u8) = .empty;
+-        defer out.deinit(self.alloc);
+-        try out.appendSlice(self.alloc, synchronized_update_begin);
+-        try out.appendSlice(self.alloc, "\x1b[?25l");
+-        if (self.layout.border_row) |border| {
+-            try out.print(self.alloc, "\x1b[{d};1H{s}", .{ border + 1, style_dim });
+-            for (0..self.layout.paneCols()) |_| try out.appendSlice(self.alloc, "─");
+-            try out.appendSlice(self.alloc, sgr_reset);
+-        }
+-        if (self.layout.scrollbarCol()) |col| {
+-            try out.appendSlice(self.alloc, style_dim);
+-            for (0..self.layout.rows) |row| {
+-                try out.print(self.alloc, "\x1b[{d};{d}H{s}", .{ row + 1, col, scrollbar_track });
+-            }
+-            try out.appendSlice(self.alloc, sgr_reset);
+-        }
+-        {
+-            var aw: std.Io.Writer.Allocating = .fromArrayList(self.alloc, &out);
+-            defer out = aw.toArrayList();
+-            try writeComposedCursor(&aw.writer, self.layout, self.main_pane);
+-        }
+-        try out.appendSlice(self.alloc, synchronized_update_end);
+-        try protocol.writeAll(stdout_fd, out.items);
+-    }
+-
+@@ -3184,0 +3689 @@ const App = struct {
 +            error.WouldBlock => return false,
-@@ -3416,0 +3802 @@ const App = struct {
-+        if (which == .main) self.observeMainOutput(bytes);
-@@ -3420,0 +3807 @@ const App = struct {
-+            try self.recordSplitMainOutput(bytes);
-@@ -3435,0 +3823,39 @@ const App = struct {
-+    fn recordSplitMainOutput(self: *App, bytes: []const u8) !void {
-+        if (!self.split_main_output_complete or bytes.len == 0) return;
-+        if (bytes.len > split_main_output_limit -| self.split_main_output.items.len) {
-+            self.split_main_output.clearRetainingCapacity();
-+            self.split_main_output_complete = false;
-+            return;
+@@ -3423,0 +3929 @@ const App = struct {
++            try self.mirrorMainScreenSwitches(bytes);
+@@ -3431,0 +3938,16 @@ const App = struct {
++    fn mirrorMainScreenSwitches(self: *App, bytes: []const u8) !void {
++        var mirrored: std.ArrayList(u8) = .empty;
++        defer mirrored.deinit(self.alloc);
++        try self.screen_switch_mirror.feed(
++            self.alloc,
++            bytes,
++            &mirrored,
++            &self.outer_primary_touched,
++            &self.outer_alternate_touched,
++        );
++        try self.host_effect_mirror.feed(self.alloc, bytes, &mirrored);
++        if (mirrored.items.len == 0) return;
++        try protocol.writeAll(stdout_fd, mirrored.items);
++        self.compositor.invalidate();
++    }
++
+@@ -3438,2 +3960,6 @@ const App = struct {
+-        var required = self.deferred_main_state.items.len + bytes.len;
+-        if (required > deferred_raw_state_limit) {
++        if (self.deferred_main_offset > 0 and
++            self.deferred_main_state.items.len + bytes.len > deferred_raw_state_limit)
++        {
++            self.compactDeferredMainState();
 +        }
-+        try self.split_main_output.appendSlice(self.alloc, bytes);
++        if (self.deferredMainStateLen() + bytes.len > deferred_raw_state_limit) {
+@@ -3441 +3966,0 @@ const App = struct {
+-            required = bytes.len;
+@@ -3447 +3972,2 @@ const App = struct {
+-        if (bytes.len >= deferred_raw_bulk_prealloc_trigger and self.deferred_main_state.capacity < required) {
++        const total_required = self.deferred_main_state.items.len + bytes.len;
++        if (bytes.len >= deferred_raw_bulk_prealloc_trigger and self.deferred_main_state.capacity < total_required) {
+@@ -3450 +3976 @@ const App = struct {
+-                @min(deferred_raw_state_limit, @max(required, deferred_raw_bulk_prealloc_bytes)),
++                @min(deferred_raw_state_limit, @max(total_required, deferred_raw_bulk_prealloc_bytes)),
+@@ -3453,0 +3980,54 @@ const App = struct {
++        self.deferred_catchup_due_ns = std.time.nanoTimestamp() + deferred_raw_catchup_delay_ns;
 +    }
 +
-+    fn observeMainOutput(self: *App, bytes: []const u8) void {
-+        if (self.main_prompt_protocol_seen) return;
-+        for (bytes) |byte| {
-+            if (byte == prompt_protocol_prefix[self.main_prompt_prefix_match]) {
-+                self.main_prompt_prefix_match += 1;
-+                if (self.main_prompt_prefix_match == prompt_protocol_prefix.len) {
-+                    self.main_prompt_protocol_seen = true;
-+                    self.main_prompt_prefix_match = 0;
-+                    return;
-+                }
-+            } else {
-+                self.main_prompt_prefix_match = if (byte == prompt_protocol_prefix[0]) 1 else 0;
-+            }
++    fn deferredMainStateLen(self: *const App) usize {
++        return self.deferred_main_state.items.len - self.deferred_main_offset;
++    }
++
++    fn compactDeferredMainState(self: *App) void {
++        if (self.deferred_main_offset == 0) return;
++        const remaining = self.deferredMainStateLen();
++        if (remaining > 0) {
++            std.mem.copyForwards(
++                u8,
++                self.deferred_main_state.items[0..remaining],
++                self.deferred_main_state.items[self.deferred_main_offset..],
++            );
 +        }
++        self.deferred_main_state.shrinkRetainingCapacity(remaining);
++        self.deferred_main_offset = 0;
 +    }
 +
-+    fn splitMainOutputForClose(self: *const App, role: PaneRole) []const u8 {
-+        const bytes = self.split_main_output.items;
-+        if (role != .direnv) return bytes;
-+
-+        // Direnv progress belongs to the auxiliary pane. Shell integrations
-+        // delimit the final prompt with OSC 133, so retain only that final
-+        // redraw when returning to the primary screen. This keeps evaluation
-+        // output from being replayed a second time into the main scrollback.
-+        const prompt = std.mem.lastIndexOf(u8, bytes, "\x1b]133;A") orelse return bytes;
-+        const title = std.mem.lastIndexOf(u8, bytes[0..prompt], "\x1b]0;") orelse prompt;
-+        return bytes[title..];
-+    }
-+
-@@ -3588 +4014 @@ const App = struct {
++    fn advanceDeferredMainState(self: *App) void {
++        if (self.composed or self.deferredMainStateLen() == 0) return;
++        const now = std.time.nanoTimestamp();
++        if (self.deferred_catchup_due_ns) |due| {
++            if (now < due) return;
++        }
++        const bulk = self.deferredMainStateLen() >= deferred_raw_bulk_threshold;
++        const byte_budget = if (bulk) deferred_raw_bulk_catchup_bytes else deferred_raw_catchup_bytes;
++        const time_budget = if (bulk) deferred_raw_bulk_catchup_ns else deferred_raw_catchup_ns;
++        const started = std.time.nanoTimestamp();
++        var processed: usize = 0;
++        while (self.deferredMainStateLen() > 0 and processed < byte_budget) {
++            const n = @min(
++                self.deferredMainStateLen(),
++                @min(deferred_raw_catchup_slice, byte_budget - processed),
++            );
++            const end = self.deferred_main_offset + n;
++            self.main_pane.feed(self.deferred_main_state.items[self.deferred_main_offset..end]);
++            self.deferred_main_offset = end;
++            processed += n;
++            if (std.time.nanoTimestamp() - started >= time_budget) break;
++        }
++        if (self.deferredMainStateLen() == 0) {
++            self.deferred_main_state.clearRetainingCapacity();
++            self.deferred_main_offset = 0;
++            self.deferred_catchup_due_ns = null;
++        } else if (self.deferred_main_offset >= deferred_raw_bulk_prealloc_bytes and
++            self.deferred_main_offset >= self.deferredMainStateLen())
++        {
++            self.compactDeferredMainState();
++        }
++        if (self.deferredMainStateLen() > 0) self.deferred_catchup_due_ns = std.time.nanoTimestamp();
++        self.syncMainPassthroughCursor();
+@@ -3457,2 +4037,2 @@ const App = struct {
+-        if (self.deferred_main_state.items.len == 0) return;
+-        self.main_pane.feed(self.deferred_main_state.items);
++        if (self.deferredMainStateLen() == 0) return;
++        self.main_pane.feed(self.deferred_main_state.items[self.deferred_main_offset..]);
+@@ -3459,0 +4040,2 @@ const App = struct {
++        self.deferred_main_offset = 0;
++        self.deferred_catchup_due_ns = null;
+@@ -3465,0 +4048,4 @@ const App = struct {
++        // A PTY read can end in the middle of a terminal sequence. Until both
++        // incremental mirrors return to ground, the continuation must pass
++        // through the VT model rather than being mistaken for printable text.
++        if (self.screen_switch_mirror.state != .ground or self.host_effect_mirror.state != .ground) return false;
+@@ -3469 +4055 @@ const App = struct {
+-        if (!self.main_passthrough_outer_active and self.deferred_main_state.items.len == 0) {
++        if (!self.main_passthrough_outer_active and self.deferredMainStateLen() == 0) {
+@@ -3588 +4174 @@ const App = struct {
 -    fn readControl(self: *App) !void {
 +    fn acceptControlConnections(self: *App) !void {
-@@ -3590,5 +4016,10 @@ const App = struct {
+@@ -3590,5 +4176,10 @@ const App = struct {
 -        const connection = runtime.server.accept() catch |err| switch (err) {
 -            error.WouldBlock => return,
 -            else => return err,
@@ -530,7 +1014,7 @@ index da4a2bf..1798b64 100644
 +                accepted.stream.close();
 +                continue;
 +            }
-@@ -3596,2 +4027,41 @@ const App = struct {
+@@ -3596,2 +4187,41 @@ const App = struct {
 -        var request = ControlRequest.read(self.alloc, connection.stream.handle) catch |err| {
 -            writeControlResponse(connection.stream.handle, false, @errorName(err));
 +            const flags = try posix.fcntl(fd, posix.F.GETFL, 0);
@@ -574,18 +1058,19 @@ index da4a2bf..1798b64 100644
 +            if (err == error.IncompleteControlRequest and !closed) return;
 +            writeControlResponse(connection.fd, false, @errorName(err));
 +            self.removeControlConnection(index);
-@@ -3602,2 +4072,4 @@ const App = struct {
+@@ -3602,2 +4232,5 @@ const App = struct {
 -        self.executeControlRequest(&request) catch |err| {
 -            writeControlResponse(connection.stream.handle, false, @errorName(err));
 +        var response_buf: [128]u8 = undefined;
 +        const response = self.executeControlRequest(&request, &response_buf) catch |err| {
++            if (!isControlClientError(err)) return err;
 +            writeControlResponse(connection.fd, false, @errorName(err));
 +            self.removeControlConnection(index);
-@@ -3606 +4078,2 @@ const App = struct {
+@@ -3606 +4239,2 @@ const App = struct {
 -        writeControlResponse(connection.stream.handle, true, "");
 +        writeControlResponse(connection.fd, true, response);
 +        self.removeControlConnection(index);
-@@ -3609,9 +4082,47 @@ const App = struct {
+@@ -3609,9 +4243,68 @@ const App = struct {
 -    fn executeControlRequest(self: *App, request: *ControlRequest) !void {
 -        const command = try parseTmuxCommand(request.argv);
 -        switch (command) {
@@ -595,6 +1080,29 @@ index da4a2bf..1798b64 100644
 -                try request.env.put("TERM", selectTerm(self.config.split_term, outer_term, colorterm));
 -                try applyTinymuxEnv(self.alloc, &request.env, self.tmuxRuntimePtr(), "%1");
 -                try self.openSplitWith(split.argv, &request.env, request.cwd, split.rows, true);
++    fn isControlClientError(err: anyerror) bool {
++        return switch (err) {
++            error.MissingTmuxCommand,
++            error.UnsupportedTmuxCommand,
++            error.MissingSplitRows,
++            error.InvalidCharacter,
++            error.Overflow,
++            error.InvalidSplitRows,
++            error.UnsupportedTmuxOption,
++            error.MissingSplitCommand,
++            error.UnsupportedControlCommand,
++            error.UnsupportedPaneOption,
++            error.MissingPaneGeneration,
++            error.CannotKillMainPane,
++            error.UnsupportedTargetPane,
++            error.NoSplitPane,
++            error.SplitAlreadyOpen,
++            error.TerminalTooSmall,
++            => true,
++            else => false,
++        };
++    }
++
 +    fn expireControlConnections(self: *App, now_ns: i128) void {
 +        var index = self.control_connections.items.len;
 +        while (index > 0) {
@@ -628,8 +1136,6 @@ index da4a2bf..1798b64 100644
 +                            request.cwd,
 +                            split.rows,
 +                            true,
-+                            split.paneRole(),
-+                            .reject,
 +                        );
 +                    },
 +                    .kill_pane => |kill| {
@@ -642,7 +1148,7 @@ index da4a2bf..1798b64 100644
 +                    },
 +                }
 +                return "";
-@@ -3619,4 +4130,24 @@ const App = struct {
+@@ -3619,4 +4312,22 @@ const App = struct {
 -            .kill_pane => |kill| {
 -                if (kill.target) |target| {
 -                    if (std.mem.eql(u8, target, "%0")) return error.CannotKillMainPane;
@@ -658,8 +1164,6 @@ index da4a2bf..1798b64 100644
 +                            request.cwd,
 +                            pane.rows,
 +                            true,
-+                            pane.role,
-+                            pane.replace,
 +                        );
 +                        return try std.fmt.bufPrint(response_buf, "{d}", .{generation});
 +                    },
@@ -671,10 +1175,10 @@ index da4a2bf..1798b64 100644
 +                        const generation = self.split_generation orelse return "none";
 +                        return try std.fmt.bufPrint(response_buf, "{d}", .{generation});
 +                    },
-@@ -3624,2 +4154,0 @@ const App = struct {
+@@ -3624,2 +4334,0 @@ const App = struct {
 -                if (self.split_pane == null) return error.NoSplitPane;
 -                try self.closeSplit();
-@@ -3629,0 +4159,7 @@ const App = struct {
+@@ -3629,0 +4339,7 @@ const App = struct {
 +    fn prepareAuxiliaryEnv(self: *App, env: *std.process.EnvMap) !void {
 +        const outer_term = posix.getenv("TERM");
 +        const colorterm = posix.getenv("COLORTERM");
@@ -682,10 +1186,33 @@ index da4a2bf..1798b64 100644
 +        try applyTinymuxEnv(self.alloc, env, self.tmuxRuntimePtr(), "%1", .auxiliary);
 +    }
 +
-@@ -3679 +4215 @@ const App = struct {
+@@ -3648,22 +4363,0 @@ const App = struct {
+-    fn clearSplitReplayAnchor(self: *App) void {
+-        const anchor = self.split_replay_anchor orelse return;
+-        self.main_pane.term.screens.active.pages.untrackPin(anchor);
+-        self.split_replay_anchor = null;
+-    }
+-
+-    fn recordSplitReplayAnchor(self: *App) !void {
+-        self.clearSplitReplayAnchor();
+-        const pages = &self.main_pane.term.screens.active.pages;
+-        self.split_replay_anchor = try pages.trackPin(pages.getTopLeft(.active));
+-    }
+-
+-    fn splitHistorySelection(self: *App) ?vt.Selection {
+-        const anchor = self.split_replay_anchor orelse return null;
+-        const pages = &self.main_pane.term.screens.active.pages;
+-        const bottom = pages.getBottomRight(.history) orelse return null;
+-        var start = if (anchor.garbage) pages.getTopLeft(.history) else anchor.*;
+-        start.x = 0;
+-        if (!start.eql(bottom) and bottom.before(start)) return null;
+-        return vt.Selection.init(start, bottom, false);
+-    }
+-
+@@ -3679 +4373 @@ const App = struct {
 -        try applyTinymuxEnv(self.alloc, &split_env, self.tmuxRuntimePtr(), "%1");
 +        try applyTinymuxEnv(self.alloc, &split_env, self.tmuxRuntimePtr(), "%1", .auxiliary);
-@@ -3686 +4222,9 @@ const App = struct {
+@@ -3686 +4380,7 @@ const App = struct {
 -        try self.openSplitWith(&split_argv, &split_env, cwd, self.config.split_rows, false);
 +        _ = try self.openSplitWith(
 +            &split_argv,
@@ -693,104 +1220,82 @@ index da4a2bf..1798b64 100644
 +            cwd,
 +            self.config.split_rows,
 +            false,
-+            .manual,
-+            .reject,
 +        );
-@@ -3696,2 +4240,8 @@ const App = struct {
+@@ -3696 +4396 @@ const App = struct {
 -    ) !void {
--        if (self.split_pane != null) return error.SplitAlreadyOpen;
-+        role: PaneRole,
-+        replace: ReplacePolicy,
 +    ) !u64 {
-+        if (self.direnv_closing) return error.SplitAlreadyOpen;
-+        if (self.split_pane != null) {
-+            if (replace != .same_role or self.split_role != role) return error.SplitAlreadyOpen;
-+            try self.closeSplit();
-+        }
-@@ -3701 +4251,5 @@ const App = struct {
+@@ -3701 +4400,0 @@ const App = struct {
 -        try self.recordSplitReplayAnchor();
-+        self.split_main_output.clearRetainingCapacity();
-+        self.split_main_output_complete = true;
-+        self.direnv_prompt_wait_started_ns = null;
-+        self.direnv_prompt_wait_offset = 0;
-+        self.direnv_closing = false;
-@@ -3706,0 +4261,4 @@ const App = struct {
-+        // Resizing into split mode can move otherwise unchanged rows into
-+        // history. Anchor after the resize so close only replays lines that
-+        // genuinely scrolled while the split was active.
-+        try self.recordSplitReplayAnchor();
-@@ -3712,0 +4271,4 @@ const App = struct {
+@@ -3704,0 +4404 @@ const App = struct {
++        if (!self.layout.split_visible) return error.TerminalTooSmall;
+@@ -3706 +4405,0 @@ const App = struct {
+-        try self.main_pane.resize(self.layout.main_rows, self.layout.paneCols(), self.cell_size);
+@@ -3708,0 +4408 @@ const App = struct {
++        try self.main_pane.resize(self.layout.main_rows, self.layout.paneCols(), self.cell_size);
+@@ -3710 +4409,0 @@ const App = struct {
+-        try self.enterOuterCanvas();
+@@ -3712,0 +4412,3 @@ const App = struct {
 +        const generation = self.next_split_generation;
 +        self.next_split_generation = if (generation == std.math.maxInt(u64)) 1 else generation + 1;
 +        self.split_generation = generation;
-+        self.split_role = role;
-@@ -3716,0 +4279 @@ const App = struct {
+@@ -3714,0 +4417,3 @@ const App = struct {
++        self.beginOuterComposition();
++        try protocol.writeAll(stdout_fd, mux_mouse_enable);
++        self.terminal_restore_needed = true;
+@@ -3716 +4421,3 @@ const App = struct {
+-        self.render_scheduler.markDirty(.urgent);
++        try self.compositor.render(self.layout, self.main_pane, self.split_pane);
++        self.render_scheduler.rendered(std.time.nanoTimestamp());
 +        return generation;
-@@ -3720,0 +4284 @@ const App = struct {
-+        const closing_role = self.split_role orelse .manual;
-@@ -3724,0 +4289,34 @@ const App = struct {
-+        self.split_generation = null;
-+        self.split_role = null;
-+        try self.finishSplitClose(closing_role);
-+    }
-+
-+    fn beginDirenvClose(self: *App) !void {
-+        const pane = self.split_pane orelse return;
+@@ -3720,0 +4428,5 @@ const App = struct {
 +        try self.endComposedMainPassthrough();
-+        pane.terminate();
-+        pane.destroy();
-+        self.split_pane = null;
-+        self.split_autoclose = false;
-+        self.split_generation = null;
-+        self.split_role = null;
-+        self.direnv_closing = true;
-+        self.direnv_prompt_wait_started_ns = std.time.nanoTimestamp();
-+        self.direnv_prompt_wait_offset = self.split_main_output.items.len;
++        try self.drainMainForSplitTransition();
++        try self.endComposedMainPassthrough();
++        self.flushDeferredMainState();
 +
-+        // Direnv-instant updates an already-visible prompt asynchronously.
-+        // Closing the tmux pane normally resizes the shell and makes it redraw
-+        // that prompt. Resize the PTY now, but retain the alternate canvas
-+        // until the redraw is complete so none of the transition reaches the
-+        // physical terminal's primary scrollback.
-+        self.layout = Layout.compute(self.last_size.row, self.last_size.col, false, self.active_split_rows);
-+        self.scrollbar_drag = null;
-+        try self.main_pane.resize(self.layout.main_rows, self.layout.paneCols(), self.cell_size);
-+        self.compositor.invalidate();
-+        self.render_scheduler.markDirty(.urgent);
-+    }
-+
-+    fn finishSplitClose(self: *App, closing_role: PaneRole) !void {
-+        self.direnv_closing = false;
-+        self.direnv_prompt_wait_started_ns = null;
-+        self.direnv_prompt_wait_offset = 0;
-@@ -3728,2 +4326,5 @@ const App = struct {
+@@ -3725,9 +4437 @@ const App = struct {
+-        try self.endComposedMainPassthrough();
+-        try self.drainMainForRawTransition();
+-        self.flushDeferredMainState();
 -        const history_replay = if (self.splitHistorySelection()) |selection|
 -            try self.main_pane.replayHistory(self.alloc, selection)
-+        const history_replay = if (!self.split_main_output_complete)
-+            if (self.splitHistorySelection()) |selection|
-+                try self.main_pane.replayHistory(self.alloc, selection)
-+            else
-+                null
-@@ -3745,3 +4346,15 @@ const App = struct {
+-        else
+-            null;
+-        defer if (history_replay) |bytes| self.alloc.free(bytes);
+-        self.clearSplitReplayAnchor();
++        self.split_generation = null;
+@@ -3737,0 +4442,8 @@ const App = struct {
++
++        var reset: std.ArrayList(u8) = .empty;
++        defer reset.deinit(self.alloc);
++        try self.compositor.graphics.deleteAll(self.alloc, &reset);
++        try reset.appendSlice(self.alloc, reset_state_sequence);
++        try protocol.writeAll(stdout_fd, reset.items);
++        try self.reconcileMainToOuter();
++
+@@ -3740,8 +4452,13 @@ const App = struct {
+-        var leave: std.ArrayList(u8) = .empty;
+-        defer leave.deinit(self.alloc);
+-        try self.compositor.graphics.deleteAll(self.alloc, &leave);
+-        try self.leaveOuterCanvas(&leave);
+-        try protocol.writeAll(stdout_fd, leave.items);
 -        if (history_replay) |bytes| {
 -            try protocol.writeAll(stdout_fd, bytes);
 -            try self.flushReplayIntoParentScrollback();
-+        if (self.split_main_output_complete) {
-+            try protocol.writeAll(stdout_fd, self.splitMainOutputForClose(closing_role));
-+            const state = try self.main_pane.terminalStateWithoutCursor(self.alloc);
-+            defer self.alloc.free(state);
-+            try protocol.writeAll(stdout_fd, state);
-+        } else {
-+            if (history_replay) |bytes| {
-+                try protocol.writeAll(stdout_fd, bytes);
-+                if (bytes.len > 0) try protocol.writeAll(stdout_fd, "\r\n");
++        self.render_scheduler.rendered(std.time.nanoTimestamp());
++    }
++
++    fn reconcileMainToOuter(self: *App) !void {
++        const active_key = self.main_pane.term.screens.active_key;
++        if (active_key == .primary) {
++            if (self.outer_alternate_touched and self.main_pane.term.screens.get(.alternate) != null) {
++                try self.renderMainOnOuterScreen(.alternate, false);
 +            }
-+            try protocol.writeAll(stdout_fd, synchronized_update_begin);
-+            const repaint = try self.main_pane.repaint(self.alloc);
-+            defer self.alloc.free(repaint);
-+            try protocol.writeAll(stdout_fd, repaint);
-+            try protocol.writeAll(stdout_fd, synchronized_update_end);
-@@ -3749,21 +4362,2 @@ const App = struct {
++            try self.renderMainOnOuterScreen(.primary, true);
++        } else {
++            if (self.outer_primary_touched) try self.renderMainOnOuterScreen(.primary, false);
++            try self.renderMainOnOuterScreen(.alternate, true);
+@@ -3749,18 +4466,30 @@ const App = struct {
 -        try protocol.writeAll(stdout_fd, synchronized_update_begin);
 -        const repaint = try self.main_pane.repaint(self.alloc);
 -        defer self.alloc.free(repaint);
@@ -809,49 +1314,141 @@ index da4a2bf..1798b64 100644
 -            var aw: std.Io.Writer.Allocating = .fromArrayList(self.alloc, &raw_repaint);
 -            defer raw_repaint = aw.toArrayList();
 -            try self.main_pane.writeCursorPos(&aw.writer);
--        }
++        self.main_pane.term.screens.switchTo(active_key);
++        self.outer_primary_touched = false;
++        self.outer_alternate_touched = false;
++        self.screen_switch_mirror.reset();
++        self.host_effect_mirror.reset();
++    }
++
++    fn renderMainOnOuterScreen(
++        self: *App,
++        key: vt.ScreenSet.Key,
++        restore_terminal_state: bool,
++    ) !void {
++        if (self.main_pane.term.screens.get(key) == null) return;
++        self.main_pane.term.screens.switchTo(key);
++        try protocol.writeAll(stdout_fd, switch (key) {
++            .primary => "\x1b[?1047l",
++            .alternate => "\x1b[?1047h",
++        });
++
++        if (restore_terminal_state) {
++            const modes = try self.main_pane.terminalModes(self.alloc);
++            defer self.alloc.free(modes);
++            try protocol.writeAll(stdout_fd, modes);
++        }
++        self.compositor.invalidate();
++        try self.compositor.render(self.layout, self.main_pane, null);
++        if (restore_terminal_state) {
++            const screen_state = try self.main_pane.screenState(self.alloc);
++            defer self.alloc.free(screen_state);
++            try protocol.writeAll(stdout_fd, screen_state);
+@@ -3768,2 +4496,0 @@ const App = struct {
 -        try raw_repaint.appendSlice(self.alloc, synchronized_update_end);
 -        try protocol.writeAll(stdout_fd, raw_repaint.items);
-+        self.split_main_output.clearRetainingCapacity();
-+        self.split_main_output_complete = true;
-@@ -3775,0 +4370,4 @@ const App = struct {
-+        if (self.split_role == .direnv) {
-+            try self.beginDirenvClose();
-+            return;
-+        }
-@@ -3779,6 +4377,19 @@ const App = struct {
+@@ -3779,33 +4505,0 @@ const App = struct {
 -    fn flushReplayIntoParentScrollback(self: *App) !void {
 -        if (self.layout.rows == 0) return;
 -        var buf: [64]u8 = undefined;
 -        var writer = std.Io.Writer.fixed(&buf);
 -        try writer.print("\x1b[r\x1b[{d}S", .{self.layout.rows});
 -        try protocol.writeAll(stdout_fd, writer.buffered());
-+    fn finishDirenvCloseIfReady(self: *App) !void {
-+        if (!self.direnv_closing) return;
-+        const offset = @min(self.direnv_prompt_wait_offset, self.split_main_output.items.len);
-+        const output = self.split_main_output.items[offset..];
-+        // A trailing prompt-end marker can still be queued from the prompt
-+        // that submitted `cd`. Do not restore the primary canvas until a
-+        // complete new prompt has started and finished after watcher exit.
-+        const prompt_finished = if (std.mem.indexOf(u8, output, "\x1b]133;A")) |prompt_start|
-+            std.mem.indexOf(u8, output[prompt_start..], "\x1b]133;B") != null
-+        else
-+            false;
-+        const started = self.direnv_prompt_wait_started_ns orelse std.time.nanoTimestamp();
-+        // Shells that have already advertised prompt boundaries give us an
-+        // exact completion signal, even if direnv takes a long time. The
-+        // timeout is only a compatibility fallback for uninstrumented shells.
-+        const timed_out = !self.main_prompt_protocol_seen and
-+            std.time.nanoTimestamp() - started >= direnv_prompt_wait_timeout_ns;
-+        if (!prompt_finished and !timed_out) return;
-+        try self.finishSplitClose(.direnv);
-@@ -3807,0 +4419,2 @@ const App = struct {
-+            self.observeMainOutput(buf[0..n]);
-+            try self.recordSplitMainOutput(buf[0..n]);
-@@ -3958,0 +4572 @@ test "tmux parser accepts direnv-instant split-window shape" {
-+            try std.testing.expectEqual(PaneRole.direnv, split.paneRole());
+-    }
+-
+-    fn drainMainForRawTransition(self: *App) !void {
+-        const deadline = std.time.milliTimestamp() + raw_transition_drain_ms;
+-        while (self.main_pane.pty_fd >= 0 and std.time.milliTimestamp() < deadline) {
+-            var fds = [_]posix.pollfd{.{
+-                .fd = self.main_pane.pty_fd,
+-                .events = posix.POLL.IN,
+-                .revents = 0,
+-            }};
+-            const ready = try posix.poll(&fds, raw_transition_idle_ms);
+-            if (ready == 0) break;
+-            if (fds[0].revents == 0) continue;
+-
+-            var buf: [64 * 1024]u8 = undefined;
+-            const n = posix.read(self.main_pane.pty_fd, &buf) catch {
+-                self.main_pane.markDead();
+-                return;
+-            };
+-            if (n == 0) {
+-                self.main_pane.markDead();
+-                return;
+-            }
+-            self.main_pane.feed(buf[0..n]);
+-        }
+-    }
+-
+@@ -3813,2 +4507 @@ const App = struct {
+-        const deadline = std.time.milliTimestamp() + raw_transition_drain_ms;
+-        while (self.main_pane.pty_fd >= 0 and std.time.milliTimestamp() < deadline) {
++        while (self.main_pane.pty_fd >= 0) {
+@@ -3820 +4513 @@ const App = struct {
+-            const ready = try posix.poll(&fds, raw_transition_idle_ms);
++            const ready = try posix.poll(&fds, 0);
+@@ -3822 +4515 @@ const App = struct {
+-            if (fds[0].revents == 0) continue;
++            if (fds[0].revents == 0) break;
+@@ -3837 +4530 @@ const App = struct {
+-            const ready = try posix.poll(&fds, raw_transition_idle_ms);
++            const ready = try posix.poll(&fds, 10);
+@@ -3942 +4635 @@ test "CLI parsing can disable tmux compatibility" {
+-test "tmux parser accepts direnv-instant split-window shape" {
++test "tmux parser treats split-window argv as opaque" {
+@@ -3990,0 +4684,49 @@ test "tmux parser rejects unsupported commands" {
++test "control request failures distinguish client errors from transition failures" {
++    try std.testing.expect(App.isControlClientError(error.SplitAlreadyOpen));
++    try std.testing.expect(App.isControlClientError(error.UnsupportedPaneOption));
++    try std.testing.expect(!App.isControlClientError(error.OutOfMemory));
++    try std.testing.expect(!App.isControlClientError(error.InputOutput));
++}
++
++test "screen switch mirror forwards only application buffer changes" {
++    const alloc = std.testing.allocator;
++    var mirror: ScreenSwitchMirror = .{};
++    var out: std.ArrayList(u8) = .empty;
++    defer out.deinit(alloc);
++    var primary = false;
++    var alternate = false;
++
++    try mirror.feed(alloc, "before\x1b[?104", &out, &primary, &alternate);
++    try mirror.feed(alloc, "9hafter\x1b[31m\x1b[?1049l", &out, &primary, &alternate);
++
++    try std.testing.expectEqualStrings("\x1b[?1049h\x1b[?1049l", out.items);
++    try std.testing.expect(primary);
++    try std.testing.expect(alternate);
++}
++
++test "host effect mirror forwards generic main terminal semantics" {
++    const alloc = std.testing.allocator;
++    var mirror: HostEffectMirror = .{};
++    var out: std.ArrayList(u8) = .empty;
++    defer out.deinit(alloc);
++
++    try mirror.feed(alloc, "\x1b]133;A\x1b", &out);
++    try mirror.feed(alloc, "\\\x1b]52;c;secret\x07\x1b]7;file:///tmp\x07", &out);
++
++    try std.testing.expectEqualStrings("\x1b]133;A\x1b\\\x1b]7;file:///tmp\x07", out.items);
++}
++
++test "host effect mirror discards oversized OSC through its terminator" {
++    const alloc = std.testing.allocator;
++    var mirror: HostEffectMirror = .{};
++    var out: std.ArrayList(u8) = .empty;
++    defer out.deinit(alloc);
++
++    try mirror.feed(alloc, "\x1b]52;c;", &out);
++    const oversized: [5000]u8 = @splat('x');
++    try mirror.feed(alloc, &oversized, &out);
++    try mirror.feed(alloc, "\x07\x1b]7;file:///after\x07", &out);
++
++    try std.testing.expectEqualStrings("\x1b]7;file:///after\x07", out.items);
++}
++
 diff --git a/src/scripts/direnv/bash-hook.sh b/src/scripts/direnv/bash-hook.sh
-index 5df42c5..c911ad8 100644
+index 5df42c5e3c71137286a37b2b01b66b2be6134e05..c911ad81b5bc69d1f42ce0927ec6a77ba7dcadb6 100644
 --- a/src/scripts/direnv/bash-hook.sh
 +++ b/src/scripts/direnv/bash-hook.sh
 @@ -9,20 +9,6 @@ __tinymux_direnv_instant_bin() {
@@ -933,7 +1530,7 @@ index 5df42c5..c911ad8 100644
 @@ -99,0 +51 @@ __tinymux_direnv_hook() {
 +    unset __TINYMUX_DIRENV_INSTANT_RUNNING
 diff --git a/src/scripts/direnv/fish-hook.fish b/src/scripts/direnv/fish-hook.fish
-index a391bb7..5ff0e36 100644
+index a391bb7b2dbcc973df35f85c8d02348095814f70..5ff0e36402d5149e54787616602c598a2de055ad 100644
 --- a/src/scripts/direnv/fish-hook.fish
 +++ b/src/scripts/direnv/fish-hook.fish
 @@ -13,22 +13,3 @@ end
@@ -1013,7 +1610,7 @@ index a391bb7..5ff0e36 100644
 @@ -103,0 +50 @@ function __tinymux_direnv_hook --on-event fish_prompt --on-variable PWD
 +    set -e __TINYMUX_DIRENV_INSTANT_RUNNING
 diff --git a/src/scripts/direnv/nushell-hook.nu b/src/scripts/direnv/nushell-hook.nu
-index d7a4470..1051a8c 100644
+index d7a44707860a297116f7c99c063226388f21ed10..1051a8c0810133d6230305929cd67442ddc1208f 100644
 --- a/src/scripts/direnv/nushell-hook.nu
 +++ b/src/scripts/direnv/nushell-hook.nu
 @@ -6,17 +6,5 @@ def __tinymux_direnv_instant_bin [] {
@@ -1085,7 +1682,7 @@ index d7a4470..1051a8c 100644
 @@ -101,0 +55 @@ def --env __tinymux_direnv_hook [] {
 +    hide-env --ignore-errors __TINYMUX_DIRENV_INSTANT_RUNNING
 diff --git a/src/scripts/direnv/zsh-hook.zsh b/src/scripts/direnv/zsh-hook.zsh
-index ff985cb..7334769 100644
+index ff985cbcd2f1297e14ee64b7d112128b6d355a56..7334769ebdf65b27c0a52db38fc8a682c7d12ae5 100644
 --- a/src/scripts/direnv/zsh-hook.zsh
 +++ b/src/scripts/direnv/zsh-hook.zsh
 @@ -9,20 +9,6 @@ __tinymux_direnv_instant_bin() {
@@ -1168,8 +1765,129 @@ index ff985cb..7334769 100644
 -    unset __TINYMUX_DIRENV_INSTANT_RUNNING
 @@ -104,0 +54 @@ __tinymux_direnv_hook() {
 +    unset __TINYMUX_DIRENV_INSTANT_RUNNING
+diff --git a/tests/benchmarks/compare_raw.py b/tests/benchmarks/compare_raw.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..4589483f985b35f487513af86959bceaf7898051
+--- /dev/null
++++ b/tests/benchmarks/compare_raw.py
+@@ -0,0 +1,115 @@
++#!/usr/bin/env python3
++"""Compare raw-mode benchmark JSON against a known-good tinymux run."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import sys
++from pathlib import Path
++from typing import Any
++
++
++def load_results(path: Path) -> dict[tuple[str, str, str], dict[str, Any]]:
++    with path.open() as handle:
++        payload = json.load(handle)
++    return {
++        (result["category"], result["name"], result["mode"]): result
++        for result in payload["results"]
++    }
++
++
++def unhealthy(result: dict[str, Any]) -> bool:
++    return any(sample["timed_out"] or sample["rc"] != 0 for sample in result["samples"])
++
++
++def compare(
++    baseline: dict[tuple[str, str, str], dict[str, Any]],
++    candidate: dict[tuple[str, str, str], dict[str, Any]],
++    max_throughput_regression: float,
++    max_latency_regression_ms: float,
++) -> tuple[list[str], list[str]]:
++    reports: list[str] = []
++    failures: list[str] = []
++    selected = [
++        key
++        for key in baseline
++        if key[2] == "raw" and key[0] in ("throughput", "terminal", "graphics", "latency")
++    ]
++    if not selected:
++        return reports, ["baseline contains no raw throughput or latency results"]
++
++    for key in sorted(selected):
++        category, name, mode = key
++        old = baseline[key]
++        new = candidate.get(key)
++        label = f"{category}/{name}/{mode}"
++        if new is None:
++            failures.append(f"{label}: missing from candidate")
++            continue
++        if unhealthy(new):
++            failures.append(f"{label}: candidate timed out or exited nonzero")
++            continue
++
++        if category in ("throughput", "terminal", "graphics"):
++            old_ms = float(old["median_s"]) * 1000
++            new_ms = float(new["median_s"]) * 1000
++            regression = new_ms / old_ms - 1
++            reports.append(f"{label}: {old_ms:.1f}ms -> {new_ms:.1f}ms ({regression:+.1%})")
++            if category == "throughput" and regression > max_throughput_regression:
++                failures.append(
++                    f"{label}: {regression:.1%} slower; limit is {max_throughput_regression:.1%}"
++                )
++        elif name == "cadence":
++            field = "gap_max_ms"
++            old_ms = float(old["extra"][field])
++            new_ms = float(new["extra"][field])
++            regression = new_ms - old_ms
++            reports.append(f"{label}: max gap {old_ms:.1f}ms -> {new_ms:.1f}ms ({regression:+.1f}ms)")
++            if regression > max_latency_regression_ms:
++                failures.append(
++                    f"{label}: max gap regressed {regression:.1f}ms; limit is {max_latency_regression_ms:.1f}ms"
++                )
++        elif name == "input-echo":
++            field = "latency_max_ms"
++            old_ms = float(old["extra"][field])
++            new_ms = float(new["extra"][field])
++            regression = new_ms - old_ms
++            reports.append(f"{label}: max echo {old_ms:.1f}ms -> {new_ms:.1f}ms ({regression:+.1f}ms)")
++            if regression > max_latency_regression_ms:
++                failures.append(
++                    f"{label}: max echo regressed {regression:.1f}ms; limit is {max_latency_regression_ms:.1f}ms"
++                )
++
++    return reports, failures
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("baseline", type=Path)
++    parser.add_argument("candidate", type=Path)
++    parser.add_argument("--max-throughput-regression", type=float, default=0.05)
++    parser.add_argument("--max-latency-regression-ms", type=float, default=2.0)
++    return parser.parse_args()
++
++
++def main() -> int:
++    args = parse_args()
++    reports, failures = compare(
++        load_results(args.baseline),
++        load_results(args.candidate),
++        args.max_throughput_regression,
++        args.max_latency_regression_ms,
++    )
++    for report in reports:
++        print(report)
++    if failures:
++        for failure in failures:
++            print(f"FAIL: {failure}", file=sys.stderr)
++        return 1
++    print("raw-mode benchmark gate passed")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
 diff --git a/tests/spec/tinymux_contract.py b/tests/spec/tinymux_contract.py
-index 1b73419..b202a06 100755
+index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf4bd62eae 100755
 --- a/tests/spec/tinymux_contract.py
 +++ b/tests/spec/tinymux_contract.py
 @@ -11,0 +12 @@ import signal
@@ -1291,46 +2009,159 @@ index 1b73419..b202a06 100755
 +    # prevent the parent terminal from retaining the marker as scrollback.
 +    if begin_index < 0:
 +        return
-@@ -632,0 +706,63 @@ def test_split_close_switches_to_raw_main(tinymux: str) -> None:
+@@ -633,23 +706,15 @@ def test_split_close_switches_to_raw_main(tinymux: str) -> None:
+-def test_split_close_replays_main_history_to_parent_scrollback(tinymux: str) -> None:
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_STAYS\\n'; sleep 5",
+-            "--",
+-            "/bin/sh",
+-            "-lc",
+-            "i=0; while [ $i -lt 40 ]; do printf 'HIST_%02d\\n' \"$i\"; i=$((i+1)); done; cat",
+-        ]
+-    )
+-    try:
+-        session.wait_for(b"HIST_39")
+-        session.drain_until_idle()
+-        close_start = len(session.output)
+-        session.write(b"\x02x")
+-        session.wait_for_after(b"\x1b[?1049l", close_start)
+-        session.drain_until_idle()
+-        post_close = session.output[close_start:]
+-        assert b"HIST_00" in post_close, (
+-            "split-era main history was not replayed into the parent stream; "
+-            f"post-close tail={post_close[-1000:]!r}"
 +def test_split_close_preserves_primary_terminal_without_whitespace(tinymux: str) -> None:
 +    tinymux_abs = os.path.abspath(tinymux)
 +    with tempfile.TemporaryDirectory() as root:
-+        watcher = os.path.join(root, "fake-direnv-instant")
 +        ready = os.path.join(root, "watcher-finished")
-+        os.symlink("/bin/sh", watcher)
++        line_count = 30
++        lines = "".join(f"printf 'PRIMARY_{i:02d}\\n'; " for i in range(line_count))
 +        command = (
-+            "printf 'PRIMARY_00\\n\\033]133;A\\033\\\\PRIMARY_PROMPT>"
-+            "\\033]133;B\\033\\\\'; "
++            f"{lines}"
++            "printf 'PRIMARY_PROMPT>'; "
 +            "tmux split-window -d -l 5 "
-+            f"{shlex.quote(watcher)} -c "
-+            f"{shlex.quote(f'printf BOTTOM_WHITESPACE_TEST; sleep 0.4; touch {shlex.quote(ready)}')}; "
++            f"/bin/sh -lc {shlex.quote(f'printf BOTTOM_WHITESPACE_TEST; sleep 0.2; touch {shlex.quote(ready)}')}; "
 +            f"while test ! -e {shlex.quote(ready)}; do sleep 0.02; done; "
-+            # Make the main-shell output happen after Tinymux has observed
-+            # watcher EOF, matching direnv-instant's real completion order.
-+            "sleep 2.5; "
-+            "printf 'DIRENV_PROGRESS_00\\nDIRENV_PROGRESS_01\\n'; "
-+            "printf '\\033]0;~/project\\033\\\\"
-+            "\\033]133;A;click_events=1\\033\\\\\\033[J\\r\\n"
-+            "PRIMARY_PROMPT_AFTER>\\033]133;B\\033\\\\'; "
++            "sleep 0.5; "
++            "printf '\\nPRIMARY_NOTICE\\nPRIMARY_PROMPT_AFTER>'; "
 +            "sleep 10"
-+        )
+@@ -657,31 +722,3 @@ def test_split_close_replays_main_history_to_parent_scrollback(tinymux: str) ->
+-    finally:
+-        session.close()
+-
+-
+-def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None:
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_STAYS\\n'; sleep 5",
+-            "--",
+-            "/bin/sh",
+-            "-lc",
+-            "i=0; while [ $i -lt 20 ]; do printf 'SPLIT_ONLY_HIST_%02d\\n' \"$i\"; i=$((i+1)); done; cat",
+-        ]
+-    )
+-    try:
+-        session.wait_for(b"SPLIT_ONLY_HIST_19")
+-        session.drain_until_idle()
+-        close_start = len(session.output)
+-        session.write(b"\x02x")
+-        session.wait_for_after(b"\x1b[?1049l", close_start)
+-        session.drain_until_idle()
+-        post_close = session.output[close_start:]
+-        assert b"SPLIT_ONLY_HIST_00" in post_close, (
+-            "history that existed only because the main pane was split-sized was not replayed; "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
+-        assert terminal_scrollback_contains(post_close, b"SPLIT_ONLY_HIST_00"), (
+-            "split-sized history was replayed but not forced into native parent scrollback before repaint; "
+-            f"post-close tail={post_close[-1000:]!r}"
 +        session = Session(
 +            [tinymux_abs, "session", "--", "/bin/sh", "-c", command],
 +            controlling_terminal=True,
-+        )
+@@ -689,3 +726,4 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
+-        assert_marker_before_first_synchronized_update(post_close, b"SPLIT_ONLY_HIST_00")
+-    finally:
+-        session.close()
 +        try:
 +            session.wait_for(b"BOTTOM_WHITESPACE_TEST", timeout=5.0)
-+            close_start = len(session.output)
-+            session.wait_for_after(b"\x1b[?1049l", close_start, timeout=5.0)
++            session.wait_for(b"PRIMARY_PROMPT_AFTER", timeout=5.0)
 +            session.drain_until_idle(idle=0.3, timeout=3.0)
-+
-+            expected_stream = (
-+                b"PRIMARY_00\r\n\x1b]133;A\x1b\\PRIMARY_PROMPT>"
-+                b"\x1b]133;B\x1b\\"
-+                b"\x1b]0;~/project\x1b\\"
-+                b"\x1b]133;A;click_events=1\x1b\\\x1b[J\r\n"
-+                b"PRIMARY_PROMPT_AFTER>\x1b]133;B\x1b\\"
-+            )
+@@ -693,67 +731,21 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
+-
+-def test_csi_u_split_close_replays_main_history_to_parent_scrollback(tinymux: str) -> None:
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_STAYS\\n'; sleep 5",
+-            "--",
+-            "/bin/sh",
+-            "-lc",
+-            "i=0; while [ $i -lt 40 ]; do printf 'CSI_HIST_%02d\\n' \"$i\"; i=$((i+1)); done; cat",
+-        ]
+-    )
+-    try:
+-        session.wait_for(b"CSI_HIST_39")
+-        session.drain_until_idle()
+-        close_start = len(session.output)
+-        session.write(b"\x1b[98;5ux")
+-        session.wait_for_after(b"\x1b[?1049l", close_start)
+-        session.drain_until_idle()
+-        post_close = session.output[close_start:]
+-        assert b"CSI_HIST_00" in post_close, (
+-            "split-era main history was not replayed into the parent stream after CSI-u close; "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
+-    finally:
+-        session.close()
+-
+-
+-def test_split_close_replays_history_beyond_old_small_scrollback_cap(tinymux: str) -> None:
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_STAYS\\n'; sleep 30",
+-            "--",
+-            "/bin/sh",
+-            "-lc",
+-            (
+-                "i=0; "
+-                "while [ $i -lt 9000 ]; do "
+-                "printf 'BIG_HIST_%05d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n' \"$i\"; "
+-                "i=$((i+1)); "
+-                "done; "
+-                "cat"
+-            ),
+-        ]
+-    )
+-    try:
+-        session.wait_for(b"BIG_HIST_08999", timeout=10.0)
+-        session.drain_until_idle(timeout=5.0)
+-        close_start = len(session.output)
+-        session.write(b"\x02x")
+-        session.wait_for_after(b"\x1b[?1049l", close_start, timeout=30.0)
+-        session.drain_until_idle(timeout=10.0)
+-        post_close = session.output[close_start:]
+-        assert b"BIG_HIST_00000" in post_close, (
+-            "history older than the old 512 KiB cap was not replayed; "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
+-        assert terminal_scrollback_contains(post_close, b"BIG_HIST_00000"), (
+-            "large replay was written but not retained by parent native scrollback; "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
+-        assert_marker_before_first_synchronized_update(post_close, b"BIG_HIST_00000")
+-    finally:
+-        session.close()
++            expected_stream = b"".join(
++                f"PRIMARY_{i:02d}\r\n".encode() for i in range(line_count)
++            ) + b"PRIMARY_PROMPT>\r\nPRIMARY_NOTICE\r\nPRIMARY_PROMPT_AFTER>"
 +            expected = terminal_state(
 +                expected_stream,
 +                respect_alternate_screen=True,
@@ -1339,12 +2170,8 @@ index 1b73419..b202a06 100755
 +                session.output,
 +                respect_alternate_screen=True,
 +            )
-+            close_output = session.output[
-+                session.output.find(b"\x1b[?1049l", close_start) :
-+            ]
-+            assert b"DIRENV_PROGRESS" not in close_output, (
-+                "direnv progress was replayed from the closed auxiliary pane"
-+            )
++            assert b"\x1b[?1049h" not in session.output
++            assert b"\x1b[?1049l" not in session.output
 +            assert actual == expected, (
 +                "opening and closing an idle split changed the primary terminal; "
 +                f"expected_history={expected[0][-10:]!r} "
@@ -1353,38 +2180,200 @@ index 1b73419..b202a06 100755
 +            )
 +        finally:
 +            session.close()
-+
-+
-@@ -661 +797 @@ def test_split_close_replays_main_history_to_parent_scrollback(tinymux: str) ->
--def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None:
-+def test_split_close_replays_history_without_blank_scrollback(tinymux: str) -> None:
-@@ -682 +818 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
--            "history that existed only because the main pane was split-sized was not replayed; "
-+            "genuine split-era history was not replayed; "
-@@ -685,3 +821,13 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
--        assert terminal_scrollback_contains(post_close, b"SPLIT_ONLY_HIST_00"), (
--            "split-sized history was replayed but not forced into native parent scrollback before repaint; "
+@@ -762,36 +754,10 @@ def test_split_close_replays_history_beyond_old_small_scrollback_cap(tinymux: st
+-def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux: str) -> None:
+-    line_count = 420
+-    fish = shutil.which("fish")
+-    if fish:
+-        main_argv = [
+-            fish,
+-            "-c",
+-            (
+-                f"for i in (seq 0 {line_count - 1}); "
+-                "printf 'SYNC_REPLAY_%04d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n' $i; "
+-                "end; "
+-                "cat"
+-            ),
+-        ]
+-    else:
+-        main_argv = [
+-            "/bin/sh",
+-            "-lc",
+-            (
+-                "i=0; "
+-                f"while [ $i -lt {line_count} ]; do "
+-                "printf 'SYNC_REPLAY_%04d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n' \"$i\"; "
+-                "i=$((i+1)); "
+-                "done; "
+-                "cat"
+-            ),
+-        ]
+-
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_STAYS\\n'; sleep 30",
+-            "--",
+-            *main_argv,
+-        ]
++def test_in_place_split_resizes_main_like_tmux(tinymux: str) -> None:
++    script = (
++        "import os, subprocess, time; "
++        "print('SIZE_INITIAL_%d_%d' % os.get_terminal_size(0), flush=True); "
++        "subprocess.run(['tmux', 'split-window', '-d', '-l', '5', '/bin/sh', '-lc', "
++        "'printf SIZE_SPLIT_READY; sleep 0.2'], check=True); "
++        "print('SIZE_OPEN_%d_%d' % os.get_terminal_size(0), flush=True); "
++        "time.sleep(1); "
++        "print('SIZE_CLOSE_%d_%d' % os.get_terminal_size(0), flush=True); "
++        "time.sleep(5)"
+@@ -798,0 +765 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
++    session = Session([tinymux, "session", "--", sys.executable, "-c", script])
+@@ -800,32 +767,5 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
+-        session.wait_for(f"SYNC_REPLAY_{line_count - 1:04d}".encode(), timeout=10.0)
+-        session.drain_until_idle(timeout=5.0)
+-        close_start = len(session.output)
+-        session.write(b"\x02x")
+-        session.wait_for_after(b"\x1b[?1049l", close_start, timeout=30.0)
+-        session.drain_until_idle(timeout=10.0)
+-        post_close = session.output[close_start:]
+-
+-        first_marker = b"SYNC_REPLAY_0000"
+-        deep_history_marker = f"SYNC_REPLAY_{line_count - DEFAULT_ROWS - 10:04d}".encode()
+-        last_marker = f"SYNC_REPLAY_{line_count - 1:04d}".encode()
+-        assert first_marker in post_close, (
+-            "beginning of long split-era history was not replayed after close; "
 -            f"post-close tail={post_close[-1000:]!r}"
-+        expected_stream = b"".join(
-+            f"SPLIT_ONLY_HIST_{i:02d}\r\n".encode() for i in range(20)
-+        )
-+        expected = terminal_state(expected_stream, respect_alternate_screen=True)
-+        actual = terminal_state(session.output, respect_alternate_screen=True)
-+        assert actual == expected, (
-+            "closing a startup split did not reconstruct the unsplit primary terminal; "
-+            f"expected={expected!r} actual={actual!r}"
-+        )
-+        repaint_start = post_close.find(b"\x1b[?2026h")
-+        replay_end = len(post_close) if repaint_start < 0 else repaint_start
-+        assert b"\x1b[24S" not in post_close[:replay_end], (
-+            "split close forced a full blank viewport into native scrollback"
-@@ -827 +973,4 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
+-        )
+-        assert deep_history_marker in post_close, (
+-            "deep split-era history was not replayed after close; "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
+-        assert last_marker in post_close, (
+-            "end of long split-era history was not replayed after close; "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
+-        assert_marker_before_first_synchronized_update(post_close, first_marker)
+-        assert_marker_before_first_synchronized_update(post_close, deep_history_marker)
+-
+-        retained_lines = terminal_scrollback_marker_count(post_close, b"SYNC_REPLAY_")
 -        assert retained_lines >= line_count - DEFAULT_ROWS - 5, (
-+        # The replay is emitted normally from the parent's restored cursor.
-+        # Up to one full viewport can remain visible until the final repaint;
-+        # forcing it out with CSI S also forces blank rows into scrollback.
-+        assert retained_lines >= line_count - 2 * DEFAULT_ROWS, (
-@@ -978 +1127,15 @@ def test_split_close_then_dirty_main_exit_restores_parent_shell(tinymux: str) ->
+-            "long split-era replay did not become native parent scrollback; "
+-            f"retained_lines={retained_lines} line_count={line_count} "
+-            f"post-close tail={post_close[-1000:]!r}"
+-        )
++        session.wait_for(b"SIZE_INITIAL_80_24")
++        session.wait_for(b"SIZE_OPEN_79_18")
++        session.wait_for(b"SIZE_CLOSE_80_24")
++        assert b"\x1b[?1049h" not in session.output
++        assert b"\x1b[?1049l" not in session.output
+@@ -836,22 +776,8 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
+-def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str) -> None:
+-    line_count = 24000
+-    retained_index = line_count - 1000
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_STAYS\\n'; sleep 30",
+-            "--",
+-            "/bin/sh",
+-            "-lc",
+-            (
+-                "i=0; "
+-                f"while [ $i -lt {line_count} ]; do "
+-                "printf 'PRUNED_ANCHOR_%05d_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n' \"$i\"; "
+-                "i=$((i+1)); "
+-                "done; "
+-                "printf 'PRUNED_ANCHOR_DONE\\n'; "
+-                "cat"
+-            ),
+-        ],
+-        cols=1000,
++def test_split_close_reconciles_application_alternate_screen(tinymux: str) -> None:
++    command = (
++        "printf 'PRIMARY_BEFORE>'; "
++        "tmux split-window -d -l 5 /bin/sh -lc 'printf BOTTOM_ALT_TEST; sleep 0.2'; "
++        "printf '\\033[?1049hALT_ACTIVE>'; "
++        "sleep 1; "
++        "printf '\\033[?1049lPRIMARY_AFTER>'; "
++        "sleep 5"
+@@ -858,0 +785 @@ def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str)
++    session = Session([tinymux, "session", "--", "/bin/sh", "-c", command])
+@@ -860,17 +787,12 @@ def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str)
+-        session.wait_for(b"PRUNED_ANCHOR_DONE", timeout=20.0)
+-        session.drain_until_idle(timeout=5.0)
+-        close_start = len(session.output)
+-        session.write(b"\x02x")
+-        session.wait_for_after(b"\x1b[?1049l", close_start, timeout=30.0)
+-        session.drain_until_idle(timeout=10.0)
+-        post_close = session.output[close_start:]
+-
+-        retained_marker = f"PRUNED_ANCHOR_{retained_index:05d}".encode()
+-        assert retained_marker in post_close, (
+-            "closing split mode did not replay retained history after the split-start anchor was pruned; "
+-            f"marker={retained_marker!r} post-close tail={post_close[-1000:]!r}"
+-        )
+-        assert_marker_before_first_synchronized_update(post_close, retained_marker)
+-        assert terminal_scrollback_contains(post_close, retained_marker), (
+-            "retained split-era history was replayed but did not become parent native scrollback; "
+-            f"marker={retained_marker!r} post-close tail={post_close[-1000:]!r}"
++        session.wait_for(b"ALT_ACTIVE")
++        session.wait_for(b"PRIMARY_AFTER")
++        session.drain_until_idle()
++        assert session.output.count(b"\x1b[?1049h") == 1
++        assert session.output.count(b"\x1b[?1049l") == 1
++        alt_start = session.output.index(b"ALT_ACTIVE")
++        alt_leave = session.output.rindex(b"\x1b[?1049l")
++        handoff = session.output[alt_start:alt_leave]
++        primary_select = handoff.rfind(b"\x1b[?1047l")
++        assert primary_select >= 0, "split close did not visit the touched primary buffer"
++        assert b"PRIMARY_BEFORE" in handoff[primary_select:], (
++            "split close did not repaint the inactive primary buffer before raw handoff"
+@@ -897,3 +818,0 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
+-        session.wait_for(b"\x1b[?1049l")
+-        session.drain_until_idle()
+-
+@@ -901,0 +821 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
++        session.drain_until_idle()
+@@ -906,29 +825,0 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
+-        session.wait_for_after(b"\x1b[?1049h", open_start)
+-        session.wait_for_after(b"RAW_TRACKED", open_start)
+-    finally:
+-        session.close()
+-
+-
+-def test_csi_u_prefix_reopens_split_after_raw_mode(tinymux: str) -> None:
+-    session = Session(
+-        [
+-            tinymux,
+-            "--split",
+-            "printf 'SPLIT_READY\\n'; sleep 5",
+-            "--",
+-            "/bin/sh",
+-            "-lc",
+-            "printf 'MAIN_READY\\n'; cat",
+-        ]
+-    )
+-    try:
+-        session.wait_for(b"SPLIT_READY")
+-        session.write(b"\x1b[98;5ux")
+-        session.wait_for(b"\x1b[?1049l")
+-        session.drain_until_idle()
+-
+-        open_start = len(session.output)
+-        session.write(b"\x1b[98;5u")
+-        time.sleep(0.2)
+-        session.write(b"s")
+-        session.wait_for_after(b"\x1b[?1049h", open_start)
+@@ -935,0 +827,6 @@ def test_csi_u_prefix_reopens_split_after_raw_mode(tinymux: str) -> None:
++        session.drain_until_idle()
++        assert terminal_screen_contains(session.output, b"RAW_TRACKED"), (
++            "budgeted raw shadow state was not present when the split reopened"
++        )
++        assert b"\x1b[?1049h" not in session.output
++        assert b"\x1b[?1049l" not in session.output
+@@ -978 +875,15 @@ def test_split_close_then_dirty_main_exit_restores_parent_shell(tinymux: str) ->
 -        assert before == after, f"tty mode changed across tinymux: before={before!r} after={after!r}"
 +        # Darwin sets the transient PENDIN bit when canonical mode is restored
 +        # after raw mode; it is kernel bookkeeping, not a changed tty policy.
@@ -1401,17 +2390,17 @@ index 1b73419..b202a06 100755
 +        assert stable_tty_mode(before) == stable_tty_mode(after), (
 +            f"tty mode changed across tinymux: before={before!r} after={after!r}"
 +        )
-@@ -1044 +1207,2 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
+@@ -1044 +955,2 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
 -    assert "cd -- " in applied and child_cwd in applied
 +    resolved_child_cwd = os.path.realpath(child_cwd)
 +    assert "cd -- " in applied and resolved_child_cwd in applied
-@@ -1048 +1212 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
+@@ -1048 +960 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
 -    assert nu_applied["cwd"] == child_cwd
 +    assert nu_applied["cwd"] == resolved_child_cwd
-@@ -1077,2 +1240,0 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
+@@ -1077,2 +988,0 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
 -        assert "tinymux --seamless" in script
 -        assert "handoff-capture" in script
-@@ -1082,4 +1244,3 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
+@@ -1082,4 +992,3 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
 -
 -        child_script = subprocess.check_output([wrapper, "child-init", shell], text=True)
 -        assert "left-root" in child_script
@@ -1419,7 +2408,7 @@ index 1b73419..b202a06 100755
 +        assert "tinymux --seamless" not in script
 +        assert "handoff-capture" not in script
 +        assert "TINYMUX_DIRENV_ROOT" not in script
-@@ -1200,0 +1362,10 @@ def setup_direnv_wrapper_project(root: str) -> tuple[str, str, str, str]:
+@@ -1200,0 +1110,10 @@ def setup_direnv_wrapper_project(root: str) -> tuple[str, str, str, str]:
 +def write_fish_command(session: Session | ForkSession, command: str) -> None:
 +    """Submit a command to Fish's interactive reader.
 +
@@ -1430,23 +2419,23 @@ index 1b73419..b202a06 100755
 +    session.write(command.encode() + b"\r")
 +
 +
-@@ -1255,2 +1426,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
+@@ -1255,2 +1174,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
 -            session.write(b"function fish_prompt; end\n")
 -            session.write(f"{shlex.quote(wrapper)} hook fish | source\n".encode())
 +            write_fish_command(session, "function fish_prompt; end")
 +            write_fish_command(session, f"{shlex.quote(wrapper)} hook fish | source")
-@@ -1260 +1431 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
+@@ -1260 +1179 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
 -            session.write(f"cd {shlex.quote(project)}\n".encode())
 +            write_fish_command(session, f"cd {shlex.quote(project)}")
-@@ -1287,2 +1458,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
+@@ -1287,2 +1206,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
 -            session.write(b"function fish_prompt; end\n")
 -            session.write(f"cd {shlex.quote(project)}\n".encode())
 +            write_fish_command(session, "function fish_prompt; end")
 +            write_fish_command(session, f"cd {shlex.quote(project)}")
-@@ -1292 +1463 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
+@@ -1292 +1211 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
 -            session.write(f"{shlex.quote(wrapper)} hook fish | source\n".encode())
 +            write_fish_command(session, f"{shlex.quote(wrapper)} hook fish | source")
-@@ -1349,0 +1521,152 @@ end
+@@ -1349,0 +1269,152 @@ end
 +def test_direnv_instant_fish_startup_drains_child_pty_without_input(tinymux: str) -> None:
 +    """The child prompt must render before the physical terminal sends input."""
 +    fish = shutil.which("fish")
@@ -1599,10 +2588,10 @@ index 1b73419..b202a06 100755
 +        session.close()
 +
 +
-@@ -1453 +1776 @@ def expect_handoff_state(session: ForkSession, child_dir: str, shell_name: str)
+@@ -1453 +1524 @@ def expect_handoff_state(session: ForkSession, child_dir: str, shell_name: str)
 -    expected = f"AFTER|{child_dir}|after|dumb|".encode()
 +    expected = f"AFTER|{os.path.realpath(child_dir)}|after|dumb|".encode()
-@@ -1497,0 +1821,31 @@ def run_posix_style_handoff_test(
+@@ -1497,0 +1569,31 @@ def run_posix_style_handoff_test(
 +def test_persistent_main_preserves_host_integration_but_auxiliary_scrubs_it(tinymux: str) -> None:
 +    env = {
 +        "GHOSTTY_RESOURCES_DIR": "/host/ghostty/resources",
@@ -1634,7 +2623,7 @@ index 1b73419..b202a06 100755
 +        session.close()
 +
 +
-@@ -1513,5 +1867,5 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
+@@ -1513,5 +1615,5 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
 -            session.write(b"stty -echo\n")
 -            session.write(f"source ({shlex.quote(tinymux_abs)} init fish | psub)\n".encode())
 -            session.write(f"cd {shlex.quote(parent_dir)}\n".encode())
@@ -1645,10 +2634,10 @@ index 1b73419..b202a06 100755
 +            write_fish_command(session, f"cd {shlex.quote(parent_dir)}")
 +            write_fish_command(session, "set -gx HANDOFF_TEST_VAR before")
 +            write_fish_command(session, "printf '%s_%s\\n' PARENT READY")
-@@ -1520 +1874 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
+@@ -1520 +1622 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
 -            session.write(b"tinymux-enter; printf '%s_%s\\n' RETURNED FROM_TINYMUX\n")
 +            write_fish_command(session, "tinymux-enter; printf '%s_%s\\n' RETURNED FROM_TINYMUX")
-@@ -1522,4 +1876,4 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
+@@ -1522,4 +1624,4 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
 -            session.write(f"cd {shlex.quote(child_dir)}\n".encode())
 -            session.write(b"set -gx HANDOFF_TEST_VAR after\n")
 -            session.write(b"set -gx TINYMUX_BLOCKED should-not-apply\n")
@@ -1657,14 +2646,14 @@ index 1b73419..b202a06 100755
 +            write_fish_command(session, "set -gx HANDOFF_TEST_VAR after")
 +            write_fish_command(session, "set -gx TINYMUX_BLOCKED should-not-apply")
 +            write_fish_command(session, "tinymux-exit")
-@@ -1614 +1968,2 @@ def test_raw_only_does_not_parse_prefix(tinymux: str) -> None:
+@@ -1614 +1716,2 @@ def test_raw_only_does_not_parse_prefix(tinymux: str) -> None:
 -        session.wait_for(b"02 78")
 +        session.wait_for(b"78")
 +        assert __import__("re").search(rb"\b02\s+78\b", session.output), session.output
-@@ -1625 +1980 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
+@@ -1625 +1728 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
 -            "-lc",
 +            "-c",
-@@ -1646,0 +2002,389 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
+@@ -1646,0 +1750,388 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
 +def test_real_direnv_instant_daemon_opens_tmux_split(tinymux: str) -> None:
 +    """A fragmented request from the real daemon must reach the split pane."""
 +    bash = shutil.which("bash")
@@ -1804,7 +2793,10 @@ index 1b73419..b202a06 100755
 +            session.wait_for(b"TINYMUX_REAL_FISH_PROGRESS", timeout=15.0)
 +            done_offset = len(session.output)
 +            session.wait_for(b"TINYMUX_REAL_FISH_DONE", timeout=10.0)
-+            session.wait_for_after(b"\x1b[?1049l", done_offset, timeout=30.0)
++            done_end = session.output.rfind(b"TINYMUX_REAL_FISH_DONE") + len(
++                b"TINYMUX_REAL_FISH_DONE"
++            )
++            session.wait_for_after(b"TINYMUX_OUTER_FISH>", done_end, timeout=30.0)
 +            session.drain_until_idle(idle=0.3, timeout=3.0)
 +
 +            command_offset = len(session.output)
@@ -1879,7 +2871,7 @@ index 1b73419..b202a06 100755
 +            )
 +
 +        session = Session(
-+            [tinymux_abs, "session", "--", fish, "--no-config", "--interactive"],
++            [tinymux_abs, "session", "--", fish, "--interactive"],
 +            extra_env=env,
 +            cwd=outside,
 +            controlling_terminal=True,
@@ -1899,7 +2891,8 @@ index 1b73419..b202a06 100755
 +                context = wait_file_contains(
 +                    context_files[name], f"{name}_PERSISTENT_CTX|", timeout=15.0
 +                )
-+                session.wait_for_after(b"\x1b[?1049l", offset, timeout=30.0)
++                done_end = session.output.rfind(done) + len(done)
++                session.wait_for_after(b"TINYMUX_PERSISTENT>", done_end, timeout=30.0)
 +                session.drain_until_idle(idle=0.3, timeout=4.0)
 +                contexts.append(context.strip().encode())
 +
@@ -2016,9 +3009,6 @@ index 1b73419..b202a06 100755
 +            old_generation = run_client(
 +                "pane",
 +                "run",
-+                "--role",
-+                "direnv",
-+                "--replace=same-role",
 +                "--rows",
 +                "4",
 +                "--",
@@ -2028,14 +3018,12 @@ index 1b73419..b202a06 100755
 +            )
 +            session.wait_for(b"PANE_GENERATION_ONE", timeout=5.0)
 +            session.drain_until_idle(idle=0.4, timeout=4.0)
++            run_client("pane", "close", old_generation)
 +
 +            second_offset = len(session.output)
 +            new_generation = run_client(
 +                "pane",
 +                "run",
-+                "--role",
-+                "direnv",
-+                "--replace=same-role",
 +                "--rows",
 +                "4",
 +                "--",
@@ -2054,25 +3042,42 @@ index 1b73419..b202a06 100755
 +            session.close()
 +
 +
-@@ -1648 +2392 @@ def test_tmux_split_window_opens_split_and_keeps_main_focus(tinymux: str) -> Non
+@@ -1648 +2139 @@ def test_tmux_split_window_opens_split_and_keeps_main_focus(tinymux: str) -> Non
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1666 +2410 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
+@@ -1666 +2157 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1687 +2431 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
+@@ -1676,2 +2167,2 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
+-        session.write(b"tmux kill-pane\n")
+-        session.wait_for_after(b"\x1b[?1049l", close_start)
++        session.write(b"tmux kill-pane; printf TMUX_KILL_RETURNED\\n\n")
++        session.wait_for_after(b"TMUX_KILL_RETURNED", close_start)
+@@ -1678,0 +2170,2 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
++        assert b"\x1b[?1049h" not in session.output[close_start:]
++        assert b"\x1b[?1049l" not in session.output[close_start:]
+@@ -1687 +2180 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1713 +2457 @@ def test_tmux_split_window_fails_when_split_already_open(tinymux: str) -> None:
+@@ -1697,2 +2190,4 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
+-        session.wait_for_after(b"\x1b[?1049l", close_start, timeout=5.0)
+-        session.drain_until_idle()
++        time.sleep(1.0)
++        session.drain_until_idle(idle=0.2, timeout=3.0)
++        assert b"\x1b[?1049h" not in session.output[close_start:]
++        assert b"\x1b[?1049l" not in session.output[close_start:]
+@@ -1713 +2208 @@ def test_tmux_split_window_fails_when_split_already_open(tinymux: str) -> None:
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1736,0 +2481 @@ def main() -> int:
+@@ -1736,0 +2232 @@ def main() -> int:
 +    parser.add_argument("--persistent-only", action="store_true")
-@@ -1739 +2484,20 @@ def main() -> int:
+@@ -1739 +2235,22 @@ def main() -> int:
 -    tests = [
 +    persistent_tests = [
 +        test_split_close_then_dirty_main_exit_restores_parent_shell,
 +        test_split_close_preserves_primary_terminal_without_whitespace,
++        test_in_place_split_resizes_main_like_tmux,
++        test_split_close_reconciles_application_alternate_screen,
 +        test_direnv_instant_wrapper_outputs_hooks,
 +        test_persistent_main_preserves_host_integration_but_auxiliary_scrubs_it,
 +        test_tmux_compat_env_and_private_shim,
@@ -2090,7 +3095,7 @@ index 1b73419..b202a06 100755
 +        test_tmux_split_window_fails_when_split_already_open,
 +    ]
 +    tests = persistent_tests if args.persistent_only else [
-@@ -1745,6 +2509,3 @@ def main() -> int:
+@@ -1745,6 +2262,3 @@ def main() -> int:
 -        test_direnv_instant_wrapper_enters_tinymux_and_returns_after_leaving_root,
 -        test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error,
 -        test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root,
@@ -2100,12 +3105,19 @@ index 1b73419..b202a06 100755
 +        test_seamless_fish_does_not_reload_host_terminal_integration_or_submit_keys,
 +        test_seamless_child_does_not_inherit_host_terminal_integration_env,
 +        test_persistent_main_preserves_host_integration_but_auxiliary_scrubs_it,
-@@ -1766,0 +2528 @@ def main() -> int:
-+        test_split_close_preserves_primary_terminal_without_whitespace,
-@@ -1768 +2530 @@ def main() -> int:
+@@ -1767,6 +2281,3 @@ def main() -> int:
+-        test_split_close_replays_main_history_to_parent_scrollback,
 -        test_split_close_replays_history_before_expanding_main,
-+        test_split_close_replays_history_without_blank_scrollback,
-@@ -1775,0 +2538,6 @@ def main() -> int:
+-        test_csi_u_split_close_replays_main_history_to_parent_scrollback,
+-        test_split_close_replays_history_beyond_old_small_scrollback_cap,
+-        test_split_close_replays_long_history_outside_synchronized_repaint,
+-        test_split_close_replays_retained_history_after_anchor_pruned,
++        test_split_close_preserves_primary_terminal_without_whitespace,
++        test_in_place_split_resizes_main_like_tmux,
++        test_split_close_reconciles_application_alternate_screen,
+@@ -1774 +2284,0 @@ def main() -> int:
+-        test_csi_u_prefix_reopens_split_after_raw_mode,
+@@ -1775,0 +2286,6 @@ def main() -> int:
 +        test_real_direnv_instant_daemon_opens_tmux_split,
 +        test_real_direnv_instant_fish_is_usable_after_split_closes,
 +        test_persistent_fish_keeps_session_across_sibling_direnv_roots,
