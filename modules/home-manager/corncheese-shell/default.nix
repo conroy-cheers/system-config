@@ -103,9 +103,6 @@ let
         pkgs.direnv
         inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default
       ];
-      postPatch = (oldAttrs.postPatch or "") + ''
-        patch -p1 < ${./tinymux-persistent-session.patch}
-      '';
       checkPhase = ''
         runHook preCheck
         export ZIG_GLOBAL_CACHE_DIR="$TMPDIR/zig-global-cache"
