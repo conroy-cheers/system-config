@@ -24,10 +24,10 @@ index 4c731c5d8d0bb60729a56ddcba3f036b5b1613be..756f854cacfab889309738af9ce2fd41
 +files must contain the same raw workloads; missing candidate results also fail.
 diff --git a/docs/persistent-session.md b/docs/persistent-session.md
 new file mode 100644
-index 0000000000000000000000000000000000000000..c6a88f906dba618afd84414b78d9ba50986ba6b7
+index 0000000000000000000000000000000000000000..0c98da7beeb3dff8a7f02d93ab90c5d2a4fa1d60
 --- /dev/null
 +++ b/docs/persistent-session.md
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,74 @@
 +# Persistent Session Architecture
 +
 +Tinymux owns one main PTY for the lifetime of a terminal tab. With no
@@ -60,6 +60,18 @@ index 0000000000000000000000000000000000000000..c6a88f906dba618afd84414b78d9ba50
 +The main application may enter or leave its own alternate screen while a split
 +is visible. Those application-owned switches are mirrored to the outer
 +terminal, and both touched buffers are reconciled before raw handoff.
++
++Kitty graphics have the same ownership boundary. Before composition Tinymux
++removes app-owned images from each outer screen using their application image
++ID or image number, while retaining the decoded image in the shadow model.
++Composition uses a private image-ID range and independent primary/alternate
++screen caches. On close, those private images are deleted and the application
++images and placements are restored under their original references before raw
++passthrough resumes. The restored physical references are retained per screen
++for the next ownership transition, including the distinct handling required
++when an image number has multiple historical images. Implicit-ID images, which
++have no stable protocol reference on the first transition, are removed by
++their visible placement cell and thereafter use a remembered shadow-owned ID.
 +
 +## Scrollback and host effects
 +
@@ -164,7 +176,7 @@ index 5cf9579c0b81178593edb17bb692744344e8b518..20da1b5f4f311d22c6408cbc99c5f7fc
 +        ''))
 +    ];
 diff --git a/src/main.zig b/src/main.zig
-index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362e5373ac1 100644
+index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..1ca1b9483b0bb9d287d52e47afa33fda8623e125 100644
 --- a/src/main.zig
 +++ b/src/main.zig
 @@ -16,2 +15,0 @@ const exit_drain_ms: i64 = 50;
@@ -721,24 +733,324 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +    }
 +}
 +
-@@ -2271 +2744,0 @@ const Compositor = struct {
+@@ -2148 +2622 @@ fn placementRequest(
+-        .placement_id = if (placement_id == 0) 1 else placement_id,
++        .placement_id = placement_id,
+@@ -2166 +2640,12 @@ fn scaledSourceDelta(pixel_delta: u32, total_pixels: u32, source_length: u32) u3
+-fn emitImageUpload(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u32, image: anytype, format_code: u32) !void {
++const ImageReference = union(enum) {
++    id: u32,
++    number: u32,
++};
++
++fn emitImageUploadReferenced(
++    alloc: std.mem.Allocator,
++    out: *std.ArrayList(u8),
++    reference: ImageReference,
++    image: anytype,
++    format_code: u32,
++) !void {
+@@ -2167,0 +2653,4 @@ fn emitImageUpload(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id:
++    const reference_key: u8, const reference_value: u32 = switch (reference) {
++        .id => |value| .{ 'i', value },
++        .number => |value| .{ 'I', value },
++    };
+@@ -2184,2 +2673,2 @@ fn emitImageUpload(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id:
+-                    "\x1b_Ga=t,t=d,f={d},s={d},v={d},i={d},m=1,q=2;{s}\x1b\\",
+-                    .{ format_code, image.width, image.height, outer_id, encoded },
++                    "\x1b_Ga=t,t=d,f={d},s={d},v={d},{c}={d},m=1,q=2;{s}\x1b\\",
++                    .{ format_code, image.width, image.height, reference_key, reference_value, encoded },
+@@ -2190,2 +2679,2 @@ fn emitImageUpload(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id:
+-                    "\x1b_Ga=t,t=d,f={d},s={d},v={d},i={d},q=2;{s}\x1b\\",
+-                    .{ format_code, image.width, image.height, outer_id, encoded },
++                    "\x1b_Ga=t,t=d,f={d},s={d},v={d},{c}={d},q=2;{s}\x1b\\",
++                    .{ format_code, image.width, image.height, reference_key, reference_value, encoded },
+@@ -2206 +2695,14 @@ fn emitImageUpload(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id:
+-fn emitPlacement(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u32, request: PlacementRequest) !void {
++fn emitImageUpload(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u32, image: anytype, format_code: u32) !void {
++    try emitImageUploadReferenced(alloc, out, .{ .id = outer_id }, image, format_code);
++}
++
++fn emitPlacementReferenced(
++    alloc: std.mem.Allocator,
++    out: *std.ArrayList(u8),
++    reference: ImageReference,
++    request: PlacementRequest,
++) !void {
++    const reference_key: u8, const reference_value: u32 = switch (reference) {
++        .id => |value| .{ 'i', value },
++        .number => |value| .{ 'I', value },
++    };
+@@ -2209 +2711 @@ fn emitPlacement(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u3
+-        "\x1b[{d};{d}H\x1b_Ga=p,i={d},p={d},x={d},y={d},w={d},h={d},X={d},Y={d},c={d},r={d},z={d},C=1,q=2;\x1b\\",
++        "\x1b[{d};{d}H\x1b_Ga=p,{c}={d},p={d},x={d},y={d},w={d},h={d},X={d},Y={d},c={d},r={d},z={d},C=1,q=2;\x1b\\",
+@@ -2213 +2715,2 @@ fn emitPlacement(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u3
+-            outer_id,
++            reference_key,
++            reference_value,
+@@ -2227,0 +2731,4 @@ fn emitPlacement(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u3
++fn emitPlacement(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer_id: u32, request: PlacementRequest) !void {
++    try emitPlacementReferenced(alloc, out, .{ .id = outer_id }, request);
++}
++
+@@ -2235,0 +2743,167 @@ fn emitDeletePlacements(alloc: std.mem.Allocator, out: *std.ArrayList(u8), outer
++fn emitDeletePlacementAt(alloc: std.mem.Allocator, out: *std.ArrayList(u8), row: u32, col: u32) !void {
++    try out.print(
++        alloc,
++        "\x1b_Ga=d,d=p,x={d},y={d},q=2;\x1b\\",
++        .{ col + 1, row + 1 },
++    );
++}
++
++fn rawImageReference(image: anytype) ?ImageReference {
++    if (image.number != 0) return .{ .number = image.number };
++    if (image.implicit_id) return null;
++    if (image.id != 0) return .{ .id = image.id };
++    return null;
++}
++
++fn rawRestoreImageReference(storage: anytype, image: anytype) ImageReference {
++    if (image.number != 0) {
++        const newest = storage.imageByNumber(image.number) orelse return .{ .id = image.id };
++        if (newest.id == image.id) return .{ .number = image.number };
++    }
++    return .{ .id = image.id };
++}
++
++fn emitDeleteImageReferenced(
++    alloc: std.mem.Allocator,
++    out: *std.ArrayList(u8),
++    reference: ImageReference,
++) !void {
++    switch (reference) {
++        .id => |value| try out.print(alloc, "\x1b_Ga=d,d=I,i={d},q=2;\x1b\\", .{value}),
++        .number => |value| try out.print(alloc, "\x1b_Ga=d,d=N,I={d},q=2;\x1b\\", .{value}),
++    }
++}
++
++const RawGraphicsOwnership = struct {
++    references: std.AutoHashMapUnmanaged(u32, ImageReference) = .{},
++
++    fn deinit(self: *RawGraphicsOwnership, alloc: std.mem.Allocator) void {
++        self.references.deinit(alloc);
++    }
++
++    fn clear(self: *RawGraphicsOwnership) void {
++        self.references.clearRetainingCapacity();
++    }
++
++    fn capture(
++        self: *RawGraphicsOwnership,
++        alloc: std.mem.Allocator,
++        pane: *Pane,
++    ) !void {
++        self.clear();
++        if (comptime !kitty_graphics_enabled) return;
++        const storage = &pane.term.screens.active.kitty_images;
++        var iter = storage.images.iterator();
++        while (iter.next()) |entry| {
++            try self.references.put(
++                alloc,
++                entry.key_ptr.*,
++                rawRestoreImageReference(storage, entry.value_ptr.*),
++            );
++        }
++    }
++};
++
++fn rawPlacementId(key: anytype) u32 {
++    return switch (key.placement_id.tag) {
++        .internal => 0,
++        .external => key.placement_id.id,
++    };
++}
++
++fn appendRawGraphicsRemoval(
++    alloc: std.mem.Allocator,
++    out: *std.ArrayList(u8),
++    pane: *Pane,
++    ownership: *const RawGraphicsOwnership,
++) !bool {
++    if (comptime !kitty_graphics_enabled) return false;
++    const storage = &pane.term.screens.active.kitty_images;
++    var emitted = false;
++    var owned_iter = ownership.references.iterator();
++    while (owned_iter.next()) |entry| {
++        try emitDeleteImageReferenced(alloc, out, entry.value_ptr.*);
++        emitted = true;
++    }
++
++    var image_iter = storage.images.iterator();
++    while (image_iter.next()) |entry| {
++        if (ownership.references.contains(entry.key_ptr.*)) continue;
++        const reference = rawImageReference(entry.value_ptr.*) orelse continue;
++        try emitDeleteImageReferenced(alloc, out, reference);
++        emitted = true;
++    }
++
++    const screen = pane.term.screens.active;
++    const viewport_tl_pin = screen.pages.pin(.{ .viewport = .{ .x = 0, .y = 0 } }) orelse return emitted;
++    const viewport_tl = (screen.pages.pointFromPin(.screen, viewport_tl_pin) orelse return emitted).screen;
++    var iter = storage.placements.iterator();
++    while (iter.next()) |entry| {
++        const image = storage.images.get(entry.key_ptr.image_id) orelse continue;
++        if (ownership.references.contains(entry.key_ptr.image_id)) continue;
++        // Stable application references can remove both the placements and
++        // payload exactly. Implicit IDs may differ between our shadow model
++        // and the outer terminal, so remove their visible placement by cell.
++        if (rawImageReference(image) != null) continue;
++        const request = placementRequest(
++            pane,
++            image,
++            entry.value_ptr.*,
++            viewport_tl,
++            0,
++            rawPlacementId(entry.key_ptr.*),
++        ) orelse continue;
++        try emitDeletePlacementAt(alloc, out, request.row, request.col);
++        emitted = true;
++    }
++    return emitted;
++}
++
++fn appendRawGraphicsRestore(
++    alloc: std.mem.Allocator,
++    out: *std.ArrayList(u8),
++    pane: *Pane,
++) !void {
++    if (comptime !kitty_graphics_enabled) return;
++    const storage = &pane.term.screens.active.kitty_images;
++
++    // Image numbers resolve to the newest transmission. Preserve that
++    // ordering when rebuilding the app-owned outer-terminal image state.
++    var image_ids: std.ArrayList(u32) = .empty;
++    defer image_ids.deinit(alloc);
++    var image_iter = storage.images.iterator();
++    while (image_iter.next()) |entry| {
++        var insert_at = image_ids.items.len;
++        while (insert_at > 0) {
++            const previous = storage.images.get(image_ids.items[insert_at - 1]) orelse break;
++            if (previous.transmit_time.order(entry.value_ptr.transmit_time) != .gt) break;
++            insert_at -= 1;
++        }
++        try image_ids.insert(alloc, insert_at, entry.key_ptr.*);
++    }
++    for (image_ids.items) |image_id| {
++        const image = storage.images.get(image_id) orelse continue;
++        const format_code = imageFormatCode(image) orelse continue;
++        const reference = rawRestoreImageReference(storage, image);
++        try emitImageUploadReferenced(alloc, out, reference, image, format_code);
++    }
++
++    const screen = pane.term.screens.active;
++    const viewport_tl_pin = screen.pages.pin(.{ .viewport = .{ .x = 0, .y = 0 } }) orelse return;
++    const viewport_tl = (screen.pages.pointFromPin(.screen, viewport_tl_pin) orelse return).screen;
++    var placement_iter = storage.placements.iterator();
++    while (placement_iter.next()) |entry| {
++        const image = storage.images.get(entry.key_ptr.image_id) orelse continue;
++        const request = placementRequest(
++            pane,
++            image,
++            entry.value_ptr.*,
++            viewport_tl,
++            0,
++            rawPlacementId(entry.key_ptr.*),
++        ) orelse continue;
++        const reference = rawRestoreImageReference(storage, image);
++        try emitPlacementReferenced(alloc, out, reference, request);
++    }
++}
++
+@@ -2241 +2915,2 @@ const Compositor = struct {
+-    graphics: GraphicsState = .{},
++    primary_graphics: GraphicsState = .{},
++    alternate_graphics: GraphicsState = .{},
+@@ -2255 +2930,2 @@ const Compositor = struct {
+-        self.graphics.deinit(self.alloc);
++        self.primary_graphics.deinit(self.alloc);
++        self.alternate_graphics.deinit(self.alloc);
+@@ -2270,2 +2946,14 @@ const Compositor = struct {
+-    fn render(self: *Compositor, layout: Layout, main_pane: *Pane, split_pane: ?*Pane) !void {
 -        if (!layout.split_visible) return;
-@@ -2880,0 +3354,2 @@ const App = struct {
++    fn graphicsFor(self: *Compositor, key: vt.ScreenSet.Key) *GraphicsState {
++        return switch (key) {
++            .primary => &self.primary_graphics,
++            .alternate => &self.alternate_graphics,
++        };
++    }
++
++    fn render(
++        self: *Compositor,
++        layout: Layout,
++        main_pane: *Pane,
++        split_pane: ?*Pane,
++        include_graphics: bool,
++    ) !void {
+@@ -2290 +2978,2 @@ const Compositor = struct {
+-        const graphics_dirty = self.full_render or self.graphics.needsUpdate(main_pane, split_pane);
++        const graphics = self.graphicsFor(main_pane.term.screens.active_key);
++        const graphics_dirty = include_graphics and (self.full_render or graphics.needsUpdate(main_pane, split_pane));
+@@ -2295 +2984 @@ const Compositor = struct {
+-        if (self.canPaneScrollFastPath(layout.main_rows, graphics_dirty)) {
++        if (self.canPaneScrollFastPath(graphics, layout.main_rows, graphics_dirty)) {
+@@ -2309 +2998 @@ const Compositor = struct {
+-            if (self.canPaneScrollFastPath(layout.split_rows, graphics_dirty)) {
++            if (self.canPaneScrollFastPath(graphics, layout.split_rows, graphics_dirty)) {
+@@ -2343,8 +3032,10 @@ const Compositor = struct {
+-            try self.graphics.render(
+-                self.alloc,
+-                &self.frame,
+-                layout,
+-                main_pane,
+-                split_pane,
+-                self.full_render,
+-            );
++            if (include_graphics) {
++                try graphics.render(
++                    self.alloc,
++                    &self.frame,
++                    layout,
++                    main_pane,
++                    split_pane,
++                    self.full_render,
++                );
++            }
+@@ -2360 +3051,5 @@ const Compositor = struct {
+-        if (split_pane) |pane| pane.term.screens.active.pages.clearDirty();
++        if (include_graphics) main_pane.term.screens.active.kitty_images.dirty = false;
++        if (split_pane) |pane| {
++            pane.term.screens.active.pages.clearDirty();
++            if (include_graphics) pane.term.screens.active.kitty_images.dirty = false;
++        }
+@@ -2364 +3059,6 @@ const Compositor = struct {
+-    fn canPaneScrollFastPath(self: *Compositor, visible_rows: u16, graphics_dirty: bool) bool {
++    fn canPaneScrollFastPath(
++        self: *Compositor,
++        graphics: *const GraphicsState,
++        visible_rows: u16,
++        graphics_dirty: bool,
++    ) bool {
+@@ -2366 +3066 @@ const Compositor = struct {
+-        if (self.graphics.uploaded.count() != 0) return false;
++        if (graphics.uploaded.count() != 0) return false;
+@@ -2880,0 +3581,2 @@ const App = struct {
 +    split_generation: ?u64 = null,
 +    next_split_generation: u64 = 1,
-@@ -2886,0 +3362,6 @@ const App = struct {
+@@ -2886,0 +3589,8 @@ const App = struct {
 +    deferred_main_offset: usize = 0,
 +    deferred_catchup_due_ns: ?i128 = null,
 +    screen_switch_mirror: ScreenSwitchMirror = .{},
 +    host_effect_mirror: HostEffectMirror = .{},
 +    outer_primary_touched: bool = false,
 +    outer_alternate_touched: bool = false,
-@@ -2897 +3377,0 @@ const App = struct {
++    outer_primary_graphics: RawGraphicsOwnership = .{},
++    outer_alternate_graphics: RawGraphicsOwnership = .{},
+@@ -2897 +3606,0 @@ const App = struct {
 -    split_replay_anchor: ?*vt.Pin = null,
-@@ -2899 +3379 @@ const App = struct {
+@@ -2899 +3608 @@ const App = struct {
 -    outer_canvas_active: bool = false,
 +    control_connections: std.ArrayList(ControlConnection) = .empty,
-@@ -2904 +3384,8 @@ const App = struct {
+@@ -2904 +3613,8 @@ const App = struct {
 -            try TmuxRuntime.init(alloc)
 +            TmuxRuntime.init(alloc) catch |err| blk: {
 +                var stderr = std.fs.File.stderr().writer(&.{});
@@ -748,7 +1060,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +                ) catch {};
 +                break :blk null;
 +            }
-@@ -2928 +3415,7 @@ const App = struct {
+@@ -2928 +3644,7 @@ const App = struct {
 -        try applyTinymuxEnv(alloc, &main_env, if (tmux_runtime) |*runtime| runtime else null, "%0");
 +        try applyTinymuxEnv(
 +            alloc,
@@ -757,30 +1069,32 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            "%0",
 +            if (config.session) .main_session else .nested_main,
 +        );
-@@ -2968,0 +3462,2 @@ const App = struct {
+@@ -2968,0 +3691,2 @@ const App = struct {
 +            .split_generation = if (split_pane != null) 1 else null,
 +            .next_split_generation = if (split_pane != null) 2 else 1,
-@@ -2976,0 +3472 @@ const App = struct {
+@@ -2976,0 +3701 @@ const App = struct {
 +            .control_connections = .empty,
-@@ -2984 +3479,0 @@ const App = struct {
+@@ -2984 +3708,0 @@ const App = struct {
 -        self.clearSplitReplayAnchor();
-@@ -2989,0 +3485,2 @@ const App = struct {
+@@ -2989,0 +3714,4 @@ const App = struct {
++        self.outer_primary_graphics.deinit(self.alloc);
++        self.outer_alternate_graphics.deinit(self.alloc);
 +        for (self.control_connections.items) |*connection| connection.deinit(self.alloc);
 +        self.control_connections.deinit(self.alloc);
-@@ -2996,3 +3493,3 @@ const App = struct {
+@@ -2996,3 +3724,3 @@ const App = struct {
 -            try self.recordSplitReplayAnchor();
 -            try self.enterOuterCanvas();
 -            try self.writeInitialComposedCanvas();
 +            self.beginOuterComposition();
 +            try protocol.writeAll(stdout_fd, mux_mouse_enable);
 +            self.terminal_restore_needed = true;
-@@ -2999,0 +3497,2 @@ const App = struct {
-+            try self.compositor.render(self.layout, self.main_pane, self.split_pane);
+@@ -2999,0 +3728,2 @@ const App = struct {
++            try self.compositor.render(self.layout, self.main_pane, self.split_pane, true);
 +            self.render_scheduler.rendered(std.time.nanoTimestamp());
-@@ -3015 +3514 @@ const App = struct {
+@@ -3015 +3745 @@ const App = struct {
 -            var fds_storage: [4]posix.pollfd = undefined;
 +            var fds_storage: [4 + max_control_connections]posix.pollfd = undefined;
-@@ -3043,0 +3543,11 @@ const App = struct {
+@@ -3043,0 +3774,11 @@ const App = struct {
 +            const control_connections_start = count;
 +            const polled_control_connections = self.control_connections.items.len;
 +            for (self.control_connections.items) |connection| {
@@ -792,12 +1106,12 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +                count += 1;
 +            }
 +
-@@ -3049,2 +3559,2 @@ const App = struct {
+@@ -3049,2 +3790,2 @@ const App = struct {
 -                if (fds_storage[index].revents != 0) {
 -                    try self.readControl();
 +                if (fds_storage[index].revents & posix.POLL.IN != 0) {
 +                    try self.acceptControlConnections();
-@@ -3054 +3564,11 @@ const App = struct {
+@@ -3054 +3795,11 @@ const App = struct {
 -            if (fds_storage[stdin_index].revents != 0) {
 +            var control_offset = polled_control_connections;
 +            while (control_offset > 0) {
@@ -810,12 +1124,15 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            self.expireControlConnections(std.time.nanoTimestamp());
 +
 +            if (fds_storage[stdin_index].revents & posix.POLL.IN != 0) {
-@@ -3092,0 +3613,4 @@ const App = struct {
+@@ -3092,0 +3844,4 @@ const App = struct {
 +            // Raw output wins the current turn. Catch the shadow model up on
 +            // the next otherwise-idle turn so sustained passthrough retains
 +            // direct-path throughput and interactive gaps still converge.
 +            if (pane_stats.bytes == 0) self.advanceDeferredMainState();
-@@ -3110,0 +3635,11 @@ const App = struct {
+@@ -3107 +3862 @@ const App = struct {
+-        try self.compositor.render(self.layout, self.main_pane, self.split_pane);
++        try self.compositor.render(self.layout, self.main_pane, self.split_pane, true);
+@@ -3110,0 +3866,73 @@ const App = struct {
 +    fn beginOuterComposition(self: *App) void {
 +        self.screen_switch_mirror.reset();
 +        self.host_effect_mirror.reset();
@@ -827,7 +1144,69 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +        }
 +    }
 +
-@@ -3116,0 +3652,11 @@ const App = struct {
++    fn markOuterScreenTouched(self: *App, key: vt.ScreenSet.Key) void {
++        switch (key) {
++            .primary => self.outer_primary_touched = true,
++            .alternate => self.outer_alternate_touched = true,
++        }
++    }
++
++    fn rawGraphicsFor(self: *App, key: vt.ScreenSet.Key) *RawGraphicsOwnership {
++        return switch (key) {
++            .primary => &self.outer_primary_graphics,
++            .alternate => &self.outer_alternate_graphics,
++        };
++    }
++
++    fn removeRawGraphicsForComposition(self: *App) !void {
++        if (comptime !kitty_graphics_enabled) return;
++        const active_key = self.main_pane.term.screens.active_key;
++        var selected_key = active_key;
++        var out: std.ArrayList(u8) = .empty;
++        defer out.deinit(self.alloc);
++
++        for ([_]vt.ScreenSet.Key{ .primary, .alternate }) |key| {
++            if (self.main_pane.term.screens.get(key) == null) continue;
++            self.main_pane.term.screens.switchTo(key);
++            var deletes: std.ArrayList(u8) = .empty;
++            defer deletes.deinit(self.alloc);
++            if (!try appendRawGraphicsRemoval(
++                self.alloc,
++                &deletes,
++                self.main_pane,
++                self.rawGraphicsFor(key),
++            )) continue;
++            if (selected_key != key) {
++                try out.appendSlice(self.alloc, switch (key) {
++                    .primary => "\x1b[?1047l",
++                    .alternate => "\x1b[?1047h",
++                });
++                selected_key = key;
++            }
++            try out.appendSlice(self.alloc, deletes.items);
++            self.markOuterScreenTouched(key);
++        }
++
++        self.main_pane.term.screens.switchTo(active_key);
++        if (selected_key != active_key) {
++            try out.appendSlice(self.alloc, switch (active_key) {
++                .primary => "\x1b[?1047l",
++                .alternate => "\x1b[?1047h",
++            });
++        }
++        if (out.items.len == 0) {
++            self.outer_primary_graphics.clear();
++            self.outer_alternate_graphics.clear();
++            return;
++        }
++        try out.insertSlice(self.alloc, 0, synchronized_update_begin);
++        try out.appendSlice(self.alloc, synchronized_update_end);
++        try protocol.writeAll(stdout_fd, out.items);
++        self.outer_primary_graphics.clear();
++        self.outer_alternate_graphics.clear();
++    }
++
+@@ -3116,0 +3945,11 @@ const App = struct {
 +        if (!self.composed and self.deferredMainStateLen() > 0) {
 +            const due = self.deferred_catchup_due_ns orelse now_ns;
 +            if (now_ns >= due) return 0;
@@ -839,14 +1218,46 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            timeout = @min(timeout, remaining_ms);
 +        }
 +
-@@ -3133,5 +3679 @@ const App = struct {
+@@ -3127,0 +3967,29 @@ const App = struct {
++    fn deleteCompositorGraphicsOnOuterScreens(
++        self: *App,
++        out: *std.ArrayList(u8),
++    ) !void {
++        if (comptime !kitty_graphics_enabled) return;
++        const active_key = self.main_pane.term.screens.active_key;
++        var selected_key = active_key;
++
++        for ([_]vt.ScreenSet.Key{ .primary, .alternate }) |key| {
++            const graphics = self.compositor.graphicsFor(key);
++            if (graphics.uploaded.count() == 0) continue;
++            if (selected_key != key) {
++                try out.appendSlice(self.alloc, switch (key) {
++                    .primary => "\x1b[?1047l",
++                    .alternate => "\x1b[?1047h",
++                });
++                selected_key = key;
++            }
++            try graphics.deleteAll(self.alloc, out);
++        }
++
++        if (selected_key != active_key) {
++            try out.appendSlice(self.alloc, switch (active_key) {
++                .primary => "\x1b[?1047l",
++                .alternate => "\x1b[?1047h",
++            });
++        }
++    }
++
+@@ -3132,6 +4000,2 @@ const App = struct {
+-        self.compositor.graphics.deleteAll(self.alloc, &out) catch {};
 -        if (self.outer_canvas_active) {
 -            out.appendSlice(self.alloc, leave_canvas) catch {};
 -            self.outer_canvas_active = false;
 -            self.terminal_restore_needed = false;
 -        } else if (self.terminal_restore_needed) {
++        self.deleteCompositorGraphicsOnOuterScreens(&out) catch {};
 +        if (self.terminal_restore_needed) {
-@@ -3144,38 +3685,0 @@ const App = struct {
+@@ -3144,38 +4007,0 @@ const App = struct {
 -    fn enterOuterCanvas(self: *App) !void {
 -        try protocol.writeAll(stdout_fd, enter_canvas);
 -        self.outer_canvas_active = true;
@@ -885,11 +1296,11 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 -        try protocol.writeAll(stdout_fd, out.items);
 -    }
 -
-@@ -3184,0 +3689 @@ const App = struct {
+@@ -3184,0 +4011 @@ const App = struct {
 +            error.WouldBlock => return false,
-@@ -3423,0 +3929 @@ const App = struct {
+@@ -3423,0 +4251 @@ const App = struct {
 +            try self.mirrorMainScreenSwitches(bytes);
-@@ -3431,0 +3938,16 @@ const App = struct {
+@@ -3431,0 +4260,16 @@ const App = struct {
 +    fn mirrorMainScreenSwitches(self: *App, bytes: []const u8) !void {
 +        var mirrored: std.ArrayList(u8) = .empty;
 +        defer mirrored.deinit(self.alloc);
@@ -906,7 +1317,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +        self.compositor.invalidate();
 +    }
 +
-@@ -3438,2 +3960,6 @@ const App = struct {
+@@ -3438,2 +4282,6 @@ const App = struct {
 -        var required = self.deferred_main_state.items.len + bytes.len;
 -        if (required > deferred_raw_state_limit) {
 +        if (self.deferred_main_offset > 0 and
@@ -915,16 +1326,16 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            self.compactDeferredMainState();
 +        }
 +        if (self.deferredMainStateLen() + bytes.len > deferred_raw_state_limit) {
-@@ -3441 +3966,0 @@ const App = struct {
+@@ -3441 +4288,0 @@ const App = struct {
 -            required = bytes.len;
-@@ -3447 +3972,2 @@ const App = struct {
+@@ -3447 +4294,2 @@ const App = struct {
 -        if (bytes.len >= deferred_raw_bulk_prealloc_trigger and self.deferred_main_state.capacity < required) {
 +        const total_required = self.deferred_main_state.items.len + bytes.len;
 +        if (bytes.len >= deferred_raw_bulk_prealloc_trigger and self.deferred_main_state.capacity < total_required) {
-@@ -3450 +3976 @@ const App = struct {
+@@ -3450 +4298 @@ const App = struct {
 -                @min(deferred_raw_state_limit, @max(required, deferred_raw_bulk_prealloc_bytes)),
 +                @min(deferred_raw_state_limit, @max(total_required, deferred_raw_bulk_prealloc_bytes)),
-@@ -3453,0 +3980,54 @@ const App = struct {
+@@ -3453,0 +4302,54 @@ const App = struct {
 +        self.deferred_catchup_due_ns = std.time.nanoTimestamp() + deferred_raw_catchup_delay_ns;
 +    }
 +
@@ -979,26 +1390,31 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +        }
 +        if (self.deferredMainStateLen() > 0) self.deferred_catchup_due_ns = std.time.nanoTimestamp();
 +        self.syncMainPassthroughCursor();
-@@ -3457,2 +4037,2 @@ const App = struct {
+@@ -3457,2 +4359,2 @@ const App = struct {
 -        if (self.deferred_main_state.items.len == 0) return;
 -        self.main_pane.feed(self.deferred_main_state.items);
 +        if (self.deferredMainStateLen() == 0) return;
 +        self.main_pane.feed(self.deferred_main_state.items[self.deferred_main_offset..]);
-@@ -3459,0 +4040,2 @@ const App = struct {
+@@ -3459,0 +4362,2 @@ const App = struct {
 +        self.deferred_main_offset = 0;
 +        self.deferred_catchup_due_ns = null;
-@@ -3465,0 +4048,4 @@ const App = struct {
+@@ -3466,2 +4370,7 @@ const App = struct {
+-        if (self.compositor.graphics.uploaded.count() != 0) return false;
+-        if (self.compositor.graphics.needsUpdate(self.main_pane, self.split_pane)) return false;
 +        // A PTY read can end in the middle of a terminal sequence. Until both
 +        // incremental mirrors return to ground, the continuation must pass
 +        // through the VT model rather than being mistaken for printable text.
 +        if (self.screen_switch_mirror.state != .ground or self.host_effect_mirror.state != .ground) return false;
-@@ -3469 +4055 @@ const App = struct {
++        const graphics = self.compositor.graphicsFor(self.main_pane.term.screens.active_key);
++        if (graphics.uploaded.count() != 0) return false;
++        if (graphics.needsUpdate(self.main_pane, self.split_pane)) return false;
+@@ -3469 +4378 @@ const App = struct {
 -        if (!self.main_passthrough_outer_active and self.deferred_main_state.items.len == 0) {
 +        if (!self.main_passthrough_outer_active and self.deferredMainStateLen() == 0) {
-@@ -3588 +4174 @@ const App = struct {
+@@ -3588 +4497 @@ const App = struct {
 -    fn readControl(self: *App) !void {
 +    fn acceptControlConnections(self: *App) !void {
-@@ -3590,5 +4176,10 @@ const App = struct {
+@@ -3590,5 +4499,10 @@ const App = struct {
 -        const connection = runtime.server.accept() catch |err| switch (err) {
 -            error.WouldBlock => return,
 -            else => return err,
@@ -1014,7 +1430,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +                accepted.stream.close();
 +                continue;
 +            }
-@@ -3596,2 +4187,41 @@ const App = struct {
+@@ -3596,2 +4510,41 @@ const App = struct {
 -        var request = ControlRequest.read(self.alloc, connection.stream.handle) catch |err| {
 -            writeControlResponse(connection.stream.handle, false, @errorName(err));
 +            const flags = try posix.fcntl(fd, posix.F.GETFL, 0);
@@ -1058,7 +1474,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            if (err == error.IncompleteControlRequest and !closed) return;
 +            writeControlResponse(connection.fd, false, @errorName(err));
 +            self.removeControlConnection(index);
-@@ -3602,2 +4232,5 @@ const App = struct {
+@@ -3602,2 +4555,5 @@ const App = struct {
 -        self.executeControlRequest(&request) catch |err| {
 -            writeControlResponse(connection.stream.handle, false, @errorName(err));
 +        var response_buf: [128]u8 = undefined;
@@ -1066,11 +1482,11 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            if (!isControlClientError(err)) return err;
 +            writeControlResponse(connection.fd, false, @errorName(err));
 +            self.removeControlConnection(index);
-@@ -3606 +4239,2 @@ const App = struct {
+@@ -3606 +4562,2 @@ const App = struct {
 -        writeControlResponse(connection.stream.handle, true, "");
 +        writeControlResponse(connection.fd, true, response);
 +        self.removeControlConnection(index);
-@@ -3609,9 +4243,68 @@ const App = struct {
+@@ -3609,9 +4566,68 @@ const App = struct {
 -    fn executeControlRequest(self: *App, request: *ControlRequest) !void {
 -        const command = try parseTmuxCommand(request.argv);
 -        switch (command) {
@@ -1148,7 +1564,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +                    },
 +                }
 +                return "";
-@@ -3619,4 +4312,22 @@ const App = struct {
+@@ -3619,4 +4635,22 @@ const App = struct {
 -            .kill_pane => |kill| {
 -                if (kill.target) |target| {
 -                    if (std.mem.eql(u8, target, "%0")) return error.CannotKillMainPane;
@@ -1175,10 +1591,10 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +                        const generation = self.split_generation orelse return "none";
 +                        return try std.fmt.bufPrint(response_buf, "{d}", .{generation});
 +                    },
-@@ -3624,2 +4334,0 @@ const App = struct {
+@@ -3624,2 +4657,0 @@ const App = struct {
 -                if (self.split_pane == null) return error.NoSplitPane;
 -                try self.closeSplit();
-@@ -3629,0 +4339,7 @@ const App = struct {
+@@ -3629,0 +4662,7 @@ const App = struct {
 +    fn prepareAuxiliaryEnv(self: *App, env: *std.process.EnvMap) !void {
 +        const outer_term = posix.getenv("TERM");
 +        const colorterm = posix.getenv("COLORTERM");
@@ -1186,7 +1602,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +        try applyTinymuxEnv(self.alloc, env, self.tmuxRuntimePtr(), "%1", .auxiliary);
 +    }
 +
-@@ -3648,22 +4363,0 @@ const App = struct {
+@@ -3648,22 +4686,0 @@ const App = struct {
 -    fn clearSplitReplayAnchor(self: *App) void {
 -        const anchor = self.split_replay_anchor orelse return;
 -        self.main_pane.term.screens.active.pages.untrackPin(anchor);
@@ -1209,10 +1625,10 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 -        return vt.Selection.init(start, bottom, false);
 -    }
 -
-@@ -3679 +4373 @@ const App = struct {
+@@ -3679 +4696 @@ const App = struct {
 -        try applyTinymuxEnv(self.alloc, &split_env, self.tmuxRuntimePtr(), "%1");
 +        try applyTinymuxEnv(self.alloc, &split_env, self.tmuxRuntimePtr(), "%1", .auxiliary);
-@@ -3686 +4380,7 @@ const App = struct {
+@@ -3686 +4703,7 @@ const App = struct {
 -        try self.openSplitWith(&split_argv, &split_env, cwd, self.config.split_rows, false);
 +        _ = try self.openSplitWith(
 +            &split_argv,
@@ -1221,39 +1637,40 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            self.config.split_rows,
 +            false,
 +        );
-@@ -3696 +4396 @@ const App = struct {
+@@ -3696 +4719 @@ const App = struct {
 -    ) !void {
 +    ) !u64 {
-@@ -3701 +4400,0 @@ const App = struct {
+@@ -3701 +4723,0 @@ const App = struct {
 -        try self.recordSplitReplayAnchor();
-@@ -3704,0 +4404 @@ const App = struct {
+@@ -3704,0 +4727 @@ const App = struct {
 +        if (!self.layout.split_visible) return error.TerminalTooSmall;
-@@ -3706 +4405,0 @@ const App = struct {
+@@ -3706 +4728,0 @@ const App = struct {
 -        try self.main_pane.resize(self.layout.main_rows, self.layout.paneCols(), self.cell_size);
-@@ -3708,0 +4408 @@ const App = struct {
+@@ -3708,0 +4731,3 @@ const App = struct {
++        self.beginOuterComposition();
++        try self.removeRawGraphicsForComposition();
 +        try self.main_pane.resize(self.layout.main_rows, self.layout.paneCols(), self.cell_size);
-@@ -3710 +4409,0 @@ const App = struct {
+@@ -3710 +4734,0 @@ const App = struct {
 -        try self.enterOuterCanvas();
-@@ -3712,0 +4412,3 @@ const App = struct {
+@@ -3712,0 +4737,3 @@ const App = struct {
 +        const generation = self.next_split_generation;
 +        self.next_split_generation = if (generation == std.math.maxInt(u64)) 1 else generation + 1;
 +        self.split_generation = generation;
-@@ -3714,0 +4417,3 @@ const App = struct {
-+        self.beginOuterComposition();
+@@ -3714,0 +4742,2 @@ const App = struct {
 +        try protocol.writeAll(stdout_fd, mux_mouse_enable);
 +        self.terminal_restore_needed = true;
-@@ -3716 +4421,3 @@ const App = struct {
+@@ -3716 +4745,3 @@ const App = struct {
 -        self.render_scheduler.markDirty(.urgent);
-+        try self.compositor.render(self.layout, self.main_pane, self.split_pane);
++        try self.compositor.render(self.layout, self.main_pane, self.split_pane, true);
 +        self.render_scheduler.rendered(std.time.nanoTimestamp());
 +        return generation;
-@@ -3720,0 +4428,5 @@ const App = struct {
+@@ -3720,0 +4752,5 @@ const App = struct {
 +        try self.endComposedMainPassthrough();
 +        try self.drainMainForSplitTransition();
 +        try self.endComposedMainPassthrough();
 +        self.flushDeferredMainState();
 +
-@@ -3725,9 +4437 @@ const App = struct {
+@@ -3725,9 +4761 @@ const App = struct {
 -        try self.endComposedMainPassthrough();
 -        try self.drainMainForRawTransition();
 -        self.flushDeferredMainState();
@@ -1264,16 +1681,11 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 -        defer if (history_replay) |bytes| self.alloc.free(bytes);
 -        self.clearSplitReplayAnchor();
 +        self.split_generation = null;
-@@ -3737,0 +4442,8 @@ const App = struct {
-+
-+        var reset: std.ArrayList(u8) = .empty;
-+        defer reset.deinit(self.alloc);
-+        try self.compositor.graphics.deleteAll(self.alloc, &reset);
-+        try reset.appendSlice(self.alloc, reset_state_sequence);
-+        try protocol.writeAll(stdout_fd, reset.items);
+@@ -3737,0 +4766,3 @@ const App = struct {
++        try protocol.writeAll(stdout_fd, reset_state_sequence);
 +        try self.reconcileMainToOuter();
 +
-@@ -3740,8 +4452,13 @@ const App = struct {
+@@ -3740,8 +4771,13 @@ const App = struct {
 -        var leave: std.ArrayList(u8) = .empty;
 -        defer leave.deinit(self.alloc);
 -        try self.compositor.graphics.deleteAll(self.alloc, &leave);
@@ -1295,7 +1707,7 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +        } else {
 +            if (self.outer_primary_touched) try self.renderMainOnOuterScreen(.primary, false);
 +            try self.renderMainOnOuterScreen(.alternate, true);
-@@ -3749,18 +4466,30 @@ const App = struct {
+@@ -3749,18 +4785,28 @@ const App = struct {
 -        try protocol.writeAll(stdout_fd, synchronized_update_begin);
 -        const repaint = try self.main_pane.repaint(self.alloc);
 -        defer self.alloc.free(repaint);
@@ -1333,21 +1745,32 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +            .alternate => "\x1b[?1047h",
 +        });
 +
++        var graphics_handoff: std.ArrayList(u8) = .empty;
++        defer graphics_handoff.deinit(self.alloc);
++        try self.compositor.graphicsFor(key).deleteAll(self.alloc, &graphics_handoff);
++        if (graphics_handoff.items.len > 0) try protocol.writeAll(stdout_fd, graphics_handoff.items);
++
 +        if (restore_terminal_state) {
 +            const modes = try self.main_pane.terminalModes(self.alloc);
 +            defer self.alloc.free(modes);
 +            try protocol.writeAll(stdout_fd, modes);
-+        }
-+        self.compositor.invalidate();
-+        try self.compositor.render(self.layout, self.main_pane, null);
-+        if (restore_terminal_state) {
-+            const screen_state = try self.main_pane.screenState(self.alloc);
-+            defer self.alloc.free(screen_state);
-+            try protocol.writeAll(stdout_fd, screen_state);
-@@ -3768,2 +4496,0 @@ const App = struct {
+@@ -3768,2 +4814,13 @@ const App = struct {
 -        try raw_repaint.appendSlice(self.alloc, synchronized_update_end);
 -        try protocol.writeAll(stdout_fd, raw_repaint.items);
-@@ -3779,33 +4505,0 @@ const App = struct {
++        self.compositor.invalidate();
++        try self.compositor.render(self.layout, self.main_pane, null, false);
++
++        graphics_handoff.clearRetainingCapacity();
++        try graphics_handoff.appendSlice(self.alloc, synchronized_update_begin);
++        try appendRawGraphicsRestore(self.alloc, &graphics_handoff, self.main_pane);
++        try graphics_handoff.appendSlice(self.alloc, synchronized_update_end);
++        try protocol.writeAll(stdout_fd, graphics_handoff.items);
++        try self.rawGraphicsFor(key).capture(self.alloc, self.main_pane);
++
++        const screen_state = try self.main_pane.screenState(self.alloc);
++        defer self.alloc.free(screen_state);
++        try protocol.writeAll(stdout_fd, screen_state);
+@@ -3779,33 +4835,0 @@ const App = struct {
 -    fn flushReplayIntoParentScrollback(self: *App) !void {
 -        if (self.layout.rows == 0) return;
 -        var buf: [64]u8 = undefined;
@@ -1381,23 +1804,23 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 -        }
 -    }
 -
-@@ -3813,2 +4507 @@ const App = struct {
+@@ -3813,2 +4837 @@ const App = struct {
 -        const deadline = std.time.milliTimestamp() + raw_transition_drain_ms;
 -        while (self.main_pane.pty_fd >= 0 and std.time.milliTimestamp() < deadline) {
 +        while (self.main_pane.pty_fd >= 0) {
-@@ -3820 +4513 @@ const App = struct {
+@@ -3820 +4843 @@ const App = struct {
 -            const ready = try posix.poll(&fds, raw_transition_idle_ms);
 +            const ready = try posix.poll(&fds, 0);
-@@ -3822 +4515 @@ const App = struct {
+@@ -3822 +4845 @@ const App = struct {
 -            if (fds[0].revents == 0) continue;
 +            if (fds[0].revents == 0) break;
-@@ -3837 +4530 @@ const App = struct {
+@@ -3837 +4860 @@ const App = struct {
 -            const ready = try posix.poll(&fds, raw_transition_idle_ms);
 +            const ready = try posix.poll(&fds, 10);
-@@ -3942 +4635 @@ test "CLI parsing can disable tmux compatibility" {
+@@ -3942 +4965 @@ test "CLI parsing can disable tmux compatibility" {
 -test "tmux parser accepts direnv-instant split-window shape" {
 +test "tmux parser treats split-window argv as opaque" {
-@@ -3990,0 +4684,49 @@ test "tmux parser rejects unsupported commands" {
+@@ -3990,0 +5014,49 @@ test "tmux parser rejects unsupported commands" {
 +test "control request failures distinguish client errors from transition failures" {
 +    try std.testing.expect(App.isControlClientError(error.SplitAlreadyOpen));
 +    try std.testing.expect(App.isControlClientError(error.UnsupportedPaneOption));
@@ -1445,6 +1868,93 @@ index da4a2bf4dd3d560febd58ebb4ff058327bfb8b41..8600c4c9220f446a73fd7bb6b5deb362
 +    try mirror.feed(alloc, "\x07\x1b]7;file:///after\x07", &out);
 +
 +    try std.testing.expectEqualStrings("\x1b]7;file:///after\x07", out.items);
++}
++
+@@ -4756,0 +5829,86 @@ test "term selection preserves graphics-capable outer terminals" {
++test "raw graphics handoff preserves application image references and placements" {
++    if (comptime !kitty_graphics_enabled) return error.SkipZigTest;
++
++    const alloc = std.testing.allocator;
++    var pane: Pane = .{
++        .alloc = alloc,
++        .pty_fd = -1,
++        .child_pid = 0,
++        .command_title = "test",
++        .cell_size = .{},
++        .term = try vt.Terminal.init(alloc, .{
++            .cols = 10,
++            .rows = 5,
++            .max_scrollback = scrollback_bytes,
++            .kitty_image_storage_limit = kitty_image_storage_limit,
++            .kitty_image_loading_limits = .all,
++        }),
++        .stream = undefined,
++    };
++    defer pane.term.deinit(alloc);
++    pane.cell_size.applyToTerm(&pane.term);
++
++    var stream = pane.term.vtStream();
++    defer stream.deinit();
++    stream.nextSlice(
++        "\x1b[4;6H" ++
++            "\x1b_Ga=T,f=24,t=d,i=77,p=23,s=1,v=1,c=2,r=2,q=2;////\x1b\\" ++
++            "\x1b[2;3H" ++
++            "\x1b_Ga=T,f=24,t=d,I=42,p=24,s=1,v=1,c=1,r=1,q=2;////\x1b\\" ++
++            "\x1b[3;4H" ++
++            "\x1b_Ga=T,f=24,t=d,I=42,p=25,s=1,v=1,c=1,r=1,q=2;AAAA\x1b\\",
++    );
++
++    const newest_numbered_id = pane.term.screens.active.kitty_images.imageByNumber(42).?.id;
++    var older_numbered_id: ?u32 = null;
++    var numbered_iter = pane.term.screens.active.kitty_images.images.iterator();
++    while (numbered_iter.next()) |entry| {
++        if (entry.value_ptr.number == 42 and entry.key_ptr.* != newest_numbered_id) {
++            older_numbered_id = entry.key_ptr.*;
++        }
++    }
++    try std.testing.expect(older_numbered_id != null);
++
++    var out: std.ArrayList(u8) = .empty;
++    defer out.deinit(alloc);
++    var ownership: RawGraphicsOwnership = .{};
++    defer ownership.deinit(alloc);
++    try std.testing.expect(try appendRawGraphicsRemoval(alloc, &out, &pane, &ownership));
++    try std.testing.expect(std.mem.indexOf(u8, out.items, "a=d,d=I,i=77") != null);
++    try std.testing.expectEqual(@as(usize, 2), std.mem.count(u8, out.items, "a=d,d=N,I=42"));
++    try std.testing.expect(std.mem.indexOf(u8, out.items, "d=p") == null);
++
++    out.clearRetainingCapacity();
++    try appendRawGraphicsRestore(alloc, &out, &pane);
++    try std.testing.expect(std.mem.indexOf(u8, out.items, "a=t,t=d,f=24,s=1,v=1,i=77") != null);
++    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, out.items, "a=t,t=d,f=24,s=1,v=1,I=42"));
++    try std.testing.expect(std.mem.indexOf(u8, out.items, "a=p,i=77,p=23") != null);
++    try std.testing.expect(std.mem.indexOf(u8, out.items, "a=p,I=42,p=25") != null);
++    var older_upload_buf: [96]u8 = undefined;
++    const older_upload = try std.fmt.bufPrint(
++        &older_upload_buf,
++        "a=t,t=d,f=24,s=1,v=1,i={d}",
++        .{older_numbered_id.?},
++    );
++    try std.testing.expect(std.mem.indexOf(u8, out.items, older_upload) != null);
++    var older_placement_buf: [64]u8 = undefined;
++    const older_placement = try std.fmt.bufPrint(
++        &older_placement_buf,
++        "a=p,i={d},p=24",
++        .{older_numbered_id.?},
++    );
++    try std.testing.expect(std.mem.indexOf(u8, out.items, older_placement) != null);
++
++    try ownership.capture(alloc, &pane);
++    out.clearRetainingCapacity();
++    try std.testing.expect(try appendRawGraphicsRemoval(alloc, &out, &pane, &ownership));
++    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, out.items, "a=d,d=N,I=42"));
++    var older_delete_buf: [64]u8 = undefined;
++    const older_delete = try std.fmt.bufPrint(
++        &older_delete_buf,
++        "a=d,d=I,i={d}",
++        .{older_numbered_id.?},
++    );
++    try std.testing.expect(std.mem.indexOf(u8, out.items, older_delete) != null);
 +}
 +
 diff --git a/src/scripts/direnv/bash-hook.sh b/src/scripts/direnv/bash-hook.sh
@@ -1887,7 +2397,7 @@ index 0000000000000000000000000000000000000000..4589483f985b35f487513af86959bcea
 +if __name__ == "__main__":
 +    raise SystemExit(main())
 diff --git a/tests/spec/tinymux_contract.py b/tests/spec/tinymux_contract.py
-index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf4bd62eae 100755
+index 1b734190706feb5f39c705412bac4967817ec7b5..2031fdb91d0518d5881009f27fd52dd0e9c17af9 100755
 --- a/tests/spec/tinymux_contract.py
 +++ b/tests/spec/tinymux_contract.py
 @@ -11,0 +12 @@ import signal
@@ -2009,7 +2519,85 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +    # prevent the parent terminal from retaining the marker as scrollback.
 +    if begin_index < 0:
 +        return
-@@ -633,23 +706,15 @@ def test_split_close_switches_to_raw_main(tinymux: str) -> None:
+@@ -608,0 +682,77 @@ def test_split_replays_kitty_png_graphics(tinymux: str) -> None:
++def test_persistent_split_hands_kitty_placements_back_to_raw_mode(tinymux: str) -> None:
++    outer_id = 0x70000000
++    command = (
++        "printf '\\033[4;6H"
++        "\\033_Ga=T,f=24,t=d,i=77,p=23,s=1,v=1,c=2,r=2,q=2;////\\033\\\\"
++        "\\033[1;1HRAW_IMAGE_READY'; "
++        "sleep 0.2; "
++        "tmux split-window -d -l 5 /bin/sh -lc 'sleep 0.4'; "
++        "sleep 1; "
++        "printf 'RAW_IMAGE_CLOSE_DONE'; "
++        "sleep 5"
++    )
++    session = Session(
++        [tinymux, "session", "--", "/bin/sh", "-c", command],
++        extra_env={"TERM": "xterm-ghostty"},
++    )
++    try:
++        session.wait_for(b"RAW_IMAGE_CLOSE_DONE", timeout=8.0)
++        session.drain_until_idle(idle=0.2, timeout=3.0)
++        output = session.output
++
++        raw_upload = output.index(b"a=T,f=24,t=d,i=77,p=23")
++        raw_delete = output.index(b"a=d,d=I,i=77", raw_upload)
++        managed_upload = output.index(f"a=t,t=d,f=24,s=1,v=1,i={outer_id}".encode(), raw_delete)
++        managed_delete = output.index(f"a=d,d=I,i={outer_id}".encode(), managed_upload)
++        restored_upload = output.index(b"a=t,t=d,f=24,s=1,v=1,i=77", managed_delete)
++        restored_placement = output.index(b"a=p,i=77,p=23", restored_upload)
++
++        assert raw_upload < raw_delete < managed_upload < managed_delete
++        assert managed_delete < restored_upload < restored_placement
++        assert f"a=p,i={outer_id}".encode() not in output[managed_delete:], (
++            "split-close text reconciliation recreated a compositor-owned placement"
++        )
++        assert output.count(b"a=p,i=77,p=23") == 1, (
++            "raw application placement was restored more than once"
++        )
++    finally:
++        session.close()
++
++
++def test_persistent_split_keeps_kitty_images_screen_local(tinymux: str) -> None:
++    outer_id = 0x70000000
++    command = (
++        "printf '\033[2;2H"
++        "\033_Ga=T,f=24,t=d,i=81,p=31,s=1,v=1,c=1,r=1,q=2;////\033\\"
++        "\033[?47h\033[3;4H"
++        "\033_Ga=T,f=24,t=d,i=82,p=32,s=1,v=1,c=1,r=1,q=2;AAAA\033\\"
++        "\033[1;1HSCREEN_IMAGE_READY'; "
++        "sleep 0.2; "
++        "tmux split-window -d -l 5 /bin/sh -lc 'sleep 0.8'; "
++        "sleep 0.15; printf '\033[?47l'; "
++        "sleep 0.15; printf '\033[?47h'; "
++        "sleep 1; printf 'SCREEN_IMAGE_CLOSE_DONE'; sleep 5"
++    )
++    session = Session(
++        [tinymux, "session", "--", "/bin/sh", "-c", command],
++        extra_env={"TERM": "xterm-ghostty"},
++    )
++    try:
++        session.wait_for(b"SCREEN_IMAGE_CLOSE_DONE", timeout=8.0)
++        session.drain_until_idle(idle=0.2, timeout=3.0)
++        output = session.output
++        managed_upload = f"a=t,t=d,f=24,s=1,v=1,i={outer_id}".encode()
++        managed_delete = f"a=d,d=I,i={outer_id}".encode()
++
++        assert output.count(managed_upload) == 2, (
++            "primary and alternate buffers did not receive independent compositor images"
++        )
++        assert output.count(managed_delete) == 2, (
++            "compositor images were not deleted from both outer screen buffers"
++        )
++        assert output.count(b"a=p,i=81,p=31") == 1
++        assert output.count(b"a=p,i=82,p=32") == 1
++    finally:
++        session.close()
++
++
+@@ -633,23 +783,15 @@ def test_split_close_switches_to_raw_main(tinymux: str) -> None:
 -def test_split_close_replays_main_history_to_parent_scrollback(tinymux: str) -> None:
 -    session = Session(
 -        [
@@ -2048,7 +2636,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +            "sleep 0.5; "
 +            "printf '\\nPRIMARY_NOTICE\\nPRIMARY_PROMPT_AFTER>'; "
 +            "sleep 10"
-@@ -657,31 +722,3 @@ def test_split_close_replays_main_history_to_parent_scrollback(tinymux: str) ->
+@@ -657,31 +799,3 @@ def test_split_close_replays_main_history_to_parent_scrollback(tinymux: str) ->
 -    finally:
 -        session.close()
 -
@@ -2083,7 +2671,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        session = Session(
 +            [tinymux_abs, "session", "--", "/bin/sh", "-c", command],
 +            controlling_terminal=True,
-@@ -689,3 +726,4 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
+@@ -689,3 +803,4 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
 -        assert_marker_before_first_synchronized_update(post_close, b"SPLIT_ONLY_HIST_00")
 -    finally:
 -        session.close()
@@ -2091,7 +2679,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +            session.wait_for(b"BOTTOM_WHITESPACE_TEST", timeout=5.0)
 +            session.wait_for(b"PRIMARY_PROMPT_AFTER", timeout=5.0)
 +            session.drain_until_idle(idle=0.3, timeout=3.0)
-@@ -693,67 +731,21 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
+@@ -693,67 +808,21 @@ def test_split_close_replays_history_before_expanding_main(tinymux: str) -> None
 -
 -def test_csi_u_split_close_replays_main_history_to_parent_scrollback(tinymux: str) -> None:
 -    session = Session(
@@ -2180,7 +2768,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +            )
 +        finally:
 +            session.close()
-@@ -762,36 +754,10 @@ def test_split_close_replays_history_beyond_old_small_scrollback_cap(tinymux: st
+@@ -762,36 +831,10 @@ def test_split_close_replays_history_beyond_old_small_scrollback_cap(tinymux: st
 -def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux: str) -> None:
 -    line_count = 420
 -    fish = shutil.which("fish")
@@ -2227,9 +2815,9 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        "time.sleep(1); "
 +        "print('SIZE_CLOSE_%d_%d' % os.get_terminal_size(0), flush=True); "
 +        "time.sleep(5)"
-@@ -798,0 +765 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
+@@ -798,0 +842 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
 +    session = Session([tinymux, "session", "--", sys.executable, "-c", script])
-@@ -800,32 +767,5 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
+@@ -800,32 +844,5 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
 -        session.wait_for(f"SYNC_REPLAY_{line_count - 1:04d}".encode(), timeout=10.0)
 -        session.drain_until_idle(timeout=5.0)
 -        close_start = len(session.output)
@@ -2267,7 +2855,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        session.wait_for(b"SIZE_CLOSE_80_24")
 +        assert b"\x1b[?1049h" not in session.output
 +        assert b"\x1b[?1049l" not in session.output
-@@ -836,22 +776,8 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
+@@ -836,22 +853,8 @@ def test_split_close_replays_long_history_outside_synchronized_repaint(tinymux:
 -def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str) -> None:
 -    line_count = 24000
 -    retained_index = line_count - 1000
@@ -2298,9 +2886,9 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        "sleep 1; "
 +        "printf '\\033[?1049lPRIMARY_AFTER>'; "
 +        "sleep 5"
-@@ -858,0 +785 @@ def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str)
+@@ -858,0 +862 @@ def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str)
 +    session = Session([tinymux, "session", "--", "/bin/sh", "-c", command])
-@@ -860,17 +787,12 @@ def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str)
+@@ -860,17 +864,12 @@ def test_split_close_replays_retained_history_after_anchor_pruned(tinymux: str)
 -        session.wait_for(b"PRUNED_ANCHOR_DONE", timeout=20.0)
 -        session.drain_until_idle(timeout=5.0)
 -        close_start = len(session.output)
@@ -2330,13 +2918,13 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        assert primary_select >= 0, "split close did not visit the touched primary buffer"
 +        assert b"PRIMARY_BEFORE" in handoff[primary_select:], (
 +            "split close did not repaint the inactive primary buffer before raw handoff"
-@@ -897,3 +818,0 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
+@@ -897,3 +895,0 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
 -        session.wait_for(b"\x1b[?1049l")
 -        session.drain_until_idle()
 -
-@@ -901,0 +821 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
+@@ -901,0 +898 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
 +        session.drain_until_idle()
-@@ -906,29 +825,0 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
+@@ -906,29 +902,0 @@ def test_raw_output_is_tracked_for_reopened_split(tinymux: str) -> None:
 -        session.wait_for_after(b"\x1b[?1049h", open_start)
 -        session.wait_for_after(b"RAW_TRACKED", open_start)
 -    finally:
@@ -2366,14 +2954,14 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 -        time.sleep(0.2)
 -        session.write(b"s")
 -        session.wait_for_after(b"\x1b[?1049h", open_start)
-@@ -935,0 +827,6 @@ def test_csi_u_prefix_reopens_split_after_raw_mode(tinymux: str) -> None:
+@@ -935,0 +904,6 @@ def test_csi_u_prefix_reopens_split_after_raw_mode(tinymux: str) -> None:
 +        session.drain_until_idle()
 +        assert terminal_screen_contains(session.output, b"RAW_TRACKED"), (
 +            "budgeted raw shadow state was not present when the split reopened"
 +        )
 +        assert b"\x1b[?1049h" not in session.output
 +        assert b"\x1b[?1049l" not in session.output
-@@ -978 +875,15 @@ def test_split_close_then_dirty_main_exit_restores_parent_shell(tinymux: str) ->
+@@ -978 +952,15 @@ def test_split_close_then_dirty_main_exit_restores_parent_shell(tinymux: str) ->
 -        assert before == after, f"tty mode changed across tinymux: before={before!r} after={after!r}"
 +        # Darwin sets the transient PENDIN bit when canonical mode is restored
 +        # after raw mode; it is kernel bookkeeping, not a changed tty policy.
@@ -2390,17 +2978,17 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        assert stable_tty_mode(before) == stable_tty_mode(after), (
 +            f"tty mode changed across tinymux: before={before!r} after={after!r}"
 +        )
-@@ -1044 +955,2 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
+@@ -1044 +1032,2 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
 -    assert "cd -- " in applied and child_cwd in applied
 +    resolved_child_cwd = os.path.realpath(child_cwd)
 +    assert "cd -- " in applied and resolved_child_cwd in applied
-@@ -1048 +960 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
+@@ -1048 +1037 @@ def test_handoff_apply_emits_safe_shell_state(tinymux: str) -> None:
 -    assert nu_applied["cwd"] == child_cwd
 +    assert nu_applied["cwd"] == resolved_child_cwd
-@@ -1077,2 +988,0 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
+@@ -1077,2 +1065,0 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
 -        assert "tinymux --seamless" in script
 -        assert "handoff-capture" in script
-@@ -1082,4 +992,3 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
+@@ -1082,4 +1069,3 @@ def test_direnv_instant_wrapper_outputs_hooks(tinymux: str) -> None:
 -
 -        child_script = subprocess.check_output([wrapper, "child-init", shell], text=True)
 -        assert "left-root" in child_script
@@ -2408,7 +2996,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        assert "tinymux --seamless" not in script
 +        assert "handoff-capture" not in script
 +        assert "TINYMUX_DIRENV_ROOT" not in script
-@@ -1200,0 +1110,10 @@ def setup_direnv_wrapper_project(root: str) -> tuple[str, str, str, str]:
+@@ -1200,0 +1187,10 @@ def setup_direnv_wrapper_project(root: str) -> tuple[str, str, str, str]:
 +def write_fish_command(session: Session | ForkSession, command: str) -> None:
 +    """Submit a command to Fish's interactive reader.
 +
@@ -2419,23 +3007,23 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +    session.write(command.encode() + b"\r")
 +
 +
-@@ -1255,2 +1174,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
+@@ -1255,2 +1251,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
 -            session.write(b"function fish_prompt; end\n")
 -            session.write(f"{shlex.quote(wrapper)} hook fish | source\n".encode())
 +            write_fish_command(session, "function fish_prompt; end")
 +            write_fish_command(session, f"{shlex.quote(wrapper)} hook fish | source")
-@@ -1260 +1179 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
+@@ -1260 +1256 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error(ti
 -            session.write(f"cd {shlex.quote(project)}\n".encode())
 +            write_fish_command(session, f"cd {shlex.quote(project)}")
-@@ -1287,2 +1206,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
+@@ -1287,2 +1283,2 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
 -            session.write(b"function fish_prompt; end\n")
 -            session.write(f"cd {shlex.quote(project)}\n".encode())
 +            write_fish_command(session, "function fish_prompt; end")
 +            write_fish_command(session, f"cd {shlex.quote(project)}")
-@@ -1292 +1211 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
+@@ -1292 +1288 @@ def test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root(tin
 -            session.write(f"{shlex.quote(wrapper)} hook fish | source\n".encode())
 +            write_fish_command(session, f"{shlex.quote(wrapper)} hook fish | source")
-@@ -1349,0 +1269,152 @@ end
+@@ -1349,0 +1346,152 @@ end
 +def test_direnv_instant_fish_startup_drains_child_pty_without_input(tinymux: str) -> None:
 +    """The child prompt must render before the physical terminal sends input."""
 +    fish = shutil.which("fish")
@@ -2588,10 +3176,10 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        session.close()
 +
 +
-@@ -1453 +1524 @@ def expect_handoff_state(session: ForkSession, child_dir: str, shell_name: str)
+@@ -1453 +1601 @@ def expect_handoff_state(session: ForkSession, child_dir: str, shell_name: str)
 -    expected = f"AFTER|{child_dir}|after|dumb|".encode()
 +    expected = f"AFTER|{os.path.realpath(child_dir)}|after|dumb|".encode()
-@@ -1497,0 +1569,31 @@ def run_posix_style_handoff_test(
+@@ -1497,0 +1646,31 @@ def run_posix_style_handoff_test(
 +def test_persistent_main_preserves_host_integration_but_auxiliary_scrubs_it(tinymux: str) -> None:
 +    env = {
 +        "GHOSTTY_RESOURCES_DIR": "/host/ghostty/resources",
@@ -2623,7 +3211,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        session.close()
 +
 +
-@@ -1513,5 +1615,5 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
+@@ -1513,5 +1692,5 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
 -            session.write(b"stty -echo\n")
 -            session.write(f"source ({shlex.quote(tinymux_abs)} init fish | psub)\n".encode())
 -            session.write(f"cd {shlex.quote(parent_dir)}\n".encode())
@@ -2634,10 +3222,10 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +            write_fish_command(session, f"cd {shlex.quote(parent_dir)}")
 +            write_fish_command(session, "set -gx HANDOFF_TEST_VAR before")
 +            write_fish_command(session, "printf '%s_%s\\n' PARENT READY")
-@@ -1520 +1622 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
+@@ -1520 +1699 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
 -            session.write(b"tinymux-enter; printf '%s_%s\\n' RETURNED FROM_TINYMUX\n")
 +            write_fish_command(session, "tinymux-enter; printf '%s_%s\\n' RETURNED FROM_TINYMUX")
-@@ -1522,4 +1624,4 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
+@@ -1522,4 +1701,4 @@ def test_fish_seamless_enter_exit_restores_cwd_and_env(tinymux: str) -> None:
 -            session.write(f"cd {shlex.quote(child_dir)}\n".encode())
 -            session.write(b"set -gx HANDOFF_TEST_VAR after\n")
 -            session.write(b"set -gx TINYMUX_BLOCKED should-not-apply\n")
@@ -2646,14 +3234,14 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +            write_fish_command(session, "set -gx HANDOFF_TEST_VAR after")
 +            write_fish_command(session, "set -gx TINYMUX_BLOCKED should-not-apply")
 +            write_fish_command(session, "tinymux-exit")
-@@ -1614 +1716,2 @@ def test_raw_only_does_not_parse_prefix(tinymux: str) -> None:
+@@ -1614 +1793,2 @@ def test_raw_only_does_not_parse_prefix(tinymux: str) -> None:
 -        session.wait_for(b"02 78")
 +        session.wait_for(b"78")
 +        assert __import__("re").search(rb"\b02\s+78\b", session.output), session.output
-@@ -1625 +1728 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
+@@ -1625 +1805 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
 -            "-lc",
 +            "-c",
-@@ -1646,0 +1750,388 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
+@@ -1646,0 +1827,388 @@ def test_tmux_compat_env_and_private_shim(tinymux: str) -> None:
 +def test_real_direnv_instant_daemon_opens_tmux_split(tinymux: str) -> None:
 +    """A fragmented request from the real daemon must reach the split pane."""
 +    bash = shutil.which("bash")
@@ -3042,42 +3630,44 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +            session.close()
 +
 +
-@@ -1648 +2139 @@ def test_tmux_split_window_opens_split_and_keeps_main_focus(tinymux: str) -> Non
+@@ -1648 +2216 @@ def test_tmux_split_window_opens_split_and_keeps_main_focus(tinymux: str) -> Non
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1666 +2157 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
+@@ -1666 +2234 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1676,2 +2167,2 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
+@@ -1676,2 +2244,2 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
 -        session.write(b"tmux kill-pane\n")
 -        session.wait_for_after(b"\x1b[?1049l", close_start)
 +        session.write(b"tmux kill-pane; printf TMUX_KILL_RETURNED\\n\n")
 +        session.wait_for_after(b"TMUX_KILL_RETURNED", close_start)
-@@ -1678,0 +2170,2 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
+@@ -1678,0 +2247,2 @@ def test_tmux_kill_pane_closes_split(tinymux: str) -> None:
 +        assert b"\x1b[?1049h" not in session.output[close_start:]
 +        assert b"\x1b[?1049l" not in session.output[close_start:]
-@@ -1687 +2180 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
+@@ -1687 +2257 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1697,2 +2190,4 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
+@@ -1697,2 +2267,4 @@ def test_tmux_split_window_auto_closes_after_child_exit(tinymux: str) -> None:
 -        session.wait_for_after(b"\x1b[?1049l", close_start, timeout=5.0)
 -        session.drain_until_idle()
 +        time.sleep(1.0)
 +        session.drain_until_idle(idle=0.2, timeout=3.0)
 +        assert b"\x1b[?1049h" not in session.output[close_start:]
 +        assert b"\x1b[?1049l" not in session.output[close_start:]
-@@ -1713 +2208 @@ def test_tmux_split_window_fails_when_split_already_open(tinymux: str) -> None:
+@@ -1713 +2285 @@ def test_tmux_split_window_fails_when_split_already_open(tinymux: str) -> None:
 -    session = Session([tinymux, "--", "/bin/sh", "-lc", "printf 'MAIN_READY\\n'; /bin/sh"])
 +    session = Session([tinymux, "--", "/bin/sh", "-c", "printf 'MAIN_READY\\n'; /bin/sh"])
-@@ -1736,0 +2232 @@ def main() -> int:
+@@ -1736,0 +2309 @@ def main() -> int:
 +    parser.add_argument("--persistent-only", action="store_true")
-@@ -1739 +2235,22 @@ def main() -> int:
+@@ -1739 +2312,24 @@ def main() -> int:
 -    tests = [
 +    persistent_tests = [
 +        test_split_close_then_dirty_main_exit_restores_parent_shell,
 +        test_split_close_preserves_primary_terminal_without_whitespace,
 +        test_in_place_split_resizes_main_like_tmux,
 +        test_split_close_reconciles_application_alternate_screen,
++        test_persistent_split_hands_kitty_placements_back_to_raw_mode,
++        test_persistent_split_keeps_kitty_images_screen_local,
 +        test_direnv_instant_wrapper_outputs_hooks,
 +        test_persistent_main_preserves_host_integration_but_auxiliary_scrubs_it,
 +        test_tmux_compat_env_and_private_shim,
@@ -3095,7 +3685,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        test_tmux_split_window_fails_when_split_already_open,
 +    ]
 +    tests = persistent_tests if args.persistent_only else [
-@@ -1745,6 +2262,3 @@ def main() -> int:
+@@ -1745,6 +2341,3 @@ def main() -> int:
 -        test_direnv_instant_wrapper_enters_tinymux_and_returns_after_leaving_root,
 -        test_direnv_instant_fish_wrapper_enters_tinymux_without_env_command_error,
 -        test_direnv_instant_fish_wrapper_enters_tinymux_when_sourced_inside_root,
@@ -3105,7 +3695,7 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        test_seamless_fish_does_not_reload_host_terminal_integration_or_submit_keys,
 +        test_seamless_child_does_not_inherit_host_terminal_integration_env,
 +        test_persistent_main_preserves_host_integration_but_auxiliary_scrubs_it,
-@@ -1767,6 +2281,3 @@ def main() -> int:
+@@ -1767,6 +2360,5 @@ def main() -> int:
 -        test_split_close_replays_main_history_to_parent_scrollback,
 -        test_split_close_replays_history_before_expanding_main,
 -        test_csi_u_split_close_replays_main_history_to_parent_scrollback,
@@ -3115,9 +3705,11 @@ index 1b734190706feb5f39c705412bac4967817ec7b5..87f2e33a549176d3d0c13fc0dd2059cf
 +        test_split_close_preserves_primary_terminal_without_whitespace,
 +        test_in_place_split_resizes_main_like_tmux,
 +        test_split_close_reconciles_application_alternate_screen,
-@@ -1774 +2284,0 @@ def main() -> int:
++        test_persistent_split_hands_kitty_placements_back_to_raw_mode,
++        test_persistent_split_keeps_kitty_images_screen_local,
+@@ -1774 +2365,0 @@ def main() -> int:
 -        test_csi_u_prefix_reopens_split_after_raw_mode,
-@@ -1775,0 +2286,6 @@ def main() -> int:
+@@ -1775,0 +2367,6 @@ def main() -> int:
 +        test_real_direnv_instant_daemon_opens_tmux_split,
 +        test_real_direnv_instant_fish_is_usable_after_split_closes,
 +        test_persistent_fish_keeps_session_across_sibling_direnv_roots,
