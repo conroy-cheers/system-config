@@ -361,12 +361,6 @@ in
             ForwardAgent = false;
             HashKnownHosts = true;
           };
-
-          "kombu" = {
-            HostName = "10.11.5.126";
-            ProxyJump = "root@babi-1-dev";
-            IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_work.id_ed25519.pub";
-          };
         };
     };
 

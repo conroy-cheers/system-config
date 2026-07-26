@@ -92,13 +92,17 @@ let
       ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
     else
       "~/.1password/agent.sock";
+  nebulaHostAddresses = import ../../common/corncheese-development/nebula-hosts.nix;
+  nebulaSshSettings = lib.mapAttrs (_name: address: {
+    HostName = address;
+    User = "conroy";
+    IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+    IdentitiesOnly = true;
+  }) nebulaHostAddresses;
   homeJumpHosts = [
     "pve"
-    "snow"
     "bigbrain"
-    "sleet"
     "alexandria"
-    "panda"
   ];
 
   pkl-vscode = pkgs.vscode-utils.buildVscodeMarketplaceExtension rec {
@@ -955,16 +959,10 @@ in
       enable = true;
       enableDefaultConfig = false;
 
-      settings = {
+      settings = nebulaSshSettings // {
         "beluga" = {
           HostName = "corncheese.org";
           User = "conroycheers";
-          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-          IdentitiesOnly = true;
-        };
-        "snow" = {
-          HostName = "10.1.1.120";
-          User = "conroy";
           IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
           IdentitiesOnly = true;
         };
@@ -984,11 +982,6 @@ in
           User = "conroy";
           IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
-        "sleet" = {
-          HostName = "sleet.lan";
-          User = "conroy";
-          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-        };
         "alexandria" = {
           HostName = "10.1.1.30";
           User = "root";
@@ -998,11 +991,6 @@ in
           HostName = "10.1.1.114";
           Port = 22222;
           User = "root";
-          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-        };
-        "panda" = {
-          HostName = "panda.lan";
-          User = "conroy";
           IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
         };
         home = {
