@@ -14,6 +14,7 @@ let
 in
 {
   imports = [
+    ./nebula.nix
     inputs.determinate.darwinModules.default
   ];
 
