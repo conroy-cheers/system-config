@@ -1,14 +1,10 @@
-{
-  inputs,
-  lib,
-  pkgs,
-  config,
-  ...
-}:
-
+{ pkgs, ... }:
 {
   environment.systemPackages = with pkgs; [ tailscale ];
-  homebrew.casks = [ "prusaslicer" ];
+  homebrew.casks = [
+    "karabiner-elements"
+    "prusaslicer"
+  ];
   services.tailscale.enable = true;
 
   networking.hostName = "kiki";
@@ -58,23 +54,10 @@
     };
   };
 
-  nixpkgs = {
-    overlays = [
-      # If you want to use overlays your own flake exports (from overlays dir):
-      inputs.self.overlays.karabiner
-    ];
-  };
-
   programs.fish.enable = true;
 
   # Fonts
   fonts.packages = with pkgs; [ nerd-fonts.meslo-lg ];
-
-  services = {
-    karabiner-elements = {
-      enable = false;
-    };
-  };
 
   # Keyboard
   system.keyboard.enableKeyMapping = true;

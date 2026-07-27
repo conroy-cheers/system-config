@@ -9,6 +9,77 @@
 let
   prusaSlicerProfilesSource = inputs.prusa-slicer-profiles;
 
+  # QWERTY key codes to the Gallium v1 layout used by Silakka54.
+  galliumV1Mappings = {
+    q = "b";
+    w = "l";
+    e = "d";
+    r = "c";
+    t = "v";
+    y = "j";
+    u = "y";
+    i = "o";
+    o = "u";
+    p = "comma";
+
+    a = "n";
+    s = "r";
+    d = "t";
+    f = "s";
+    h = "p";
+    j = "h";
+    k = "a";
+    l = "e";
+    semicolon = "i";
+    quote = "slash";
+
+    z = "x";
+    x = "q";
+    c = "m";
+    v = "w";
+    b = "z";
+    n = "k";
+    m = "f";
+    comma = "quote";
+    period = "semicolon";
+    slash = "period";
+  };
+
+  karabinerConfig = pkgs.writeText "karabiner.json" (
+    builtins.toJSON {
+      global = {
+        check_for_updates_on_startup = false;
+        show_in_menu_bar = true;
+        show_profile_name_in_menu_bar = false;
+      };
+      profiles = [
+        {
+          name = "Gallium v1";
+          selected = true;
+          complex_modifications.rules = [
+            {
+              description = "Gallium v1 on the built-in keyboard";
+              manipulators = lib.mapAttrsToList (from: to: {
+                type = "basic";
+                from = {
+                  key_code = from;
+                  modifiers.optional = [ "any" ];
+                };
+                to = [ { key_code = to; } ];
+                conditions = [
+                  {
+                    type = "device_if";
+                    identifiers = [ { is_built_in_keyboard = true; } ];
+                  }
+                ];
+              }) galliumV1Mappings;
+            }
+          ];
+        }
+      ];
+    }
+  );
+
   prusaSlicerFilamentProfiles = pkgs.runCommand "prusa-slicer-filament-profiles" { } ''
     source_dir=${prusaSlicerProfilesSource}
     mkdir -p "$out"
@@ -47,6 +118,16 @@ in
 
     # Let Home Manager install and manage itself.
     programs.home-manager.enable = true;
+
+    home.activation.installKarabinerConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      config_dir="$HOME/.config/karabiner"
+      config_file="$config_dir/karabiner.json"
+
+      $DRY_RUN_CMD ${lib.getExe' pkgs.coreutils "mkdir"} -p "$config_dir"
+      if ! ${lib.getExe' pkgs.diffutils "cmp"} -s ${karabinerConfig} "$config_file"; then
+        $DRY_RUN_CMD ${lib.getExe' pkgs.coreutils "install"} -m 600 ${karabinerConfig} "$config_file"
+      fi
+    '';
 
     age.rekey = {
       hostPubkey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPiqaH6fb+jnt0wz/s67UARLes+tvvHbVCUC29gYEClC conroy@kiki.local";
