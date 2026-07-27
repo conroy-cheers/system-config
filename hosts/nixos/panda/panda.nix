@@ -340,10 +340,15 @@ in
     services.mainsail = {
       enable = true;
       hostName = "panda";
-      nginx.serverAliases = [
-        "panda.local"
-        "panda.home.conroycheers.me"
-      ];
+      nginx = {
+        serverAliases = [
+          "panda.local"
+          "panda.home.conroycheers.me"
+        ];
+        extraConfig = ''
+          client_max_body_size 1024m;
+        '';
+      };
     };
 
     services.nginx = {
