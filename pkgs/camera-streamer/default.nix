@@ -10,6 +10,10 @@
   pkg-config,
   stdenv,
   v4l-utils,
+  webrtcPortRange ? {
+    from = 50000;
+    to = 50009;
+  },
   xxd,
 }:
 
@@ -56,6 +60,13 @@ stdenv.mkDerivation {
       --replace-fail 'LDLIBS += -L$(LIBDATACHANNEL_PATH)/build/deps/libsrtp -lsrtp2' "" \
       --replace-fail 'LDLIBS += -L$(LIBDATACHANNEL_PATH)/build/deps/libjuice -ljuice-static' "" \
       --replace-fail 'camera-streamer: $(LIBDATACHANNEL_PATH)/build/libdatachannel-static.a' 'camera-streamer:'
+
+    substituteInPlace output/webrtc/webrtc.cc \
+      --replace-fail \
+        '  .disableAutoNegotiation = true' \
+        '  .disableAutoNegotiation = true,
+      .portRangeBegin = ${toString webrtcPortRange.from},
+      .portRangeEnd = ${toString webrtcPortRange.to}'
   '';
 
   makeFlags = [
@@ -73,6 +84,10 @@ stdenv.mkDerivation {
     install -D -m 0755 camera-streamer $out/bin/camera-streamer
     runHook postInstall
   '';
+
+  passthru = {
+    inherit webrtcPortRange;
+  };
 
   meta = {
     description = "Raspberry Pi camera streaming service with WebRTC support";

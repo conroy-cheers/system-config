@@ -13,8 +13,10 @@ let
   logDir = "${moonrakerStateDir}/logs";
   userPasswordSecret = ../../../secrets/master/home/conroy/user/password.age;
   turnHost = "turn.home.conroycheers.me";
-  turnUser = "panda-webrtc";
-  turnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
+  # Coturn uses Matrix REST authentication. This credential expires on
+  # 2038-01-01 and must be regenerated if the Matrix TURN secret is rotated.
+  turnUser = "2145916800";
+  turnCredential = "cHEG5YuLBNehqbvN251T4/ydBZ0=";
   mainMcuUuid = "534a88092b48";
   toolheadMcuUuid = "205939919db6";
   cameraStreamer = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.camera-streamer;
@@ -226,6 +228,11 @@ in
 
     programs.fish.enable = true;
 
+    documentation.man.cache = {
+      enable = false;
+      generateAtRuntime = false;
+    };
+
     systemd.targets.getty.wants = [ "serial-getty@ttyS0.service" ];
 
     services.openssh = {
@@ -257,6 +264,7 @@ in
         80
         7125
       ];
+      allowedUDPPortRanges = [ cameraStreamer.webrtcPortRange ];
     };
 
     services.tailscale.enable = true;
