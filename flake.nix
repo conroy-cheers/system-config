@@ -383,9 +383,14 @@
     };
 
     corncheese-server = {
-      url = "github:conroy-cheers/corncheese-server-config";
+      url = "github:conroy-cheers/corncheese-server-config?ref=agent/wotbox-integration";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.ragenix.follows = "ragenix";
+    };
+
+    wotbox = {
+      url = "github:conroy-cheers/wotbox";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
