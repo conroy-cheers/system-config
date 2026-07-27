@@ -65,6 +65,7 @@ ctrl + lalt - e : yabai -m space --balance
 shift + lalt - space : sketchybar --bar hidden=toggle
 
 # Ghostty
-lalt - return : bash -c 'id=$(yabai -m query --windows | jq -re ".[] | select(.app == \"Ghostty\") | .id" | head -n 1) && [ -z "$id" ] && open -a Ghostty || (yabai -m window --focus $id && skhd -k "cmd - n")'
+lalt - return : open -na Ghostty
 
-lalt - f : open -a "Safari"
+# Safari
+lalt - f : @openSafariWindow@

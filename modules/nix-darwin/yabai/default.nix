@@ -116,11 +116,136 @@ in
           EOF
         '';
       };
+      openSafariWindow = pkgs.writeShellApplication {
+        name = "open-safari-window";
+
+        runtimeInputs = [
+          config.services.yabai.package
+          pkgs.jq
+        ];
+
+        text = ''
+          set -euo pipefail
+
+          mouse_space="$(yabai -m query --spaces --space mouse)"
+          target_space="$(jq -er '.index' <<< "$mouse_space")"
+
+          if [ "$(jq -r '.["is-native-fullscreen"]' <<< "$mouse_space")" = "true" ]; then
+            target_display="$(jq -er '.display' <<< "$mouse_space")"
+            recent_space="$(yabai -m query --spaces --space recent)"
+            empty_space="$(
+              yabai -m query --spaces |
+                jq -r --argjson display "$target_display" '
+                  first(
+                    .[]
+                    | select(.display == $display)
+                    | select(.["is-native-fullscreen"] == false)
+                    | select((.windows | length) == 0)
+                    | .index
+                  ) // empty
+                '
+            )"
+
+            if [ -n "$empty_space" ]; then
+              target_space="$empty_space"
+            elif [ "$(jq -r '.display' <<< "$recent_space")" = "$target_display" ] &&
+              [ "$(jq -r '.["is-native-fullscreen"]' <<< "$recent_space")" = "false" ]; then
+              target_space="$(jq -er '.index' <<< "$recent_space")"
+            else
+              target_space="$(
+                yabai -m query --spaces |
+                  jq -er --argjson display "$target_display" '
+                    first(
+                      .[]
+                      | select(.display == $display)
+                      | select(.["is-native-fullscreen"] == false)
+                      | .index
+                    )
+                  '
+              )"
+            fi
+          fi
+
+          existing_ids="$(
+            yabai -m query --windows |
+              jq -c '[.[] | select(.app == "Safari") | .id]'
+          )"
+
+          /usr/bin/osascript <<'APPLESCRIPT'
+          tell application "Safari"
+            make new document
+            activate
+          end tell
+          APPLESCRIPT
+
+          window_id=""
+          stable_observations=0
+          attempt=0
+          while [ "$attempt" -lt 100 ] && [ "$stable_observations" -lt 5 ]; do
+            candidate_id="$(
+              yabai -m query --windows |
+                jq -r --argjson existing "$existing_ids" '
+                  [
+                    .[]
+                    | select(.app == "Safari")
+                    | .id as $id
+                    | select(($existing | index($id)) == null)
+                    | $id
+                  ]
+                  | max // empty
+                '
+            )"
+
+            if [ -n "$candidate_id" ]; then
+              window_id="$candidate_id"
+              window_space="$(
+                (yabai -m query --windows --window "$window_id" 2>/dev/null || true) |
+                  jq -r '.space // empty'
+              )"
+
+              if [ "$window_space" = "$target_space" ]; then
+                stable_observations=$((stable_observations + 1))
+              else
+                stable_observations=0
+                yabai -m window "$window_id" --space "$target_space" \
+                  >/dev/null 2>&1 || true
+              fi
+            fi
+
+            attempt=$((attempt + 1))
+            sleep 0.05
+          done
+
+          if [ -z "$window_id" ] || [ "$stable_observations" -lt 5 ]; then
+            echo "Could not place the newly created Safari window" >&2
+            exit 1
+          fi
+
+          target_has_focus="$(
+            yabai -m query --spaces --space "$target_space" |
+              jq -r '.["has-focus"]'
+          )"
+          if [ "$target_has_focus" != "true" ]; then
+            yabai -m space --focus "$target_space"
+          fi
+
+          attempt=0
+          while ! yabai -m window --focus "$window_id" >/dev/null 2>&1; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 100 ]; then
+              echo "Could not focus the newly created Safari window" >&2
+              exit 1
+            fi
+            sleep 0.05
+          done
+        '';
+      };
     in
     {
       environment.systemPackages = [
         setbg
         applySketchybarPadding
+        openSafariWindow
         sketchybarToggle
       ];
 
@@ -162,6 +287,7 @@ in
             layout = "bsp";
             focus_follows_mouse = "autoraise";
             mouse_follows_focus = "off";
+            window_origin_display = "cursor";
             window_placement = "second_child";
             auto_balance = "off";
             split_ratio = 0.50;
@@ -211,7 +337,15 @@ in
         skhd = {
           enable = true;
           package = pkgs.skhd;
-          skhdConfig = builtins.readFile ./skhdrc;
+          skhdConfig =
+            builtins.replaceStrings
+              [
+                "@openSafariWindow@"
+              ]
+              [
+                (lib.getExe openSafariWindow)
+              ]
+              (builtins.readFile ./skhdrc);
         };
 
         sketchybar = {

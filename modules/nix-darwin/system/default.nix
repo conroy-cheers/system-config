@@ -84,8 +84,8 @@ in
           NSScrollAnimationEnabled = false;
           # Disable automatic window animations
           NSAutomaticWindowAnimationsEnabled = false;
-          # Switch workspace on application activate
-          AppleSpacesSwitchOnActivate = true;
+          # Keep the current workspace when activating an application
+          AppleSpacesSwitchOnActivate = false;
         };
 
         dock = {
