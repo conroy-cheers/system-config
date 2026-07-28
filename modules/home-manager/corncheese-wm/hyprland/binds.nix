@@ -63,8 +63,8 @@ in
       (bindExec (mod "T") "thunar")
 
       # Special workspace
-      (bind (mod "S") (lua "hl.dsp.workspace.toggle_special()"))
-      (bind (mod "CTRL + S") (lua "hl.dsp.workspace.toggle_special()"))
+      (bind (mod "0") (lua "hl.dsp.workspace.toggle_special()"))
+      (bind (mod "CTRL + 0") (lua "hl.dsp.workspace.toggle_special()"))
       (bind (mod "SHIFT + S") (lua ''hl.dsp.window.move({ workspace = "special", follow = false })''))
 
       # Screenshot
@@ -192,7 +192,6 @@ in
               hl.bind(mod .. " + CTRL + l", hl.dsp.focus({ workspace = "r+1" }))
               hl.bind(mod .. " + CTRL + S", hl.dsp.workspace.toggle_special())
               hl.bind(mod .. " + SHIFT + W", hl.dsp.window.fullscreen())
-              hl.bind("SHIFT + F10", hl.dsp.exec_cmd("/home/conroy/src/erss/tools/mark_erss_state.sh /tmp/erss-watch-mark 'visual glitch observed'"))
             end
           '')
         ];

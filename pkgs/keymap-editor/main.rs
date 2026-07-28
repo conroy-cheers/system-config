@@ -21,6 +21,13 @@ const QUICK_LABELS: &[&str] = &[
     "Boot",
 ];
 
+const HOLD_MODIFIERS: &[HoldModifier] = &[
+    HoldModifier::Ctrl,
+    HoldModifier::Shift,
+    HoldModifier::Alt,
+    HoldModifier::Gui,
+];
+
 const KEY_GEOMETRY: [KeyGeometry; KEY_COUNT] = [
     KeyGeometry::square(53.5, 82.5),
     KeyGeometry::square(132.5, 82.5),
@@ -319,6 +326,58 @@ struct LayoutMetrics {
     scale: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HoldModifier {
+    Ctrl,
+    Shift,
+    Alt,
+    Gui,
+}
+
+impl HoldModifier {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Ctrl => "Ctrl",
+            Self::Shift => "Shift",
+            Self::Alt => "Alt",
+            Self::Gui => "GUI",
+        }
+    }
+
+    fn qmk_macro(self) -> &'static str {
+        match self {
+            Self::Ctrl => "LCTL_T",
+            Self::Shift => "LSFT_T",
+            Self::Alt => "LALT_T",
+            Self::Gui => "LGUI_T",
+        }
+    }
+
+    fn qmk_mod(self) -> &'static str {
+        match self {
+            Self::Ctrl => "MOD_LCTL",
+            Self::Shift => "MOD_LSFT",
+            Self::Alt => "MOD_LALT",
+            Self::Gui => "MOD_LGUI",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum HoldAction {
+    Modifier(HoldModifier),
+    Layer(String),
+}
+
+impl HoldAction {
+    fn label(&self) -> String {
+        match self {
+            Self::Modifier(modifier) => modifier.label().to_string(),
+            Self::Layer(layer) => display_layer_identifier(layer),
+        }
+    }
+}
+
 struct Args {
     keymap_path: PathBuf,
     print_path: bool,
@@ -336,6 +395,8 @@ struct AppState {
     status: *mut c_void,
     selected_label: *mut c_void,
     editor_entry: *mut c_void,
+    tap_entry: *mut c_void,
+    hold_combo: *mut c_void,
 }
 
 struct QuickAction {
@@ -452,7 +513,7 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
 
         let window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
         gtk_window_set_title(window, title.as_ptr());
-        gtk_window_set_default_size(window, 1180, 720);
+        gtk_window_set_default_size(window, 1180, 760);
         gtk_container_set_border_width(window, 14);
 
         let root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
@@ -466,11 +527,19 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
         let selected_label = gtk_label_new(cstring("Select a key").as_ptr());
         let editor_entry = gtk_entry_new();
         let apply_button = gtk_button_new_with_label(cstring("Apply").as_ptr());
+        let tap_hold_editor = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        let tap_hold_title = gtk_label_new(cstring("Tap / hold:").as_ptr());
+        let tap_label = gtk_label_new(cstring("Tap").as_ptr());
+        let tap_entry = gtk_entry_new();
+        let hold_label = gtk_label_new(cstring("Hold").as_ptr());
+        let hold_combo = gtk_combo_box_text_new();
+        let apply_tap_hold_button = gtk_button_new_with_label(cstring("Apply tap / hold").as_ptr());
         let status = gtk_label_new(cstring("").as_ptr());
 
         gtk_label_set_xalign(status, 0.0);
         gtk_label_set_xalign(selected_label, 0.0);
         gtk_entry_set_width_chars(editor_entry, 14);
+        gtk_entry_set_width_chars(tap_entry, 12);
         gtk_widget_set_size_request(drawing_area, 900, 500);
         gtk_widget_set_can_focus(drawing_area, TRUE);
         gtk_widget_add_events(drawing_area, GDK_BUTTON_PRESS_MASK | GDK_KEY_PRESS_MASK);
@@ -490,9 +559,17 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
             quick_buttons.push((*label, button));
         }
 
+        gtk_box_pack_start(tap_hold_editor, tap_hold_title, FALSE, FALSE, 0);
+        gtk_box_pack_start(tap_hold_editor, tap_label, FALSE, FALSE, 0);
+        gtk_box_pack_start(tap_hold_editor, tap_entry, FALSE, FALSE, 0);
+        gtk_box_pack_start(tap_hold_editor, hold_label, FALSE, FALSE, 0);
+        gtk_box_pack_start(tap_hold_editor, hold_combo, FALSE, FALSE, 0);
+        gtk_box_pack_start(tap_hold_editor, apply_tap_hold_button, FALSE, FALSE, 0);
+
         gtk_box_pack_start(root, toolbar, FALSE, FALSE, 0);
         gtk_box_pack_start(root, drawing_area, TRUE, TRUE, 0);
         gtk_box_pack_start(root, editor, FALSE, FALSE, 0);
+        gtk_box_pack_start(root, tap_hold_editor, FALSE, FALSE, 0);
         gtk_box_pack_start(root, status, FALSE, FALSE, 0);
         gtk_container_add(window, root);
 
@@ -506,9 +583,12 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
             status,
             selected_label,
             editor_entry,
+            tap_entry,
+            hold_combo,
         }));
 
         populate_combo(&*state);
+        populate_hold_combo(&*state);
         gtk_combo_box_set_active(combo, 0);
         set_status(&*state, &format!("Loaded {}", (*state).path.display()));
 
@@ -588,6 +668,22 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
             editor_entry,
             activate.as_ptr(),
             on_apply as *const c_void,
+            state as *mut c_void,
+            None,
+            0,
+        );
+        g_signal_connect_data(
+            apply_tap_hold_button,
+            clicked.as_ptr(),
+            on_apply_tap_hold as *const c_void,
+            state as *mut c_void,
+            None,
+            0,
+        );
+        g_signal_connect_data(
+            tap_entry,
+            activate.as_ptr(),
+            on_apply_tap_hold as *const c_void,
             state as *mut c_void,
             None,
             0,
@@ -749,6 +845,7 @@ unsafe extern "C" fn on_reload(_widget: *mut c_void, data: *mut c_void) {
                 .current_layer
                 .min(state.layers.len().saturating_sub(1));
             populate_combo(state);
+            populate_hold_combo(state);
             gtk_combo_box_set_active(state.combo, state.current_layer as c_int);
             refresh_editor(state);
             gtk_widget_queue_draw(state.drawing_area);
@@ -774,11 +871,69 @@ unsafe extern "C" fn on_apply(_widget: *mut c_void, data: *mut c_void) {
     let state = &mut *(data as *mut AppState);
     match collect_editor(state) {
         Ok(()) => {
+            refresh_tap_hold_editor(state);
             gtk_widget_queue_draw(state.drawing_area);
             set_status(state, "Applied selected key");
         }
         Err(error) => set_status(state, &error),
     }
+}
+
+unsafe extern "C" fn on_apply_tap_hold(_widget: *mut c_void, data: *mut c_void) {
+    let state = &mut *(data as *mut AppState);
+    let Some(index) = state.selected_key else {
+        set_status(state, "Select a key before assigning tap / hold behavior");
+        return;
+    };
+    let tap = CStr::from_ptr(gtk_entry_get_text(state.tap_entry))
+        .to_string_lossy()
+        .trim()
+        .to_string();
+    if tap.is_empty() {
+        set_status(state, "Tap key cannot be empty");
+        return;
+    }
+    if !valid_label(&tap, &layer_names(&state.layers)) {
+        set_status(state, &format!("Unsupported tap key {tap:?}"));
+        return;
+    }
+
+    let active = gtk_combo_box_get_active(state.hold_combo);
+    let value = if active <= 0 {
+        tap
+    } else {
+        let Some(tap_keycode) = tap_label_to_qmk(&tap) else {
+            set_status(
+                state,
+                &format!("{tap:?} is not a basic QMK keycode and cannot be used as a tap-hold key"),
+            );
+            return;
+        };
+        if let Some(modifier) = hold_modifier_for_combo(active) {
+            format!("{}({tap_keycode})", modifier.qmk_macro())
+        } else if let Some(layer_index) = hold_layer_for_combo(active) {
+            let Some(layer) = state.layers.get(layer_index) else {
+                set_status(state, "Selected hold layer is unavailable");
+                return;
+            };
+            format!("LT({}, {tap_keycode})", qmk_layer_identifier(&layer.name))
+        } else {
+            set_status(state, "Unsupported hold action");
+            return;
+        }
+    };
+
+    state.layers[state.current_layer].keys[index] = value.clone();
+    gtk_entry_set_text(state.editor_entry, cstring(&value).as_ptr());
+    refresh_tap_hold_editor(state);
+    gtk_widget_queue_draw(state.drawing_area);
+    set_status(
+        state,
+        &format!(
+            "Set {}[{}] = {}",
+            state.layers[state.current_layer].name, index, value
+        ),
+    );
 }
 
 unsafe extern "C" fn on_quick_label(_widget: *mut c_void, data: *mut c_void) {
@@ -827,6 +982,8 @@ fn render_preview_png(path: &Path, layers: Vec<Layer>) -> Result<(), String> {
             status: std::ptr::null_mut(),
             selected_label: std::ptr::null_mut(),
             editor_entry: std::ptr::null_mut(),
+            tap_entry: std::ptr::null_mut(),
+            hold_combo: std::ptr::null_mut(),
         };
         draw_keyboard(cr, &state, REF_WIDTH, REF_HEIGHT);
         let status = cairo_surface_write_to_png(surface, cstring(&path.to_string_lossy()).as_ptr());
@@ -880,6 +1037,8 @@ unsafe fn draw_key(
     );
     if selected {
         set_rgb(cr, MOCHA_TEAL);
+    } else if parse_tap_hold(label).is_some() {
+        set_rgb(cr, MOCHA_GREEN);
     } else if is_layer_label(label) {
         set_rgb(cr, MOCHA_YELLOW);
     } else if label == "___" {
@@ -897,7 +1056,7 @@ unsafe fn draw_key(
     }
     cairo_stroke(cr);
 
-    let text_color = if selected || is_layer_label(label) {
+    let text_color = if selected || is_layer_label(label) || parse_tap_hold(label).is_some() {
         MOCHA_CRUST
     } else if label == "___" {
         MOCHA_OVERLAY0
@@ -905,14 +1064,33 @@ unsafe fn draw_key(
         MOCHA_TEXT
     };
     set_rgb(cr, text_color);
-    draw_centered_text(
-        cr,
-        label,
-        0.0,
-        -key_height * 0.04,
-        key_width.min(key_height) * 0.25,
-        key_width * 0.76,
-    );
+    if let Some((hold, tap)) = parse_tap_hold(label) {
+        draw_centered_text(
+            cr,
+            &tap,
+            0.0,
+            -key_height * 0.16,
+            key_width.min(key_height) * 0.23,
+            key_width * 0.76,
+        );
+        draw_centered_text(
+            cr,
+            &hold.label(),
+            0.0,
+            key_height * 0.10,
+            key_width.min(key_height) * 0.15,
+            key_width * 0.76,
+        );
+    } else {
+        draw_centered_text(
+            cr,
+            label,
+            0.0,
+            -key_height * 0.04,
+            key_width.min(key_height) * 0.25,
+            key_width * 0.76,
+        );
+    }
 
     set_rgba(cr, text_color, 0.62);
     draw_centered_text(
@@ -1024,6 +1202,40 @@ unsafe fn refresh_editor(state: &AppState) {
         gtk_label_set_text(state.selected_label, cstring("Select a key").as_ptr());
         gtk_entry_set_text(state.editor_entry, cstring("").as_ptr());
     }
+    refresh_tap_hold_editor(state);
+}
+
+unsafe fn refresh_tap_hold_editor(state: &AppState) {
+    let Some(index) = state.selected_key else {
+        gtk_entry_set_text(state.tap_entry, cstring("").as_ptr());
+        gtk_combo_box_set_active(state.hold_combo, 0);
+        return;
+    };
+    let label = &state.layers[state.current_layer].keys[index];
+    if let Some((hold, tap)) = parse_tap_hold(label) {
+        gtk_entry_set_text(state.tap_entry, cstring(&tap).as_ptr());
+        let combo_index = match hold {
+            HoldAction::Modifier(modifier) => hold_modifier_combo_index(modifier),
+            HoldAction::Layer(layer) => {
+                layer_index_for_identifier(&state.layers, &layer).map_or(0, hold_layer_combo_index)
+            }
+        };
+        gtk_combo_box_set_active(state.hold_combo, combo_index);
+    } else if let Some(modifier) = plain_hold_modifier(label) {
+        gtk_entry_set_text(state.tap_entry, cstring("").as_ptr());
+        gtk_combo_box_set_active(state.hold_combo, hold_modifier_combo_index(modifier));
+    } else if let Some(layer_index) = state
+        .layers
+        .iter()
+        .position(|layer| layer.name == label.as_str())
+        .filter(|index| *index < 16)
+    {
+        gtk_entry_set_text(state.tap_entry, cstring("").as_ptr());
+        gtk_combo_box_set_active(state.hold_combo, hold_layer_combo_index(layer_index));
+    } else {
+        gtk_entry_set_text(state.tap_entry, cstring(label).as_ptr());
+        gtk_combo_box_set_active(state.hold_combo, 0);
+    }
 }
 
 unsafe fn collect_editor(state: &mut AppState) -> Result<(), String> {
@@ -1056,6 +1268,7 @@ unsafe fn apply_selected_value(state: &mut AppState, value: &str) {
     }
     state.layers[state.current_layer].keys[index] = value.to_string();
     gtk_entry_set_text(state.editor_entry, cstring(value).as_ptr());
+    refresh_tap_hold_editor(state);
     gtk_widget_queue_draw(state.drawing_area);
     set_status(
         state,
@@ -1104,11 +1317,238 @@ fn is_layer_label(label: &str) -> bool {
     matches!(label, "Num" | "Nav" | "Sym" | "Base")
 }
 
+fn plain_hold_modifier(label: &str) -> Option<HoldModifier> {
+    match label {
+        "Ctrl" => Some(HoldModifier::Ctrl),
+        "Shift" => Some(HoldModifier::Shift),
+        "Alt" => Some(HoldModifier::Alt),
+        "GUI" => Some(HoldModifier::Gui),
+        _ => None,
+    }
+}
+
+fn hold_modifier_combo_index(modifier: HoldModifier) -> c_int {
+    HOLD_MODIFIERS
+        .iter()
+        .position(|candidate| *candidate == modifier)
+        .map_or(0, |index| index as c_int + 1)
+}
+
+fn hold_modifier_for_combo(index: c_int) -> Option<HoldModifier> {
+    usize::try_from(index - 1)
+        .ok()
+        .and_then(|index| HOLD_MODIFIERS.get(index).copied())
+}
+
+fn hold_layer_combo_index(layer_index: usize) -> c_int {
+    1 + HOLD_MODIFIERS.len() as c_int + layer_index as c_int
+}
+
+fn hold_layer_for_combo(index: c_int) -> Option<usize> {
+    let layer_index = index - 1 - HOLD_MODIFIERS.len() as c_int;
+    usize::try_from(layer_index)
+        .ok()
+        .filter(|index| *index < 16)
+}
+
+fn parse_tap_hold(label: &str) -> Option<(HoldAction, String)> {
+    if let Some((modifier, tap)) = parse_mod_tap(label) {
+        return Some((HoldAction::Modifier(modifier), tap));
+    }
+    parse_layer_tap(label).map(|(layer, tap)| (HoldAction::Layer(layer), tap))
+}
+
+fn parse_mod_tap(label: &str) -> Option<(HoldModifier, String)> {
+    for modifier in HOLD_MODIFIERS {
+        if let Some(inner) = label
+            .strip_prefix(modifier.qmk_macro())
+            .and_then(|rest| rest.strip_prefix('('))
+            .and_then(|rest| rest.strip_suffix(')'))
+        {
+            return Some((*modifier, qmk_tap_to_label(inner.trim())));
+        }
+    }
+
+    let inner = label.strip_prefix("MT(")?.strip_suffix(')')?;
+    let (modifier, tap) = inner.split_once(',')?;
+    let modifier = HOLD_MODIFIERS
+        .iter()
+        .find(|candidate| candidate.qmk_mod() == modifier.trim())?;
+    Some((*modifier, qmk_tap_to_label(tap.trim())))
+}
+
+fn parse_layer_tap(label: &str) -> Option<(String, String)> {
+    let inner = label.strip_prefix("LT(")?.strip_suffix(')')?;
+    let (layer, tap) = inner.split_once(',')?;
+    let layer = layer.trim();
+    let valid_layer = layer.parse::<u8>().is_ok_and(|layer| layer < 16)
+        || layer.starts_with('_')
+            && layer
+                .chars()
+                .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_');
+    if !valid_layer {
+        return None;
+    }
+    Some((layer.to_string(), qmk_tap_to_label(tap.trim())))
+}
+
+fn qmk_layer_identifier(name: &str) -> String {
+    let mut identifier = String::from("_");
+    identifier.extend(name.chars().map(|ch| {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            ch.to_ascii_uppercase()
+        } else {
+            '_'
+        }
+    }));
+    identifier
+}
+
+fn layer_index_for_identifier(layers: &[Layer], identifier: &str) -> Option<usize> {
+    if let Ok(index) = identifier.parse::<usize>() {
+        return (index < layers.len() && index < 16).then_some(index);
+    }
+    layers
+        .iter()
+        .take(16)
+        .position(|layer| qmk_layer_identifier(&layer.name) == identifier)
+}
+
+fn display_layer_identifier(identifier: &str) -> String {
+    if identifier.chars().all(|ch| ch.is_ascii_digit()) {
+        return format!("Layer {identifier}");
+    }
+    let words = identifier.trim_start_matches('_').replace('_', " ");
+    let mut chars = words.to_ascii_lowercase().chars().collect::<Vec<_>>();
+    if let Some(first) = chars.first_mut() {
+        first.make_ascii_uppercase();
+    }
+    chars.into_iter().collect()
+}
+
+fn qmk_tap_to_label(keycode: &str) -> String {
+    match keycode {
+        "KC_ESC" => "Esc".to_string(),
+        "KC_TAB" => "Tab".to_string(),
+        "KC_BSPC" => "Bspc".to_string(),
+        "KC_SPC" => "Space".to_string(),
+        "KC_ENT" => "Enter".to_string(),
+        "KC_DEL" => "Del".to_string(),
+        "KC_INS" => "Ins".to_string(),
+        "KC_HOME" => "Home".to_string(),
+        "KC_END" => "End".to_string(),
+        "KC_PGUP" => "PgUp".to_string(),
+        "KC_PGDN" => "PgDn".to_string(),
+        "KC_LEFT" => "Left".to_string(),
+        "KC_DOWN" => "Down".to_string(),
+        "KC_UP" => "Up".to_string(),
+        "KC_RGHT" | "KC_RIGHT" => "Right".to_string(),
+        "KC_COMM" => ",".to_string(),
+        "KC_DOT" => ".".to_string(),
+        "KC_SLSH" => "/".to_string(),
+        "KC_MINS" => "-".to_string(),
+        "KC_QUOT" => "'".to_string(),
+        "KC_SCLN" => ";".to_string(),
+        "KC_GRV" => "`".to_string(),
+        "KC_BSLS" => "\\".to_string(),
+        "KC_LBRC" => "[".to_string(),
+        "KC_RBRC" => "]".to_string(),
+        "KC_EQL" => "=".to_string(),
+        value if value.len() == 4 && value.starts_with("KC_") => value[3..].to_string(),
+        value
+            if value.strip_prefix("KC_F").is_some_and(|number| {
+                number
+                    .parse::<u8>()
+                    .is_ok_and(|number| (1..=24).contains(&number))
+            }) =>
+        {
+            value[3..].to_string()
+        }
+        value => value.to_string(),
+    }
+}
+
+fn tap_label_to_qmk(label: &str) -> Option<String> {
+    let keycode = match label {
+        "___" | "TRNS" => "KC_TRNS",
+        "---" | "NO" => "KC_NO",
+        "Esc" => "KC_ESC",
+        "Tab" => "KC_TAB",
+        "Ctrl" => "KC_LCTL",
+        "Shift" => "KC_LSFT",
+        "GUI" => "KC_LGUI",
+        "Alt" => "KC_LALT",
+        "Space" => "KC_SPC",
+        "Enter" => "KC_ENT",
+        "Bspc" => "KC_BSPC",
+        "Del" => "KC_DEL",
+        "Ins" => "KC_INS",
+        "Home" => "KC_HOME",
+        "End" => "KC_END",
+        "PgUp" => "KC_PGUP",
+        "PgDn" => "KC_PGDN",
+        "Left" => "KC_LEFT",
+        "Down" => "KC_DOWN",
+        "Up" => "KC_UP",
+        "Right" => "KC_RGHT",
+        "Caps" => "KC_CAPS",
+        "Menu" => "KC_APP",
+        "Mute" => "KC_MUTE",
+        "Vol-" => "KC_VOLD",
+        "Vol+" => "KC_VOLU",
+        "Prev" => "KC_MPRV",
+        "Next" => "KC_MNXT",
+        "Play" => "KC_MPLY",
+        "," => "KC_COMM",
+        "." => "KC_DOT",
+        "/" => "KC_SLSH",
+        "-" => "KC_MINS",
+        "'" => "KC_QUOT",
+        ";" => "KC_SCLN",
+        "`" => "KC_GRV",
+        "\\" => "KC_BSLS",
+        "[" => "KC_LBRC",
+        "]" => "KC_RBRC",
+        "=" => "KC_EQL",
+        value
+            if is_single_ascii_upper(value)
+                || is_single_ascii_digit(value)
+                || is_function_key(value) =>
+        {
+            return Some(format!("KC_{value}"));
+        }
+        value if value.starts_with("KC_") => {
+            let normalized = qmk_tap_to_label(value);
+            if normalized != value {
+                return tap_label_to_qmk(&normalized);
+            }
+            return None;
+        }
+        _ => return None,
+    };
+    Some(keycode.to_string())
+}
+
 unsafe fn populate_combo(state: &AppState) {
     gtk_combo_box_text_remove_all(state.combo);
     for layer in &state.layers {
         gtk_combo_box_text_append_text(state.combo, cstring(&layer.name).as_ptr());
     }
+}
+
+unsafe fn populate_hold_combo(state: &AppState) {
+    gtk_combo_box_text_remove_all(state.hold_combo);
+    gtk_combo_box_text_append_text(state.hold_combo, cstring("None (tap only)").as_ptr());
+    for modifier in HOLD_MODIFIERS {
+        gtk_combo_box_text_append_text(state.hold_combo, cstring(modifier.label()).as_ptr());
+    }
+    for layer in state.layers.iter().take(16) {
+        gtk_combo_box_text_append_text(
+            state.hold_combo,
+            cstring(&format!("Layer: {}", layer.name)).as_ptr(),
+        );
+    }
+    gtk_combo_box_set_active(state.hold_combo, 0);
 }
 
 unsafe fn set_status(state: &AppState, message: &str) {
@@ -1381,4 +1821,45 @@ unsafe fn set_rgba(cr: *mut c_void, color: Color, alpha: f64) {
 
 fn cstring(value: &str) -> CString {
     CString::new(value).unwrap_or_else(|_| CString::new(value.replace('\0', "")).unwrap())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_mod_tap_macros_for_the_editor() {
+        assert_eq!(
+            parse_mod_tap("LCTL_T(KC_A)"),
+            Some((HoldModifier::Ctrl, "A".to_string()))
+        );
+        assert_eq!(
+            parse_mod_tap("MT(MOD_LSFT, KC_ESC)"),
+            Some((HoldModifier::Shift, "Esc".to_string()))
+        );
+    }
+
+    #[test]
+    fn parses_layer_tap_macros_for_the_editor() {
+        assert_eq!(
+            parse_tap_hold("LT(_NAV, KC_SPC)"),
+            Some((HoldAction::Layer("_NAV".to_string()), "Space".to_string()))
+        );
+        assert_eq!(qmk_layer_identifier("Media Nav"), "_MEDIA_NAV");
+    }
+
+    #[test]
+    fn builds_only_basic_tap_keycodes() {
+        assert_eq!(tap_label_to_qmk("A"), Some("KC_A".to_string()));
+        assert_eq!(tap_label_to_qmk("Esc"), Some("KC_ESC".to_string()));
+        assert_eq!(tap_label_to_qmk("!"), None);
+        assert_eq!(tap_label_to_qmk("KC_EXLM"), None);
+        assert_eq!(tap_label_to_qmk("Num"), None);
+    }
+
+    #[test]
+    fn generated_tap_hold_keys_are_valid_labels() {
+        assert!(valid_label("LGUI_T(KC_TAB)", &["Base", "Num"]));
+        assert!(valid_label("LT(_NUM, KC_ENT)", &["Base", "Num"]));
+    }
 }

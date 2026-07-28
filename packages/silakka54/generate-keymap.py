@@ -85,6 +85,28 @@ QMK_ALIASES = {
     "KC_REDO": "KC_AGIN",
 }
 
+MOD_TAP_MACROS = {
+    "LCTL_T": "MOD_LCTL",
+    "LSFT_T": "MOD_LSFT",
+    "LALT_T": "MOD_LALT",
+    "LGUI_T": "MOD_LGUI",
+    "RCTL_T": "MOD_RCTL",
+    "RSFT_T": "MOD_RSFT",
+    "RALT_T": "MOD_RALT",
+    "RGUI_T": "MOD_RGUI",
+}
+
+MOD_TAP_MODS = {
+    "MOD_LCTL": 0x01,
+    "MOD_LSFT": 0x02,
+    "MOD_LALT": 0x04,
+    "MOD_LGUI": 0x08,
+    "MOD_RCTL": 0x11,
+    "MOD_RSFT": 0x12,
+    "MOD_RALT": 0x14,
+    "MOD_RGUI": 0x18,
+}
+
 
 def c_ident(name):
     return "_" + re.sub(r"[^A-Za-z0-9_]", "_", name).upper()
@@ -177,6 +199,18 @@ KEYCODES = {
     "KC_F10": 0x0043,
     "KC_F11": 0x0044,
     "KC_F12": 0x0045,
+    "KC_F13": 0x0068,
+    "KC_F14": 0x0069,
+    "KC_F15": 0x006A,
+    "KC_F16": 0x006B,
+    "KC_F17": 0x006C,
+    "KC_F18": 0x006D,
+    "KC_F19": 0x006E,
+    "KC_F20": 0x006F,
+    "KC_F21": 0x0070,
+    "KC_F22": 0x0071,
+    "KC_F23": 0x0072,
+    "KC_F24": 0x0073,
     "KC_INS": 0x0049,
     "KC_HOME": 0x004A,
     "KC_PGUP": 0x004B,
@@ -246,6 +280,15 @@ SHIFTED_KEYCODES = {
 
 
 def via_keycode(code):
+    if match := re.fullmatch(r"([LR](?:CTL|SFT|ALT|GUI)_T)\(([^()]+)\)", code):
+        modifier = MOD_TAP_MACROS[match.group(1)]
+        return mod_tap_keycode(modifier, match.group(2).strip())
+    if match := re.fullmatch(r"MT\(([^,]+),\s*([^()]+)\)", code):
+        return mod_tap_keycode(match.group(1).strip(), match.group(2).strip())
+    if match := re.fullmatch(r"LT\((_[A-Z0-9_]+),\s*([^()]+)\)", code):
+        raise ValueError(f"unresolved layer name in {code!r}")
+    if match := re.fullmatch(r"LT\((\d+),\s*([^()]+)\)", code):
+        return layer_tap_keycode(int(match.group(1)), match.group(2).strip())
     if match := re.fullmatch(r"MO\((_[A-Z0-9_]+)\)", code):
         raise ValueError(f"unresolved layer name in {code!r}")
     if match := re.fullmatch(r"MO\((\d+)\)", code):
@@ -255,6 +298,28 @@ def via_keycode(code):
     if code in KEYCODES:
         return KEYCODES[code]
     raise ValueError(f"no VIA numeric keycode for {code!r}")
+
+
+def mod_tap_keycode(modifier, tap_code):
+    mods = 0
+    for item in modifier.split("|"):
+        item = item.strip()
+        if item not in MOD_TAP_MODS:
+            raise ValueError(f"unsupported mod-tap modifier {item!r}")
+        mods |= MOD_TAP_MODS[item]
+    tap = via_keycode(tap_code)
+    if tap > 0xFF:
+        raise ValueError(f"mod-tap requires a basic tap keycode, got {tap_code!r}")
+    return 0x2000 | ((mods & 0x1F) << 8) | tap
+
+
+def layer_tap_keycode(layer, tap_code):
+    if not 0 <= layer <= 15:
+        raise ValueError(f"layer-tap requires a layer from 0 through 15, got {layer}")
+    tap = via_keycode(tap_code)
+    if tap > 0xFF:
+        raise ValueError(f"layer-tap requires a basic tap keycode, got {tap_code!r}")
+    return 0x4000 | (layer << 8) | tap
 
 
 def hash_bytes(hash_hex, length=8):
@@ -286,6 +351,7 @@ def dynamic_entries(layers, layer_indices, layout):
             code = qmk_keycode(key, layer_indices)
             for name, layer_index in layer_indices.items():
                 code = code.replace(f"MO({c_ident(name)})", f"MO({layer_index})")
+                code = code.replace(f"LT({c_ident(name)},", f"LT({layer_index},")
             row, col = layout_entry["matrix"]
             entries.append(
                 {
