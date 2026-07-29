@@ -72,10 +72,10 @@ in
       (bindExec (mod "PRINT") "grimblast copysave screen")
 
       # Move window focus with vim keys.
-      (bind (mod "h") (lua ''hl.dsp.focus({ direction = "left" })''))
-      (bind (mod "l") (lua ''hl.dsp.focus({ direction = "right" })''))
-      (bind (mod "k") (lua ''hl.dsp.focus({ direction = "up" })''))
-      (bind (mod "j") (lua ''hl.dsp.focus({ direction = "down" })''))
+      (bind (mod "left") (lua ''hl.dsp.focus({ direction = "left" })''))
+      (bind (mod "right") (lua ''hl.dsp.focus({ direction = "right" })''))
+      (bind (mod "up") (lua ''hl.dsp.focus({ direction = "up" })''))
+      (bind (mod "down") (lua ''hl.dsp.focus({ direction = "down" })''))
 
       # Swap windows with vim keys
       (bind (mod "SHIFT + h") (lua ''hl.dsp.window.swap({ direction = "left" })''))
@@ -97,8 +97,8 @@ in
       (bindExec (mod "8") "hyprworkspace 8")
       (bindExec (mod "9") "hyprworkspace 9")
 
-      (bind (mod "CTRL + h") (lua ''hl.dsp.focus({ workspace = "r-1" })''))
-      (bind (mod "CTRL + l") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
+      (bind (mod "CTRL + left") (lua ''hl.dsp.focus({ workspace = "r-1" })''))
+      (bind (mod "CTRL + right") (lua ''hl.dsp.focus({ workspace = "r+1" })''))
 
       # Scroll through monitor workspaces with mod + scroll
       (bind (mod "mouse_down") (lua ''hl.dsp.focus({ workspace = "r+1" })''))

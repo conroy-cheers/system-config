@@ -25,10 +25,10 @@ layers:
     - ","
     - "-"
     - Tab
-    - "LGUI_T(KC_N)"
-    - "LALT_T(KC_R)"
-    - "LCTL_T(KC_T)"
-    - "LSFT_T(KC_S)"
+    - "LSFT_T(KC_N)"
+    - "LCTL_T(KC_R)"
+    - "LALT_T(KC_T)"
+    - "LGUI_T(KC_S)"
     - G
     - P
     - "LGUI_T(KC_H)"
