@@ -107,7 +107,8 @@ rustPlatform.buildRustPackage {
 
     substituteInPlace src/main.rs \
       --replace-fail @manifest_path@ "$out/share/silakka54/firmware/manifest.json" \
-      --replace-fail @firmware_path@ "$out/share/silakka54/firmware/silakka54-conroy.uf2" \
+      --replace-fail @firmware_left_path@ "$out/share/silakka54/firmware/silakka54-conroy-left.uf2" \
+      --replace-fail @firmware_right_path@ "$out/share/silakka54/firmware/silakka54-conroy-right.uf2" \
       --replace-fail @dynamic_keymap_tsv@ "$out/share/silakka54/keymap/dynamic-keymap.tsv" \
       --replace-fail @firmware_abi_hash@ "${compatibility.id}" \
       --replace-fail @keymap_hash@ "${keymapHash}"
@@ -117,11 +118,23 @@ rustPlatform.buildRustPackage {
     mkdir -p qmk-userspace
     make -C qmk silakka54:conroy \
       SKIP_GIT=yes \
+      QMK_USERSPACE="$PWD/qmk-userspace" \
+      EXTRAFLAGS=-DINIT_EE_HANDS_LEFT
+    mv qmk/silakka54_conroy.uf2 generated/silakka54-conroy-left.uf2
+
+    make -C qmk clean \
+      SKIP_GIT=yes \
       QMK_USERSPACE="$PWD/qmk-userspace"
+    make -C qmk silakka54:conroy \
+      SKIP_GIT=yes \
+      QMK_USERSPACE="$PWD/qmk-userspace" \
+      EXTRAFLAGS=-DINIT_EE_HANDS_RIGHT
+    mv qmk/silakka54_conroy.uf2 generated/silakka54-conroy-right.uf2
   '';
 
   postInstall = ''
-    install -Dm0644 qmk/silakka54_conroy.uf2 "$out/share/silakka54/firmware/silakka54-conroy.uf2"
+    install -Dm0644 generated/silakka54-conroy-left.uf2 "$out/share/silakka54/firmware/silakka54-conroy-left.uf2"
+    install -Dm0644 generated/silakka54-conroy-right.uf2 "$out/share/silakka54/firmware/silakka54-conroy-right.uf2"
     install -Dm0644 ${./keymap.yaml} "$out/share/silakka54/keymap/keymap.yaml"
     install -Dm0644 ${./info.json} "$out/share/silakka54/keymap/info.json"
     install -Dm0644 generated/layer-metadata.json "$out/share/silakka54/keymap/layer-metadata.json"
@@ -135,7 +148,10 @@ rustPlatform.buildRustPackage {
     cat > "$out/share/silakka54/firmware/manifest.json" <<EOF
     {
       "keyboard": "silakka54",
-      "firmware_uf2": "$out/share/silakka54/firmware/silakka54-conroy.uf2",
+      "firmware_uf2": {
+        "left": "$out/share/silakka54/firmware/silakka54-conroy-left.uf2",
+        "right": "$out/share/silakka54/firmware/silakka54-conroy-right.uf2"
+      },
       "usb": {
         "vid": "0xFEED",
         "pid": "0x1212"

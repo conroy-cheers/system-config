@@ -25,16 +25,16 @@ layers:
     - ","
     - "-"
     - Tab
-    - N
-    - R
-    - T
-    - S
+    - "LGUI_T(KC_N)"
+    - "LALT_T(KC_R)"
+    - "LCTL_T(KC_T)"
+    - "LSFT_T(KC_S)"
     - G
     - P
-    - H
-    - A
-    - E
-    - I
+    - "LGUI_T(KC_H)"
+    - "LALT_T(KC_A)"
+    - "LCTL_T(KC_E)"
+    - "LSFT_T(KC_I)"
     - "/"
     - Shift
     - X
@@ -81,10 +81,10 @@ layers:
     - "]"
     - ___
     - ___
-    - GUI
-    - Alt
-    - Ctrl
-    - Shift
+    - ___
+    - ___
+    - ___
+    - ___
     - ___
     - ___
     - "4"
@@ -137,10 +137,10 @@ layers:
     - PgUp
     - ___
     - ___
-    - GUI
-    - Alt
-    - Ctrl
-    - Shift
+    - ___
+    - ___
+    - ___
+    - ___
     - ___
     - Caps
     - Left
@@ -199,10 +199,10 @@ layers:
     - "^"
     - "+"
     - ___
-    - GUI
-    - Alt
-    - Ctrl
-    - Shift
+    - ___
+    - ___
+    - ___
+    - ___
     - ___
     - ___
     - "~"

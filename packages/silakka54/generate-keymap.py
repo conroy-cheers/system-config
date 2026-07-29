@@ -404,6 +404,10 @@ def main():
 #include QMK_KEYBOARD_H
 #include <string.h>
 
+#ifdef QMK_SETTINGS
+#    include "qmk_settings.h"
+#endif
+
 #ifdef RAW_ENABLE
 #    include "raw_hid.h"
 #endif
@@ -467,6 +471,10 @@ static void silakka54_send_layer_report(uint8_t layer) {{
 }}
 
 void keyboard_post_init_user(void) {{
+#ifdef QMK_SETTINGS
+    QS.tapping_term = TAPPING_TERM;
+    QS.flow_tap_term = SILAKKA54_FLOW_TAP_TERM;
+#endif
     reported_layer = get_highest_layer(layer_state);
     silakka54_send_layer_report(reported_layer);
 }}
