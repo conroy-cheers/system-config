@@ -111,6 +111,11 @@ in
     owner = "wotbox";
     mode = "0400";
   };
+  age.secrets."wotbox.plex-token" = {
+    rekeyFile = lib.repoSecret "wotbox/plex-token.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
 
   corncheese-server = {
     topology = {
@@ -162,6 +167,14 @@ in
     listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "wotbox" "127.0.0.1";
     basePath = "/media/music/wotbox";
     lastfmApiKeyFile = config.age.secrets."wotbox.lastfm-api-key".path;
+    plex = {
+      tokenFile = config.age.secrets."wotbox.plex-token".path;
+      sectionId = 4;
+      libraryRoots = [
+        "/mnt/media/Downloads/torrent/complete/ops"
+        "/mnt/media/Downloads/torrent/complete/red"
+      ];
+    };
     trackers.ops = {
       kind = "ops";
       baseUrl = "https://orpheus.network";
