@@ -106,6 +106,11 @@ in
     owner = "wotbox";
     mode = "0400";
   };
+  age.secrets."wotbox.lastfm-api-key" = {
+    rekeyFile = lib.repoSecret "wotbox/lastfm-api-key.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
 
   corncheese-server = {
     topology = {
@@ -156,6 +161,7 @@ in
     enable = true;
     listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "wotbox" "127.0.0.1";
     basePath = "/media/music/wotbox";
+    lastfmApiKeyFile = config.age.secrets."wotbox.lastfm-api-key".path;
     trackers.ops = {
       kind = "ops";
       baseUrl = "https://orpheus.network";
