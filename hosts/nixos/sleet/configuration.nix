@@ -27,6 +27,7 @@ in
     ./home-assistant.nix
     ../corncheese-public-services.nix
     inputs.corncheese-server.nixosModules.corncheese-server
+    inputs.wotbox.nixosModules.default
   ];
 
   ### Set boot options
@@ -95,6 +96,26 @@ in
     owner = "root";
     mode = "0400";
   };
+  age.secrets."wotbox.ops-token" = {
+    rekeyFile = lib.repoSecret "wotbox/ops-token.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
+  age.secrets."wotbox.qbittorrent-api-key" = {
+    rekeyFile = lib.repoSecret "wotbox/qbittorrent-api-key.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
+  age.secrets."wotbox.lastfm-api-key" = {
+    rekeyFile = lib.repoSecret "wotbox/lastfm-api-key.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
+  age.secrets."wotbox.plex-token" = {
+    rekeyFile = lib.repoSecret "wotbox/plex-token.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
 
   corncheese-server = {
     topology = {
@@ -121,6 +142,7 @@ in
     media = {
       enable = true;
       filebrowserQuantum.enable = true;
+      torrent.music.apiKeyFile = config.age.secrets."wotbox.qbittorrent-api-key".path;
     };
     matrix = {
       enable = true;
@@ -137,6 +159,35 @@ in
     nixCache = {
       enable = true;
       environmentFile = config.age.secrets."corncheese.nix-cache.env".path;
+    };
+  };
+
+  services.wotbox = {
+    enable = true;
+    listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "wotbox" "127.0.0.1";
+    basePath = "/media/music/wotbox";
+    lastfmApiKeyFile = config.age.secrets."wotbox.lastfm-api-key".path;
+    plex = {
+      tokenFile = config.age.secrets."wotbox.plex-token".path;
+      sectionId = 4;
+      libraryRoots = [
+        "/mnt/media/Downloads/torrent/complete/ops"
+        "/mnt/media/Downloads/torrent/complete/red"
+      ];
+    };
+    trackers.ops = {
+      kind = "ops";
+      baseUrl = "https://orpheus.network";
+      tokenFile = config.age.secrets."wotbox.ops-token".path;
+    };
+    downloadClients.music = {
+      baseUrl = "http://127.0.0.1:8001";
+      apiKeyFile = config.age.secrets."wotbox.qbittorrent-api-key".path;
+    };
+    downloadProfiles.ops = {
+      client = "music";
+      savePath = "/mnt/media/Downloads/torrent/complete/ops";
+      tag = "ops";
     };
   };
 

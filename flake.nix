@@ -387,6 +387,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.ragenix.follows = "ragenix";
     };
+
+    wotbox = {
+      url = "github:conroy-cheers/wotbox";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
