@@ -474,6 +474,8 @@ void keyboard_post_init_user(void) {{
 #ifdef QMK_SETTINGS
     QS.tapping_term = TAPPING_TERM;
     QS.flow_tap_term = SILAKKA54_FLOW_TAP_TERM;
+    QS.tapping_v2 |= (1 << QS_tapping_permissive_hold_bit) | (1 << QS_tapping_chordal_hold_bit);
+    QS.tapping_v2 &= ~(1 << QS_tapping_hold_on_other_key_press_bit);
 #endif
     reported_layer = get_highest_layer(layer_state);
     silakka54_send_layer_report(reported_layer);
