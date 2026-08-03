@@ -313,6 +313,7 @@ in
             yabai -m signal --remove corncheese-display-removed >/dev/null 2>&1 || true
             yabai -m signal --remove corncheese-display-moved >/dev/null 2>&1 || true
             yabai -m signal --remove corncheese-display-changed >/dev/null 2>&1 || true
+            yabai -m signal --remove corncheese-system-woke >/dev/null 2>&1 || true
 
             yabai -m signal --add label=corncheese-dock-restart event=dock_did_restart action="sudo yabai --load-sa; ${lib.getExe applySketchybarPadding}"
             yabai -m signal --add label=corncheese-space-created event=space_created action="${lib.getExe applySketchybarPadding}"
@@ -322,6 +323,7 @@ in
             yabai -m signal --add label=corncheese-display-removed event=display_removed action="${lib.getExe applySketchybarPadding}"
             yabai -m signal --add label=corncheese-display-moved event=display_moved action="${lib.getExe applySketchybarPadding}"
             yabai -m signal --add label=corncheese-display-changed event=display_changed action="${lib.getExe applySketchybarPadding}"
+            yabai -m signal --add label=corncheese-system-woke event=system_woke action="yabai -m config focus_follows_mouse autoraise"
 
             yabai -m rule --add app="^(LuLu|Vimac|Calculator|Software Update|Dictionary|VLC|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|Python|LibreOffice|App Store|Steam|Alfred|Activity Monitor)$" manage=off
             yabai -m rule --add label="Finder" app="^Finder$" title="(Co(py|nnect)|Move|Info|Pref)" manage=off
