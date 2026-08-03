@@ -357,6 +357,24 @@ in
             ControlPath = "${config.home.homeDirectory}/.cache/ssh-control/%C";
             ControlPersist = "4h";
           };
+          "stage-a-acacia" = {
+            HostName = "acacia.tail738663.ts.net";
+            User = "root";
+            IdentitiesOnly = true;
+            IdentityFile = "${config.home.homeDirectory}/.ssh/stage_a_nix_builder_ed25519";
+            ControlMaster = "auto";
+            ControlPath = "${config.home.homeDirectory}/.cache/ssh-control/%C";
+            ControlPersist = "4h";
+          };
+          "stage-a-banksia" = {
+            HostName = "banksia.tail738663.ts.net";
+            User = "root";
+            IdentitiesOnly = true;
+            IdentityFile = "${config.home.homeDirectory}/.ssh/stage_a_nix_builder_ed25519";
+            ControlMaster = "auto";
+            ControlPath = "${config.home.homeDirectory}/.cache/ssh-control/%C";
+            ControlPersist = "4h";
+          };
           "*" = {
             ForwardAgent = false;
             HashKnownHosts = true;

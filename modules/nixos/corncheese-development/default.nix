@@ -38,7 +38,7 @@ in
             if config.determinate.enable then
               inputs.determinate.inputs.nix.packages.${prev.stdenv.hostPlatform.system}.default
             else
-              prev.nix;
+              prev.nixVersions.latest;
         })
       ];
       nix.package = lib.mkDefault pkgs.nix;

@@ -4,6 +4,8 @@ use std::ffi::CString;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::process::Stdio;
 use std::process::{Command, ExitCode};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -13,7 +15,8 @@ const PID: u16 = 0x1212;
 const RAW_USAGE_PAGE: u16 = 0xff60;
 const RAW_USAGE: u16 = 0x0061;
 const MANIFEST_PATH: &str = "@manifest_path@";
-const FIRMWARE_PATH: &str = "@firmware_path@";
+const FIRMWARE_LEFT_PATH: &str = "@firmware_left_path@";
+const FIRMWARE_RIGHT_PATH: &str = "@firmware_right_path@";
 const DYNAMIC_KEYMAP_TSV: &str = "@dynamic_keymap_tsv@";
 const EXPECTED_ABI_HASH: &str = "@firmware_abi_hash@";
 const EXPECTED_KEYMAP_HASH: &str = "@keymap_hash@";
@@ -28,6 +31,28 @@ const SILAKKA54_SYNC_QUERY: u8 = 0x54;
 const SILAKKA54_SYNC_BOOTLOADER: u8 = 0x42;
 const SILAKKA54_SYNC_VERSION: u8 = 1;
 const SILAKKA54_SYNC_MAGIC: &[u8] = b"SL54SYN";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum KeyboardHalf {
+    Left,
+    Right,
+}
+
+impl KeyboardHalf {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+
+    fn firmware_path(self) -> &'static str {
+        match self {
+            Self::Left => FIRMWARE_LEFT_PATH,
+            Self::Right => FIRMWARE_RIGHT_PATH,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 struct KeyEntry {
@@ -90,7 +115,9 @@ fn main() -> ExitCode {
     let result = match command.as_str() {
         "status" => status_command(),
         "sync-keymap" => sync_keymap_command(),
-        "flash-firmware" => flash_firmware_command(args.any(|arg| arg == "--yes" || arg == "-y")),
+        "flash-firmware" => {
+            parse_flash_args(args).and_then(|(yes, half)| flash_firmware_command(yes, half))
+        }
         "hotplug" => hotplug_command(),
         "rebuild-switch" => rebuild_switch_command(),
         "prompt-firmware" => prompt_firmware_command(),
@@ -113,8 +140,32 @@ fn main() -> ExitCode {
 
 fn print_help() {
     println!(
-        "Usage: silakka54-sync <status|sync-keymap|flash-firmware|hotplug|rebuild-switch|prompt-firmware|watch>"
+        "Usage: silakka54-sync <status|sync-keymap|flash-firmware [--left|--right] [--yes]|hotplug|rebuild-switch|prompt-firmware|watch>"
     );
+}
+
+fn parse_flash_args(
+    args: impl Iterator<Item = String>,
+) -> Result<(bool, Option<KeyboardHalf>), String> {
+    let mut yes = false;
+    let mut half = None;
+    for arg in args {
+        match arg.as_str() {
+            "--yes" | "-y" => yes = true,
+            "--left" => set_flash_half(&mut half, KeyboardHalf::Left)?,
+            "--right" => set_flash_half(&mut half, KeyboardHalf::Right)?,
+            _ => return Err(format!("unknown flash-firmware option: {arg}")),
+        }
+    }
+    Ok((yes, half))
+}
+
+fn set_flash_half(selected: &mut Option<KeyboardHalf>, half: KeyboardHalf) -> Result<(), String> {
+    if selected.is_some_and(|selected| selected != half) {
+        return Err("choose only one of --left or --right".to_string());
+    }
+    *selected = Some(half);
+    Ok(())
 }
 
 fn status_command() -> Result<(), String> {
@@ -156,7 +207,7 @@ fn rebuild_switch_command() -> Result<(), String> {
         if is_interactive() {
             eprintln!("Silakka54 firmware ABI is stale for a connected half.");
             if ask_yes_no("Flash the connected Silakka54 half now? [y/N] ")? {
-                flash_firmware_command(true)?;
+                flash_firmware_command(true, None)?;
             } else {
                 eprintln!("Silakka54 firmware flash deferred.");
             }
@@ -223,43 +274,125 @@ fn prompt_firmware_command() -> Result<(), String> {
         return Ok(());
     }
 
-    let status = Command::new("zenity")
+    let output = Command::new("zenity")
         .args([
-            "--question",
+            "--list",
+            "--radiolist",
             "--title",
             "Silakka54 firmware",
             "--text",
-            "Firmware is stale for the connected Silakka54 half.",
+            "Firmware is stale. Select the physical half attached to this computer by USB.",
+            "--column",
+            "Select",
+            "--column",
+            "Half",
+            "FALSE",
+            "Left",
+            "FALSE",
+            "Right",
             "--ok-label",
-            "Flash now",
+            "Flash selected half",
             "--cancel-label",
             "Skip this time",
+            "--width",
+            "480",
+            "--height",
+            "280",
         ])
-        .status()
+        .output()
         .map_err(|error| format!("failed to run graphical prompt: {error}"))?;
 
-    if status.success() {
-        flash_firmware_command(true)
-    } else {
+    if !output.status.success() {
         eprintln!("Silakka54 firmware flash skipped from graphical prompt.");
-        Ok(())
+        return Ok(());
     }
+
+    let half = match String::from_utf8_lossy(&output.stdout).trim() {
+        "Left" => KeyboardHalf::Left,
+        "Right" => KeyboardHalf::Right,
+        _ => {
+            eprintln!("Silakka54 firmware flash skipped because no half was selected.");
+            return Ok(());
+        }
+    };
+    flash_firmware_with_progress(half)
+}
+
+#[cfg(target_os = "linux")]
+fn flash_firmware_with_progress(half: KeyboardHalf) -> Result<(), String> {
+    let progress_text = format!(
+        "Flashing the USB-connected {} half… Put that half into bootloader mode if requested.",
+        half.label()
+    );
+    let mut progress = Command::new("zenity")
+        .args([
+            "--progress",
+            "--pulsate",
+            "--auto-close",
+            "--no-cancel",
+            "--title",
+            "Silakka54 firmware",
+            "--text",
+            &progress_text,
+            "--percentage",
+            "0",
+            "--width",
+            "480",
+        ])
+        .stdin(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("failed to show firmware progress: {error}"))?;
+    let mut progress_input = progress
+        .stdin
+        .take()
+        .ok_or_else(|| "failed to open firmware progress input".to_string())?;
+
+    let flash_result = flash_firmware_command(true, Some(half));
+    let completion_text = if flash_result.is_ok() {
+        "# Firmware flashed successfully."
+    } else {
+        "# Firmware flash failed."
+    };
+    let _ = writeln!(progress_input, "{completion_text}");
+    let _ = writeln!(progress_input, "100");
+    drop(progress_input);
+    let _ = progress.wait();
+
+    if let Err(error) = &flash_result {
+        let message = format!("Firmware flashing failed:\n\n{error}");
+        let _ = Command::new("zenity")
+            .args([
+                "--error",
+                "--title",
+                "Silakka54 firmware",
+                "--text",
+                &message,
+                "--width",
+                "480",
+            ])
+            .status();
+    }
+
+    flash_result
 }
 
 #[cfg(target_os = "macos")]
 fn prompt_firmware_command() -> Result<(), String> {
-    let script = r#"button returned of (display dialog "Firmware is stale for the connected Silakka54 half." with title "Silakka54 firmware" buttons {"Skip this time", "Flash now"} default button "Flash now")"#;
+    let script = r#"button returned of (display dialog "Firmware is stale. Select the physical half attached to this computer by USB." with title "Silakka54 firmware" buttons {"Skip this time", "Flash left", "Flash right"} default button "Flash left")"#;
     let output = Command::new("/usr/bin/osascript")
         .args(["-e", script])
         .output()
         .map_err(|error| format!("failed to run macOS firmware prompt: {error}"))?;
 
-    if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "Flash now" {
-        flash_firmware_command(true)
-    } else {
-        eprintln!("Silakka54 firmware flash skipped from graphical prompt.");
-        Ok(())
+    if output.status.success() {
+        match String::from_utf8_lossy(&output.stdout).trim() {
+            "Flash left" => return flash_firmware_command(true, Some(KeyboardHalf::Left)),
+            "Flash right" => return flash_firmware_command(true, Some(KeyboardHalf::Right)),
+            _ => {}
+        }
     }
+    eprintln!("Silakka54 firmware flash skipped from graphical prompt.");
+    Ok(())
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -299,27 +432,39 @@ fn sync_keymap_command() -> Result<(), String> {
     Ok(())
 }
 
-fn flash_firmware_command(yes: bool) -> Result<(), String> {
-    if !yes && !ask_yes_no("Flash the connected Silakka54 half with the packaged UF2? [y/N] ")? {
+fn flash_firmware_command(yes: bool, half: Option<KeyboardHalf>) -> Result<(), String> {
+    let half = match half {
+        Some(half) => half,
+        None => match ask_keyboard_half()? {
+            Some(half) => half,
+            None => return Ok(()),
+        },
+    };
+
+    let confirmation = format!(
+        "Flash the USB-connected physical {} half with the packaged UF2? [y/N] ",
+        half.label()
+    );
+    if !yes && !ask_yes_no(&confirmation)? {
         return Ok(());
     }
 
     if request_silakka54_bootloader_jump()? {
         match wait_for_bootloader_mount(Duration::from_secs(30)) {
-            Ok(mount) => return copy_firmware_and_verify(&mount),
+            Ok(mount) => return copy_firmware_and_verify(&mount, half),
             Err(error) => eprintln!("Silakka54 bootloader jump did not produce RPI-RP2: {error}"),
         }
     }
 
     if request_vial_bootloader_jump()? {
         match wait_for_bootloader_mount(Duration::from_secs(30)) {
-            Ok(mount) => return copy_firmware_and_verify(&mount),
+            Ok(mount) => return copy_firmware_and_verify(&mount, half),
             Err(error) => eprintln!("Vial bootloader jump did not produce RPI-RP2: {error}"),
         }
     }
 
     let mount = wait_for_bootloader_mount(Duration::from_secs(120))?;
-    copy_firmware_and_verify(&mount)
+    copy_firmware_and_verify(&mount, half)
 }
 
 fn request_silakka54_bootloader_jump() -> Result<bool, String> {
@@ -377,16 +522,21 @@ fn request_vial_bootloader_jump() -> Result<bool, String> {
     Ok(false)
 }
 
-fn copy_firmware_and_verify(mount: &Path) -> Result<(), String> {
+fn copy_firmware_and_verify(mount: &Path, half: KeyboardHalf) -> Result<(), String> {
+    let firmware_path = half.firmware_path();
     let target = mount.join(
-        Path::new(FIRMWARE_PATH)
+        Path::new(firmware_path)
             .file_name()
             .ok_or_else(|| "firmware path has no file name".to_string())?,
     );
-    fs::copy(FIRMWARE_PATH, &target)
+    fs::copy(firmware_path, &target)
         .map_err(|error| format!("failed to copy UF2 to {}: {error}", target.display()))?;
     sync_firmware_copy(&target)?;
-    println!("Copied firmware UF2 to {}", target.display());
+    println!(
+        "Copied {}-half firmware UF2 to {}",
+        half.label(),
+        target.display()
+    );
 
     let deadline = Instant::now() + Duration::from_secs(60);
     while Instant::now() < deadline {
@@ -819,6 +969,23 @@ fn ask_yes_no(prompt: &str) -> Result<bool, String> {
     Ok(matches!(answer.trim(), "y" | "Y" | "yes" | "YES" | "Yes"))
 }
 
+fn ask_keyboard_half() -> Result<Option<KeyboardHalf>, String> {
+    if !is_interactive() {
+        return Err("specify the physical half with --left or --right".to_string());
+    }
+    eprint!("Flash which physical half? [l/r/N] ");
+    io::stderr().flush().map_err(|error| error.to_string())?;
+    let mut answer = String::new();
+    io::stdin()
+        .read_line(&mut answer)
+        .map_err(|error| format!("failed to read answer: {error}"))?;
+    match answer.trim().to_ascii_lowercase().as_str() {
+        "l" | "left" => Ok(Some(KeyboardHalf::Left)),
+        "r" | "right" => Ok(Some(KeyboardHalf::Right)),
+        _ => Ok(None),
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn request_user_prompt() -> Result<(), String> {
     let status = Command::new("systemctl")
@@ -915,6 +1082,18 @@ mod tests {
             data[..response.len()].copy_from_slice(&response);
             Ok(response.len())
         }
+    }
+
+    #[test]
+    fn flash_arguments_select_exactly_one_half() {
+        let (yes, half) =
+            parse_flash_args(["--right", "--yes"].into_iter().map(str::to_string)).unwrap();
+        assert!(yes);
+        assert_eq!(half, Some(KeyboardHalf::Right));
+
+        let error =
+            parse_flash_args(["--left", "--right"].into_iter().map(str::to_string)).unwrap_err();
+        assert_eq!(error, "choose only one of --left or --right");
     }
 
     #[test]

@@ -50,6 +50,33 @@ struct KeyLayer {
     keys: Vec<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BindingSource {
+    Base,
+    Overlay,
+    ActiveLayerTrigger,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DisplayBinding {
+    tap: Option<String>,
+    hold: Option<String>,
+    source: BindingSource,
+}
+
+impl DisplayBinding {
+    fn is_empty(&self) -> bool {
+        self.tap.is_none() && self.hold.is_none()
+    }
+
+    fn uses_overlay_color(&self) -> bool {
+        matches!(
+            self.source,
+            BindingSource::Overlay | BindingSource::ActiveLayerTrigger
+        )
+    }
+}
+
 #[derive(Clone)]
 struct KeyboardLayout {
     keys: Vec<KeyGeometry>,
@@ -133,9 +160,9 @@ impl Color {
 struct ThemePalette {
     text: Color,
     muted: Color,
-    key: Color,
-    key_dim: Color,
-    layer: Color,
+    base_key: Color,
+    overlay_key: Color,
+    unassigned_key: Color,
     outline: Color,
     inverse_text: Color,
 }
@@ -181,14 +208,12 @@ impl ThemePalette {
             ],
         )
         .unwrap_or_else(|| bg.mix(text, 0.52));
-        let layer = lookup_theme_color(&style, &["success_bg_color", "success_color", "green_3"])
-            .unwrap_or_else(|| accent.mix(text, 0.20));
-        let key = lookup_theme_color(
+        let base_key = lookup_theme_color(
             &style,
             &["card_bg_color", "popover_bg_color", "headerbar_bg_color"],
         )
         .unwrap_or_else(|| bg.mix(text, 0.34));
-        let key_dim = lookup_theme_color(
+        let unassigned_key = lookup_theme_color(
             &style,
             &[
                 "sidebar_bg_color",
@@ -236,9 +261,9 @@ impl ThemePalette {
         Self {
             text,
             muted,
-            key,
-            key_dim,
-            layer,
+            base_key,
+            overlay_key: accent,
+            unassigned_key,
             outline,
             inverse_text,
         }
@@ -1818,6 +1843,171 @@ fn clamp_layer(layer: usize, layers: &[KeyLayer]) -> usize {
     }
 }
 
+fn resolved_binding(
+    layers: &[KeyLayer],
+    current_layer: usize,
+    key_index: usize,
+    layer_names: &[&str],
+) -> DisplayBinding {
+    let current_layer = clamp_layer(current_layer, layers);
+    let active_label = &layers[current_layer].keys[key_index];
+    let inherited_from_base = current_layer > 0 && is_transparent(active_label);
+    let (label, mut source) = if inherited_from_base {
+        (&layers[0].keys[key_index], BindingSource::Base)
+    } else if current_layer == 0 {
+        (active_label, BindingSource::Base)
+    } else {
+        (active_label, BindingSource::Overlay)
+    };
+    let (tap, hold) = parse_display_binding(label, layer_names);
+    if inherited_from_base
+        && hold.as_deref() == Some(layers[current_layer].name.as_str())
+    {
+        source = BindingSource::ActiveLayerTrigger;
+    }
+    DisplayBinding { tap, hold, source }
+}
+
+fn parse_display_binding(label: &str, layer_names: &[&str]) -> (Option<String>, Option<String>) {
+    if label.is_empty() || is_transparent(label) || matches!(label, "KC_NO" | "XXXXXXX" | "---") {
+        return (None, None);
+    }
+    if let Some((hold, tap)) = parse_mod_tap(label) {
+        return (Some(tap), Some(hold));
+    }
+    if let Some((layer, tap)) = parse_layer_tap(label, layer_names) {
+        return (Some(tap), Some(layer));
+    }
+    if let Some(layer) = layer_names.iter().find(|layer| **layer == label) {
+        return (None, Some((*layer).to_string()));
+    }
+    (Some(qmk_tap_to_label(label)), None)
+}
+
+fn parse_mod_tap(label: &str) -> Option<(String, String)> {
+    const MOD_TAPS: [(&str, &str); 8] = [
+        ("LCTL_T", "Ctrl"),
+        ("RCTL_T", "Ctrl"),
+        ("LSFT_T", "Shift"),
+        ("RSFT_T", "Shift"),
+        ("LALT_T", "Alt"),
+        ("RALT_T", "Alt"),
+        ("LGUI_T", "GUI"),
+        ("RGUI_T", "GUI"),
+    ];
+    for (macro_name, modifier) in MOD_TAPS {
+        if let Some(tap) = label
+            .strip_prefix(macro_name)
+            .and_then(|rest| rest.strip_prefix('('))
+            .and_then(|rest| rest.strip_suffix(')'))
+        {
+            return Some((modifier.to_string(), qmk_tap_to_label(tap.trim())));
+        }
+    }
+
+    let inner = label.strip_prefix("MT(")?.strip_suffix(')')?;
+    let (modifier, tap) = inner.split_once(',')?;
+    Some((
+        qmk_modifier_to_label(modifier.trim())?,
+        qmk_tap_to_label(tap.trim()),
+    ))
+}
+
+fn parse_layer_tap(label: &str, layer_names: &[&str]) -> Option<(String, String)> {
+    let inner = label.strip_prefix("LT(")?.strip_suffix(')')?;
+    let (layer, tap) = inner.split_once(',')?;
+    Some((
+        layer_identifier_to_label(layer.trim(), layer_names),
+        qmk_tap_to_label(tap.trim()),
+    ))
+}
+
+fn qmk_modifier_to_label(modifier: &str) -> Option<String> {
+    let labels = modifier
+        .split('|')
+        .map(str::trim)
+        .map(|modifier| match modifier.trim_start_matches("MOD_") {
+            "LCTL" | "RCTL" | "CTL" => Some("Ctrl"),
+            "LSFT" | "RSFT" | "SFT" => Some("Shift"),
+            "LALT" | "RALT" | "ALT" => Some("Alt"),
+            "LGUI" | "RGUI" | "GUI" => Some("GUI"),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(labels.join("+"))
+}
+
+fn layer_identifier_to_label(identifier: &str, layer_names: &[&str]) -> String {
+    if let Ok(index) = identifier.parse::<usize>() {
+        return layer_names
+            .get(index)
+            .map_or_else(|| format!("Layer {index}"), |name| (*name).to_string());
+    }
+    let normalized = identifier.trim_start_matches('_');
+    layer_names
+        .iter()
+        .find(|name| name.replace(' ', "_").eq_ignore_ascii_case(normalized))
+        .map_or_else(
+            || {
+                let words = normalized.replace('_', " ").to_ascii_lowercase();
+                let mut chars = words.chars();
+                chars.next().map_or_else(String::new, |first| {
+                    first.to_uppercase().collect::<String>() + chars.as_str()
+                })
+            },
+            |name| (*name).to_string(),
+        )
+}
+
+fn qmk_tap_to_label(keycode: &str) -> String {
+    match keycode {
+        "KC_ESC" => "Esc",
+        "KC_TAB" => "Tab",
+        "KC_BSPC" => "Bspc",
+        "KC_SPC" => "Space",
+        "KC_ENT" => "Enter",
+        "KC_DEL" => "Del",
+        "KC_INS" => "Ins",
+        "KC_HOME" => "Home",
+        "KC_END" => "End",
+        "KC_PGUP" => "PgUp",
+        "KC_PGDN" => "PgDn",
+        "KC_LEFT" => "Left",
+        "KC_DOWN" => "Down",
+        "KC_UP" => "Up",
+        "KC_RGHT" | "KC_RIGHT" => "Right",
+        "KC_COMM" => ",",
+        "KC_DOT" => ".",
+        "KC_SLSH" => "/",
+        "KC_MINS" => "-",
+        "KC_QUOT" => "'",
+        "KC_SCLN" => ";",
+        "KC_GRV" => "`",
+        "KC_BSLS" => "\\",
+        "KC_LBRC" => "[",
+        "KC_RBRC" => "]",
+        "KC_EQL" => "=",
+        "KC_UNDO" => "Undo",
+        "KC_REDO" => "Redo",
+        value if value.len() == 4 && value.starts_with("KC_") => &value[3..],
+        value
+            if value.strip_prefix("KC_F").is_some_and(|number| {
+                number
+                    .parse::<u8>()
+                    .is_ok_and(|number| (1..=24).contains(&number))
+            }) =>
+        {
+            &value[3..]
+        }
+        value => value,
+    }
+    .to_string()
+}
+
+fn is_transparent(label: &str) -> bool {
+    matches!(label, "___" | "KC_TRNS" | "_______" | "TRNS")
+}
+
 fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: f64, height: f64) {
     cr.save().ok();
     cr.set_operator(Operator::Clear);
@@ -1827,21 +2017,23 @@ fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: 
     let profile = &state.profiles[state.active_profile];
     let metrics = layout_metrics(width, height, profile.layout.bounds);
     let palette = ThemePalette::from_widget(area);
-    let layer = &profile.layers[profile.current_layer];
-    let layer_names = state
-        .profiles[state.active_profile]
+    let layer_names = profile
         .layers
         .iter()
         .map(|layer| layer.name.as_str())
         .collect::<Vec<_>>();
     for (index, geometry) in profile.layout.keys.iter().enumerate() {
+        let binding = resolved_binding(
+            &profile.layers,
+            profile.current_layer,
+            index,
+            &layer_names,
+        );
         draw_key(
             cr,
             &metrics,
-            index,
             geometry,
-            &layer.keys[index],
-            &layer_names,
+            &binding,
             &palette,
         );
     }
@@ -1861,10 +2053,8 @@ fn layout_metrics(width: f64, height: f64, bounds: LayoutBounds) -> LayoutMetric
 fn draw_key(
     cr: &CairoContext,
     metrics: &LayoutMetrics,
-    index: usize,
     geometry: &KeyGeometry,
-    label: &str,
-    layer_names: &[&str],
+    binding: &DisplayBinding,
     palette: &ThemePalette,
 ) {
     let key_width = geometry.width * metrics.scale;
@@ -1885,43 +2075,49 @@ fn draw_key(
         key_height,
         radius,
     );
-    if is_layer_label(label, layer_names) {
-        set_rgba(cr, palette.layer, 0.92 * KEY_FILL_OPACITY);
-    } else if label == "___" {
-        set_rgba(cr, palette.key_dim, 0.78 * KEY_FILL_OPACITY);
+    let (fill, fill_alpha) = if binding.is_empty() {
+        (palette.unassigned_key, 0.78)
+    } else if binding.uses_overlay_color() {
+        (palette.overlay_key, 0.96)
     } else {
-        set_rgba(cr, palette.key, 0.90 * KEY_FILL_OPACITY);
-    }
+        (palette.base_key, 0.90)
+    };
+    set_rgba(cr, fill, fill_alpha * KEY_FILL_OPACITY);
     cr.fill_preserve().ok();
     set_rgba(cr, palette.outline, 0.62 * OVERLAY_OPACITY);
     cr.set_line_width(key_size * 0.020);
     cr.stroke().ok();
 
-    let text_color = if is_layer_label(label, layer_names) {
+    let text_color = if binding.uses_overlay_color() && !binding.is_empty() {
         palette.inverse_text
-    } else if label == "___" {
+    } else if binding.is_empty() {
         palette.muted
     } else {
         palette.text
     };
     set_rgba(cr, text_color, 0.92 * OVERLAY_OPACITY);
-    draw_centered_text(
-        cr,
-        label,
-        0.0,
-        -key_height * 0.04,
-        key_width.min(key_height) * 0.25,
-        key_width * 0.76,
-    );
-    set_rgba(cr, text_color, 0.36 * OVERLAY_OPACITY);
-    draw_centered_text(
-        cr,
-        &(index + 1).to_string(),
-        0.0,
-        key_height * 0.31,
-        key_width.min(key_height) * 0.11,
-        key_width * 0.70,
-    );
+    if let Some(tap) = &binding.tap {
+        draw_centered_text(
+            cr,
+            tap,
+            0.0,
+            -key_height * 0.14,
+            key_size * 0.25,
+            key_width * 0.76,
+        );
+    }
+    if let Some(hold) = &binding.hold {
+        let has_tap = binding.tap.is_some();
+        set_rgba(cr, text_color, 0.84 * OVERLAY_OPACITY);
+        draw_centered_text(
+            cr,
+            hold,
+            0.0,
+            key_height * if has_tap { 0.24 } else { 0.10 },
+            key_size * if has_tap { 0.16 } else { 0.20 },
+            key_width * 0.84,
+        );
+    }
     cr.restore().ok();
 }
 
@@ -1949,8 +2145,8 @@ fn draw_centered_text(
             cr.show_text(&display).ok();
             return;
         }
-        if display.chars().count() > 8 {
-            display = format!("{}.", display.chars().take(7).collect::<String>());
+        if display.chars().count() > 12 {
+            display = format!("{}.", display.chars().take(11).collect::<String>());
         } else {
             size *= 0.92;
         }
@@ -1969,10 +2165,6 @@ fn rounded_rect(cr: &CairoContext, x: f64, y: f64, w: f64, h: f64, r: f64) {
 
 fn set_rgba(cr: &CairoContext, color: Color, alpha: f64) {
     cr.set_source_rgba(color.red, color.green, color.blue, alpha);
-}
-
-fn is_layer_label(label: &str, layer_names: &[&str]) -> bool {
-    layer_names.contains(&label)
 }
 
 #[cfg(test)]
@@ -2029,6 +2221,71 @@ mod tests {
         fs::write(device.join("id/vendor"), vendor).expect("write vendor");
         fs::write(device.join("id/product"), product).expect("write product");
         fs::write(device.join("name"), name).expect("write name");
+    }
+
+    #[test]
+    fn dual_role_bindings_expose_tap_and_hold_actions() {
+        let layer_names = ["Base", "Nav"];
+        assert_eq!(
+            parse_display_binding("LGUI_T(KC_N)", &layer_names),
+            (Some("N".to_string()), Some("GUI".to_string()))
+        );
+        assert_eq!(
+            parse_display_binding("LT(_NAV, KC_SPC)", &layer_names),
+            (Some("Space".to_string()), Some("Nav".to_string()))
+        );
+        assert_eq!(
+            parse_display_binding("Nav", &layer_names),
+            (None, Some("Nav".to_string()))
+        );
+    }
+
+    #[test]
+    fn transparent_overlay_keys_resolve_to_base_bindings() {
+        let layers = vec![
+            KeyLayer {
+                name: "Base".to_string(),
+                keys: vec![
+                    "LCTL_T(KC_T)".to_string(),
+                    "Space".to_string(),
+                    "Nav".to_string(),
+                ],
+            },
+            KeyLayer {
+                name: "Nav".to_string(),
+                keys: vec![
+                    "___".to_string(),
+                    "KC_LEFT".to_string(),
+                    "___".to_string(),
+                ],
+            },
+        ];
+        let layer_names = ["Base", "Nav"];
+
+        assert_eq!(
+            resolved_binding(&layers, 1, 0, &layer_names),
+            DisplayBinding {
+                tap: Some("T".to_string()),
+                hold: Some("Ctrl".to_string()),
+                source: BindingSource::Base,
+            }
+        );
+        assert_eq!(
+            resolved_binding(&layers, 1, 1, &layer_names),
+            DisplayBinding {
+                tap: Some("Left".to_string()),
+                hold: None,
+                source: BindingSource::Overlay,
+            }
+        );
+        assert_eq!(
+            resolved_binding(&layers, 1, 2, &layer_names),
+            DisplayBinding {
+                tap: None,
+                hold: Some("Nav".to_string()),
+                source: BindingSource::ActiveLayerTrigger,
+            }
+        );
     }
 
     #[test]
