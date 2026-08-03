@@ -4567,11 +4567,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785685468,
-        "narHash": "sha256-hnG/ERh/yXQ10ya9j83tv+2A0S223uwHc8/xC2QinVs=",
+        "lastModified": 1785751796,
+        "narHash": "sha256-9g7iJxwBqnK5EqblSXmRKBWHcN8xF7/WgTqq+rOe2O4=",
         "owner": "conroy-cheers",
         "repo": "wotbox",
-        "rev": "21f7c7c33de96ccd169d50835fe266ecbe09e0be",
+        "rev": "de1875b08b6c08b53dd4f2a6e2df32f69352ff49",
         "type": "github"
       },
       "original": {
