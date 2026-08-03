@@ -73,6 +73,7 @@ let
       tool_timeout_sec = 60;
     };
   };
+  codexAndromedaRemovedNixKeys = [ "model_catalog_json" ];
   codexAndromedaMergePython = pkgs.python3.withPackages (pythonPackages: [
     pythonPackages.tomlkit
   ]);
@@ -112,6 +113,8 @@ let
         target.unlink()
 
     merge_config(existing_config, desired_config)
+    for removed_key in sys.argv[3:]:
+        existing_config.pop(removed_key, None)
 
     tmp = target.with_name(f"{target.name}.tmp")
     tmp.write_text(tomlkit.dumps(existing_config))
@@ -121,7 +124,8 @@ let
     ${codexAndromedaMergePython}/bin/python \
       ${codexAndromedaMergeScript} \
       ${codexAndromedaConfig} \
-      "${codexAndromedaConfigFile}"
+      "${codexAndromedaConfigFile}" \
+      ${lib.escapeShellArgs codexAndromedaRemovedNixKeys}
   '';
   codex-andromeda-wrapped = pkgs.symlinkJoin {
     name = "codex-andromeda-wrapped";
@@ -211,6 +215,7 @@ in
     home.sessionVariables = {
       ROS_DOMAIN_ID = "38";
       CARGO_NET_GIT_FETCH_WITH_CLI = "true";
+      ABI_SSH_KEY = "${config.home.homeDirectory}/.ssh/abi_root.id_ed25519";
     };
 
     home.file = lib.mkMerge [
@@ -438,7 +443,42 @@ in
         };
 
         "profile abi-deploy" = {
+          sso_session = "Andromeda";
+          sso_account_id = "210362323009";
+          sso_role_name = "AbiDeployPermSet";
           region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile iot-creds-au-dev" = {
+          sso_session = "Andromeda";
+          sso_account_id = "235494781452";
+          sso_role_name = "IoTCredsBucketPermSet-au-dev";
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile iot-creds-us-dev" = {
+          sso_session = "Andromeda";
+          sso_account_id = "235494781452";
+          sso_role_name = "IoTCredsBucketPermSet-us-dev";
+          region = "us-west-2";
+          output = "json";
+        };
+
+        "profile iot-creds-au-prod" = {
+          sso_session = "Andromeda";
+          sso_account_id = "263383612339";
+          sso_role_name = "IoTCredsBucketPermSet-au-prod";
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile iot-creds-us-prod" = {
+          sso_session = "Andromeda";
+          sso_account_id = "263383612339";
+          sso_role_name = "IoTCredsBucketPermSet-us-prod";
+          region = "us-west-2";
           output = "json";
         };
       };
