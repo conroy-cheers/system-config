@@ -101,6 +101,11 @@ in
     owner = "wotbox";
     mode = "0400";
   };
+  age.secrets."wotbox.red-token" = {
+    rekeyFile = lib.repoSecret "wotbox/red-token.age";
+    owner = "wotbox";
+    mode = "0400";
+  };
   age.secrets."wotbox.qbittorrent-api-key" = {
     rekeyFile = lib.repoSecret "wotbox/qbittorrent-api-key.age";
     owner = "wotbox";
@@ -180,6 +185,12 @@ in
       baseUrl = "https://orpheus.network";
       tokenFile = config.age.secrets."wotbox.ops-token".path;
     };
+    trackers.red = {
+      kind = "red";
+      baseUrl = "https://redacted.sh";
+      tokenFile = config.age.secrets."wotbox.red-token".path;
+      announceHosts = [ "flacsfor.me" ];
+    };
     downloadClients.music = {
       baseUrl = "http://127.0.0.1:8001";
       apiKeyFile = config.age.secrets."wotbox.qbittorrent-api-key".path;
@@ -188,6 +199,11 @@ in
       client = "music";
       savePath = "/mnt/media/Downloads/torrent/complete/ops";
       tag = "ops";
+    };
+    downloadProfiles.red = {
+      client = "music";
+      savePath = "/mnt/media/Downloads/torrent/complete/red";
+      tag = "red";
     };
   };
 
