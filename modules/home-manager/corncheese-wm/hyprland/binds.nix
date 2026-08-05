@@ -188,9 +188,9 @@ in
               hl.bind(mod .. " + 7", hl.dsp.exec_cmd("hyprworkspace 7"))
               hl.bind(mod .. " + 8", hl.dsp.exec_cmd("hyprworkspace 8"))
               hl.bind(mod .. " + 9", hl.dsp.exec_cmd("hyprworkspace 9"))
-              hl.bind(mod .. " + CTRL + h", hl.dsp.focus({ workspace = "r-1" }))
-              hl.bind(mod .. " + CTRL + l", hl.dsp.focus({ workspace = "r+1" }))
-              hl.bind(mod .. " + CTRL + S", hl.dsp.workspace.toggle_special())
+              hl.bind(mod .. " + CTRL + left", hl.dsp.focus({ workspace = "r-1" }))
+              hl.bind(mod .. " + CTRL + right", hl.dsp.focus({ workspace = "r+1" }))
+              hl.bind(mod .. " + CTRL + 0", hl.dsp.workspace.toggle_special())
               hl.bind(mod .. " + SHIFT + W", hl.dsp.window.fullscreen())
             end
           '')
