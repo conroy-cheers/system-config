@@ -24,6 +24,7 @@ let
       layers
       ;
     current_layer_hid = profile.currentLayerHid;
+    visible_layers = profile.visibleLayers;
   };
 
   keyboardLayerViewerProfiles = pkgs.writeText "keyboard-layer-viewer-profiles.json" (
@@ -38,6 +39,7 @@ let
             info = "${pkgs.silakka54}/share/silakka54/keymap/info.json";
             layers = "${pkgs.silakka54}/share/silakka54/keymap/keymap.yaml";
             currentLayerHid = true;
+            visibleLayers = silakka54Cfg.overlayLayers;
           }
         ]
         ++ keyboardLayerViewerCfg.profiles

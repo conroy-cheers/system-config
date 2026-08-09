@@ -424,6 +424,7 @@ struct KeyboardProfile {
     layers: Vec<KeyLayer>,
     current_layer: usize,
     current_layer_hid: bool,
+    visible_layers: Option<HashSet<usize>>,
 }
 
 #[derive(Deserialize)]
@@ -441,6 +442,8 @@ struct KeyboardProfileConfig {
     layers: PathBuf,
     #[serde(default)]
     current_layer_hid: bool,
+    #[serde(default)]
+    visible_layers: Option<Vec<String>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -707,6 +710,10 @@ fn build_ui(
     profiles: Vec<KeyboardProfile>,
     visible: bool,
 ) {
+    let visible = visible
+        && profiles
+            .first()
+            .is_some_and(overlay_is_enabled_for_current_layer);
     let hold = app.hold();
     let provider = gtk::CssProvider::new();
     provider.load_from_data(CSS);
@@ -850,7 +857,7 @@ fn handle_event(state: &Rc<RefCell<UiState>>, event: AppEvent) {
 
 fn activity_state(state: &mut UiState) {
     refresh_submap_suppression(state);
-    if state.suppressed_by_submap {
+    if state.suppressed_by_submap || !overlay_is_enabled_for_active_layer(state) {
         hide_state(state);
         return;
     }
@@ -886,7 +893,7 @@ fn set_layer(state: &mut UiState, profile: usize, layer: u8) {
     state.profiles[profile].current_layer = layer;
     if changed {
         refresh_submap_suppression(state);
-        if state.suppressed_by_submap {
+        if state.suppressed_by_submap || !overlay_is_enabled_for_active_layer(state) {
             hide_state(state);
         } else {
             show_state(state);
@@ -905,7 +912,9 @@ fn touch_profile(state: &mut UiState, profile: usize) {
     state.active_profile = profile;
     update_window_title(state);
     refresh_submap_suppression(state);
-    if !state.suppressed_by_submap {
+    if state.suppressed_by_submap || !overlay_is_enabled_for_active_layer(state) {
+        hide_state(state);
+    } else {
         show_state(state);
         state.auto_hide_enabled = true;
     }
@@ -964,6 +973,7 @@ fn state_status(state: &UiState) -> String {
             "name": layer.name,
         },
         "visible": state.visible,
+        "enabled_for_current_layer": overlay_is_enabled_for_current_layer(profile),
         "auto_hide_enabled": state.auto_hide_enabled,
         "held_keys": state.held_keys.len(),
         "layer_held": profile.current_layer != 0,
@@ -971,6 +981,17 @@ fn state_status(state: &UiState) -> String {
     })
     .to_string()
         + "\n"
+}
+
+fn overlay_is_enabled_for_active_layer(state: &UiState) -> bool {
+    overlay_is_enabled_for_current_layer(&state.profiles[state.active_profile])
+}
+
+fn overlay_is_enabled_for_current_layer(profile: &KeyboardProfile) -> bool {
+    match &profile.visible_layers {
+        Some(layers) => layers.contains(&profile.current_layer),
+        None => true,
+    }
 }
 
 fn update_auto_hide_deadline(state: &mut UiState) {
@@ -1147,6 +1168,7 @@ fn load_profiles(args: &Args) -> Result<Vec<KeyboardProfile>> {
         info: args.info_path.clone(),
         layers: args.keymap_path.clone(),
         current_layer_hid: true,
+        visible_layers: None,
     };
     load_profile(&config, Path::new(".")).map(|profile| vec![profile])
 }
@@ -1156,6 +1178,26 @@ fn load_profile(config: &KeyboardProfileConfig, base: &Path) -> Result<KeyboardP
     let layers_path = resolve_profile_path(base, &config.layers);
     let layout = load_layout(&info_path)?;
     let layers = load_layers(&layers_path, layout.keys.len())?;
+    let visible_layers = config
+        .visible_layers
+        .as_ref()
+        .map(|configured| {
+            configured
+                .iter()
+                .map(|name| {
+                    layers
+                        .iter()
+                        .position(|layer| layer.name == *name)
+                        .with_context(|| {
+                            format!(
+                                "profile {:?} references unknown visible layer {name:?}",
+                                config.id
+                            )
+                        })
+                })
+                .collect::<Result<HashSet<_>>>()
+        })
+        .transpose()?;
     Ok(KeyboardProfile {
         id: config.id.clone(),
         name: config.name.clone(),
@@ -1165,6 +1207,7 @@ fn load_profile(config: &KeyboardProfileConfig, base: &Path) -> Result<KeyboardP
         layers,
         current_layer: 0,
         current_layer_hid: config.current_layer_hid,
+        visible_layers,
     })
 }
 
@@ -2220,6 +2263,7 @@ mod tests {
             }],
             current_layer: 0,
             current_layer_hid: false,
+            visible_layers: None,
         }
     }
 

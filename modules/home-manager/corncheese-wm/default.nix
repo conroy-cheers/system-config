@@ -107,6 +107,11 @@ in
                   default = false;
                   description = "Whether this keyboard reports the active layer over HID.";
                 };
+                visibleLayers = mkOption {
+                  type = nullOr (listOf str);
+                  default = null;
+                  description = "Layer names for which the overlay is shown; null shows every layer.";
+                };
               };
             });
           default = [ ];

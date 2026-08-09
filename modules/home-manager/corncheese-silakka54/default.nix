@@ -17,7 +17,35 @@ in
     )
   ];
 
-  options.corncheese.silakka54.enable = lib.mkEnableOption "Silakka54 firmware and keymap synchronization";
+  options.corncheese.silakka54 = {
+    enable = lib.mkEnableOption "Silakka54 firmware and keymap synchronization";
+    overlayLayers = lib.mkOption {
+      type = lib.types.nullOr (
+        lib.types.listOf (
+          lib.types.enum (
+            map (layer: layer.name) (
+              builtins.fromJSON (builtins.readFile ../../../packages/silakka54/configuration.json)
+            ).via.layers
+          )
+        )
+      );
+      default = [
+        "Num"
+        "Nav"
+        "Sym"
+      ];
+      example = [
+        "Num"
+        "Sym"
+      ];
+      description = ''
+        Silakka54 layer names for which the keyboard layer viewer is shown.
+        By default the overlay is shown for Num, Nav, and Sym, but not Base.
+        Set this to null to show every layer. An empty list disables the
+        overlay for Silakka54 without disabling synchronization.
+      '';
+    };
+  };
 
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
