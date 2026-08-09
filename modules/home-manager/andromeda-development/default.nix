@@ -29,6 +29,7 @@ let
     model_provider = "azure";
     model_reasoning_effort = "high";
     personality = "pragmatic";
+    tui.pet = "stacky";
 
     features.multi_agent_v2.tool_namespace = "agents";
 

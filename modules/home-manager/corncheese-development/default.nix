@@ -16,6 +16,7 @@ let
   codexHome = "${config.home.homeDirectory}/.codex";
   codexConfigFile = "${codexHome}/config.toml";
   codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
+    tui.pet = "rocky";
     mcp_servers.ReVa = {
       command = lib.getExe pkgs.reverse-engineering-assistant;
       default_tools_approval_mode = "prompt";
@@ -201,18 +202,21 @@ let
   };
   codexDesktopPackage = inputs.codex-desktop-linux.packages.${pkgs.system}.default;
   codexAndromedaDesktopAppId = "codex-desktop-andromeda";
-  codexAndromedaDesktop = pkgs.runCommand "codex-desktop-andromeda" {
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-  } ''
-    mkdir -p "$out/bin"
-    makeWrapper ${lib.getExe' codexDesktopPackage "codex-desktop"} "$out/bin/codex-desktop-andromeda" \
-      --set CODEX_CLI_PATH "${lib.getExe' config.andromeda.development.codexPackage "codex-andromeda"}" \
-      --set CODEX_HOME "${config.home.homeDirectory}/.codex-andromeda" \
-      --set CODEX_APP_ID "${codexAndromedaDesktopAppId}" \
-      --set CODEX_LINUX_APP_ID "${codexAndromedaDesktopAppId}" \
-      --set CODEX_LINUX_APP_DISPLAY_NAME "Codex Andromeda" \
-      --set CODEX_WEBVIEW_PORT "5176"
-  '';
+  codexAndromedaDesktop =
+    pkgs.runCommand "codex-desktop-andromeda"
+      {
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+      }
+      ''
+        mkdir -p "$out/bin"
+        makeWrapper ${lib.getExe' codexDesktopPackage "codex-desktop"} "$out/bin/codex-desktop-andromeda" \
+          --set CODEX_CLI_PATH "${lib.getExe' config.andromeda.development.codexPackage "codex-andromeda"}" \
+          --set CODEX_HOME "${config.home.homeDirectory}/.codex-andromeda" \
+          --set CODEX_APP_ID "${codexAndromedaDesktopAppId}" \
+          --set CODEX_LINUX_APP_ID "${codexAndromedaDesktopAppId}" \
+          --set CODEX_LINUX_APP_DISPLAY_NAME "Codex Andromeda" \
+          --set CODEX_WEBVIEW_PORT "5176"
+      '';
 in
 {
   imports = [
