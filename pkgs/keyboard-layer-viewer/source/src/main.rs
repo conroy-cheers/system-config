@@ -374,21 +374,31 @@ struct EventSink {
 }
 
 enum AppEvent {
-    Layer { profile: usize, layer: u8 },
+    Layer {
+        profile: usize,
+        layer: u8,
+    },
     Key {
         profile: usize,
         device: PathBuf,
         code: u16,
         pressed: bool,
     },
-    InputDisconnected { device: PathBuf },
+    InputDisconnected {
+        device: PathBuf,
+    },
     Activity,
     Hide,
-    Place { monitor: String, left_margin: i32 },
+    Place {
+        monitor: String,
+        left_margin: i32,
+    },
     RefreshPlacement,
     Monitor(String),
     Submap(String),
-    Status { respond_to: Sender<String> },
+    Status {
+        respond_to: Sender<String>,
+    },
 }
 
 struct UiState {
@@ -556,12 +566,7 @@ fn main() -> Result<()> {
             .borrow_mut()
             .take()
             .expect("application activated more than once");
-        build_ui(
-            app,
-            rx,
-            profiles.clone(),
-            !args.hidden,
-        );
+        build_ui(app, rx, profiles.clone(), !args.hidden);
     });
     app.run_with_args(&["keyboard-layer-viewer"]);
     Ok(())
@@ -875,8 +880,7 @@ fn set_layer(state: &mut UiState, profile: usize, layer: u8) {
         return;
     }
     let layer = clamp_layer(layer as usize, &state.profiles[profile].layers);
-    let changed =
-        state.active_profile != profile || state.profiles[profile].current_layer != layer;
+    let changed = state.active_profile != profile || state.profiles[profile].current_layer != layer;
     state.active_profile = profile;
     update_window_title(state);
     state.profiles[profile].current_layer = layer;
@@ -937,9 +941,10 @@ fn input_disconnected(state: &mut UiState, device: &Path) {
 
 fn update_window_title(state: &UiState) {
     let profile = &state.profiles[state.active_profile];
-    state
-        .window
-        .set_title(Some(&format!("{} Layer Viewer ({})", profile.name, profile.id)));
+    state.window.set_title(Some(&format!(
+        "{} Layer Viewer ({})",
+        profile.name, profile.id
+    )));
 }
 
 fn state_status(state: &UiState) -> String {
@@ -1272,9 +1277,7 @@ fn watch_input_devices(profiles: Vec<KeyboardProfile>, sink: EventSink) {
     loop {
         for (profile, path) in input_event_paths(&profiles) {
             let key = format!("{profile}:{}", path.display());
-            let mut active = active_paths
-                .lock()
-                .expect("active input path set poisoned");
+            let mut active = active_paths.lock().expect("active input path set poisoned");
             if !active.insert(key.clone()) {
                 continue;
             }
@@ -1313,7 +1316,7 @@ fn input_event_paths_from(
 
     entries
         .filter_map(Result::ok)
-	        .filter_map(|entry| {
+        .filter_map(|entry| {
             let name = entry.file_name();
             let name = name.to_string_lossy();
             if !name.starts_with("event") {
@@ -1588,8 +1591,8 @@ fn current_layer_placement() -> Option<(String, i32)> {
     let monitors: Vec<HyprMonitor> = hyprctl_json(&["monitors", "-j"])?;
     let clients: Vec<HyprClient> = hyprctl_json(&["clients", "-j"])?;
     let active: HyprClient = hyprctl_json(&["activewindow", "-j"]).unwrap_or_default();
-    let gaps: HyprGapsOption = hyprctl_json(&["getoption", "general:gaps_in", "-j"])
-        .unwrap_or_default();
+    let gaps: HyprGapsOption =
+        hyprctl_json(&["getoption", "general:gaps_in", "-j"]).unwrap_or_default();
 
     compute_layer_placement(&monitors, &clients, &active, &gaps)
 }
@@ -1668,10 +1671,8 @@ fn compute_layer_placement(
                     return None;
                 }
                 let left_bound = window_x.max(monitor.x);
-                let right_bound =
-                    (window_x + window_width - f64::from(WINDOW_WIDTH)).min(
-                        monitor.x + monitor_width - f64::from(WINDOW_WIDTH),
-                    );
+                let right_bound = (window_x + window_width - f64::from(WINDOW_WIDTH))
+                    .min(monitor.x + monitor_width - f64::from(WINDOW_WIDTH));
                 if right_bound < left_bound {
                     return None;
                 }
@@ -1689,7 +1690,10 @@ fn compute_layer_placement(
     });
 
     let left = choice.map_or(fallback_x, |choice| choice.left);
-    Some((monitor.name.clone(), (left - monitor.x).floor().max(0.0) as i32))
+    Some((
+        monitor.name.clone(),
+        (left - monitor.x).floor().max(0.0) as i32,
+    ))
 }
 
 #[derive(Clone, Copy)]
@@ -1860,9 +1864,7 @@ fn resolved_binding(
         (active_label, BindingSource::Overlay)
     };
     let (tap, hold) = parse_display_binding(label, layer_names);
-    if inherited_from_base
-        && hold.as_deref() == Some(layers[current_layer].name.as_str())
-    {
+    if inherited_from_base && hold.as_deref() == Some(layers[current_layer].name.as_str()) {
         source = BindingSource::ActiveLayerTrigger;
     }
     DisplayBinding { tap, hold, source }
@@ -1961,8 +1963,14 @@ fn layer_identifier_to_label(identifier: &str, layer_names: &[&str]) -> String {
 
 fn qmk_tap_to_label(keycode: &str) -> String {
     match keycode {
+        "KC_TRNS" => "___",
+        "KC_NO" => "---",
         "KC_ESC" => "Esc",
         "KC_TAB" => "Tab",
+        "KC_LCTL" | "KC_RCTL" => "Ctrl",
+        "KC_LSFT" | "KC_RSFT" => "Shift",
+        "KC_LALT" | "KC_RALT" => "Alt",
+        "KC_LGUI" | "KC_RGUI" => "GUI",
         "KC_BSPC" => "Bspc",
         "KC_SPC" => "Space",
         "KC_ENT" => "Enter",
@@ -1987,8 +1995,38 @@ fn qmk_tap_to_label(keycode: &str) -> String {
         "KC_LBRC" => "[",
         "KC_RBRC" => "]",
         "KC_EQL" => "=",
+        "KC_EXLM" => "!",
+        "KC_AT" => "@",
+        "KC_HASH" => "#",
+        "KC_DLR" => "$",
+        "KC_PERC" => "%",
+        "KC_CIRC" => "^",
+        "KC_AMPR" => "&",
+        "KC_ASTR" => "*",
+        "KC_LPRN" => "(",
+        "KC_RPRN" => ")",
+        "KC_UNDS" => "_",
+        "KC_PLUS" => "+",
+        "KC_LCBR" => "{",
+        "KC_RCBR" => "}",
+        "KC_PIPE" => "|",
+        "KC_COLN" => ":",
+        "KC_DQUO" => "\"",
+        "KC_LT" => "<",
+        "KC_GT" => ">",
+        "KC_QUES" => "?",
+        "KC_TILD" => "~",
+        "KC_CAPS" => "Caps",
+        "KC_APP" | "KC_MENU" => "Menu",
+        "KC_MUTE" => "Mute",
+        "KC_VOLD" => "Vol-",
+        "KC_VOLU" => "Vol+",
+        "KC_MPRV" => "Prev",
+        "KC_MNXT" => "Next",
+        "KC_MPLY" => "Play",
         "KC_UNDO" => "Undo",
-        "KC_REDO" => "Redo",
+        "KC_AGIN" | "KC_AGAIN" | "KC_REDO" => "Redo",
+        "QK_BOOT" => "Boot",
         value if value.len() == 4 && value.starts_with("KC_") => &value[3..],
         value
             if value.strip_prefix("KC_F").is_some_and(|number| {
@@ -2023,19 +2061,8 @@ fn draw_keyboard(state: &UiState, area: &DrawingArea, cr: &CairoContext, width: 
         .map(|layer| layer.name.as_str())
         .collect::<Vec<_>>();
     for (index, geometry) in profile.layout.keys.iter().enumerate() {
-        let binding = resolved_binding(
-            &profile.layers,
-            profile.current_layer,
-            index,
-            &layer_names,
-        );
-        draw_key(
-            cr,
-            &metrics,
-            geometry,
-            &binding,
-            &palette,
-        );
+        let binding = resolved_binding(&profile.layers, profile.current_layer, index, &layer_names);
+        draw_key(cr, &metrics, geometry, &binding, &palette);
     }
 }
 
@@ -2241,6 +2268,14 @@ mod tests {
     }
 
     #[test]
+    fn qmk_keycodes_render_as_human_legends() {
+        assert_eq!(qmk_tap_to_label("KC_RSFT"), "Shift");
+        assert_eq!(qmk_tap_to_label("KC_PIPE"), "|");
+        assert_eq!(qmk_tap_to_label("KC_EXLM"), "!");
+        assert_eq!(qmk_tap_to_label("KC_MNXT"), "Next");
+    }
+
+    #[test]
     fn transparent_overlay_keys_resolve_to_base_bindings() {
         let layers = vec![
             KeyLayer {
@@ -2253,11 +2288,7 @@ mod tests {
             },
             KeyLayer {
                 name: "Nav".to_string(),
-                keys: vec![
-                    "___".to_string(),
-                    "KC_LEFT".to_string(),
-                    "___".to_string(),
-                ],
+                keys: vec!["___".to_string(), "KC_LEFT".to_string(), "___".to_string()],
             },
         ];
         let layer_names = ["Base", "Nav"];

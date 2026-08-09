@@ -8,17 +8,6 @@
 let
   cfg = config.corncheese.silakka54;
   silakka54 = lib.getExe pkgs.silakka54;
-  firmwarePrompt = pkgs.writeShellScript "silakka54-firmware-prompt" ''
-    export PATH=${
-      lib.makeBinPath [
-        pkgs.silakka54
-        pkgs.zenity
-        pkgs.coreutils
-        pkgs.systemd
-      ]
-    }:$PATH
-    exec silakka54-sync prompt-firmware
-  '';
 in
 {
   imports = [
@@ -33,30 +22,25 @@ in
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
       {
-        home.packages = [ pkgs.silakka54 ];
+        home.packages = [
+          pkgs.silakka54
+        ]
+        ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+          pkgs.keymap-editor
+          pkgs.libnotify
+        ];
       }
 
       (lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-        systemd.user.services.silakka54-firmware-prompt = {
+        systemd.user.services.silakka54-watch = {
           Unit = {
-            Description = "Prompt before flashing stale Silakka54 firmware";
-            After = [ "graphical-session.target" ];
-            X-SwitchMethod = "keep-old";
-          };
-          Service = {
-            Type = "oneshot";
-            ExecStart = "${firmwarePrompt}";
-          };
-        };
-
-        systemd.user.services.silakka54-sync = {
-          Unit = {
-            Description = "Reconcile Silakka54 keymap after Home Manager activation";
+            Description = "Watch and reconcile Silakka54 VIA state";
             After = [ "default.target" ];
           };
           Service = {
-            Type = "oneshot";
-            ExecStart = "${silakka54} rebuild-switch";
+            ExecStart = "${silakka54} watch";
+            Restart = "on-failure";
+            RestartSec = 2;
           };
           Install.WantedBy = [ "default.target" ];
         };

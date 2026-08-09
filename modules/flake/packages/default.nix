@@ -127,10 +127,14 @@
                 };
               }
             else
-              # TODO: only inherit `input` if requested
-              pkgsPure.callPackage package {
-                # inherit inputs;
-              }
+              pkgsPure.callPackage package (
+                lib.optionalAttrs (builtins.functionArgs package ? inputs) {
+                  # Explicit overrides are not filtered by `callPackage`, so
+                  # only pass flake inputs to package entrypoints requesting
+                  # them.
+                  inherit inputs;
+                }
+              )
           ))
         ];
       in

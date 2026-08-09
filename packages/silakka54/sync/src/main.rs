@@ -1,11 +1,11 @@
 use hidapi::{HidApi, HidDevice};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::CString;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-#[cfg(target_os = "linux")]
-use std::process::Stdio;
 use std::process::{Command, ExitCode};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -17,22 +17,31 @@ const RAW_USAGE: u16 = 0x0061;
 const MANIFEST_PATH: &str = "@manifest_path@";
 const FIRMWARE_LEFT_PATH: &str = "@firmware_left_path@";
 const FIRMWARE_RIGHT_PATH: &str = "@firmware_right_path@";
+const CONFIGURATION_PATH: &str = "@configuration_path@";
+const QMK_CATALOG_PATH: &str = "@qmk_catalog_path@";
 const DYNAMIC_KEYMAP_TSV: &str = "@dynamic_keymap_tsv@";
 const EXPECTED_ABI_HASH: &str = "@firmware_abi_hash@";
+const EXPECTED_RUNTIME_HASH: &str = "@runtime_hash@";
 const EXPECTED_KEYMAP_HASH: &str = "@keymap_hash@";
 const REPORT_LEN: usize = 32;
 
 const ID_GET_PROTOCOL_VERSION: u8 = 0x01;
 const ID_GET_KEYBOARD_VALUE: u8 = 0x02;
+const ID_SET_KEYBOARD_VALUE: u8 = 0x03;
 const ID_DYNAMIC_KEYMAP_GET_KEYCODE: u8 = 0x04;
 const ID_DYNAMIC_KEYMAP_SET_KEYCODE: u8 = 0x05;
-const ID_BOOTLOADER_JUMP: u8 = 0x0b;
+const ID_DYNAMIC_KEYMAP_MACRO_GET_COUNT: u8 = 0x0c;
+const ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER_SIZE: u8 = 0x0d;
+const ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER: u8 = 0x0e;
+const ID_DYNAMIC_KEYMAP_MACRO_SET_BUFFER: u8 = 0x0f;
+const ID_LAYOUT_OPTIONS: u8 = 0x02;
 const SILAKKA54_SYNC_QUERY: u8 = 0x54;
 const SILAKKA54_SYNC_BOOTLOADER: u8 = 0x42;
-const SILAKKA54_SYNC_VERSION: u8 = 1;
+const SILAKKA54_SYNC_VERSION: u8 = 2;
 const SILAKKA54_SYNC_MAGIC: &[u8] = b"SL54SYN";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 enum KeyboardHalf {
     Left,
     Right,
@@ -64,6 +73,61 @@ struct KeyEntry {
     qmk: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Configuration {
+    schema_version: u32,
+    via: ViaConfiguration,
+    qmk: QmkConfiguration,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct ViaConfiguration {
+    layers: Vec<ConfiguredLayer>,
+    #[serde(default)]
+    layout_options: u32,
+    #[serde(default)]
+    macros: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct ConfiguredLayer {
+    id: String,
+    name: String,
+    keys: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct QmkConfiguration {
+    defines: BTreeMap<String, Value>,
+    rules: BTreeMap<String, bool>,
+    #[serde(default)]
+    tap_hold: TapHoldConfiguration,
+    #[serde(default)]
+    combos: Vec<ComboConfiguration>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+struct TapHoldConfiguration {
+    #[serde(default)]
+    hold_on_other_key_press_mods: Vec<String>,
+    #[serde(default)]
+    speculative_hold_mods: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct ComboConfiguration {
+    name: String,
+    keys: Vec<String>,
+    output: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct QmkCatalog {
+    qmk_revision: String,
+    keycodes: BTreeMap<String, u16>,
+    options: BTreeMap<String, Value>,
+}
+
 #[derive(Clone, Debug)]
 struct DeviceDescriptor {
     path: CString,
@@ -76,21 +140,25 @@ impl DeviceDescriptor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct FirmwareStatus {
     abi_hash_prefix: String,
+    runtime_hash_prefix: String,
     keymap_hash_prefix: String,
     layer_count: u8,
+    macro_count: u8,
     rows: u8,
     cols: u8,
+    half: Option<KeyboardHalf>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct DeviceStatus {
     name: String,
     via_protocol: Option<u16>,
     firmware: Option<FirmwareStatus>,
     keymap_drift: Option<usize>,
+    via_state_drift: Option<Vec<String>>,
     error: Option<String>,
 }
 
@@ -112,15 +180,16 @@ impl HidTransport for HidDevice {
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let command = args.next().unwrap_or_else(|| "status".to_string());
+    let remaining: Vec<_> = args.collect();
     let result = match command.as_str() {
-        "status" => status_command(),
-        "sync-keymap" => sync_keymap_command(),
-        "flash-firmware" => {
-            parse_flash_args(args).and_then(|(yes, half)| flash_firmware_command(yes, half))
+        "status" => parse_status_args(&remaining).and_then(status_command),
+        "apply" | "sync-keymap" => {
+            parse_config_arg(&remaining).and_then(sync_keymap_command_with_config)
         }
+        "config" => config_command(&remaining),
+        "flash" | "flash-firmware" => parse_flash_args(remaining.into_iter())
+            .and_then(|(yes, half)| flash_firmware_command(yes, half)),
         "hotplug" => hotplug_command(),
-        "rebuild-switch" => rebuild_switch_command(),
-        "prompt-firmware" => prompt_firmware_command(),
         "watch" => watch_command(),
         "--help" | "-h" | "help" => {
             print_help();
@@ -139,9 +208,689 @@ fn main() -> ExitCode {
 }
 
 fn print_help() {
-    println!(
-        "Usage: silakka54-sync <status|sync-keymap|flash-firmware [--left|--right] [--yes]|hotplug|rebuild-switch|prompt-firmware|watch>"
-    );
+    println!("Usage: silakka54-sync <command> [options]");
+    println!("  status [--config FILE]       Show live, runtime, and recovery-default state");
+    println!("  apply [--config FILE]        Apply and verify standard VIA keymap state");
+    println!("  config validate [--config FILE]");
+    println!("  config options [--search TERM] [--json]");
+    println!("  config diff [--config FILE]");
+    println!("  config snapshot-live [--config FILE] [--output FILE]");
+    println!("  flash --left|--right [--yes]");
+    println!("  hotplug | watch");
+}
+
+struct StatusArgs {
+    config: PathBuf,
+    json: bool,
+    check: bool,
+}
+
+fn parse_status_args(args: &[String]) -> Result<StatusArgs, String> {
+    let mut parsed = StatusArgs {
+        config: PathBuf::from(CONFIGURATION_PATH),
+        json: false,
+        check: false,
+    };
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--config" => {
+                index += 1;
+                parsed.config = PathBuf::from(args.get(index).ok_or("--config requires a path")?);
+            }
+            "--json" => parsed.json = true,
+            "--check" => parsed.check = true,
+            option => return Err(format!("unknown option: {option}")),
+        }
+        index += 1;
+    }
+    Ok(parsed)
+}
+
+fn parse_config_arg(args: &[String]) -> Result<PathBuf, String> {
+    let mut path = PathBuf::from(CONFIGURATION_PATH);
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--config" => {
+                index += 1;
+                let value = args.get(index).ok_or("--config requires a path")?;
+                path = PathBuf::from(value);
+            }
+            option => return Err(format!("unknown option: {option}")),
+        }
+        index += 1;
+    }
+    Ok(path)
+}
+
+fn config_command(args: &[String]) -> Result<(), String> {
+    let (subcommand, rest) = args
+        .split_first()
+        .ok_or("config requires validate, options, or diff")?;
+    match subcommand.as_str() {
+        "validate" => {
+            let path = parse_config_arg(rest)?;
+            let config = load_configuration(&path)?;
+            validate_configuration(&config, &load_catalog()?)?;
+            configuration_entries(&path)?;
+            println!("{} is valid", path.display());
+            Ok(())
+        }
+        "options" => config_options_command(rest),
+        "diff" => {
+            let path = parse_config_arg(rest)?;
+            let candidate = load_configuration(&path)?;
+            validate_configuration(&candidate, &load_catalog()?)?;
+            let packaged = load_configuration(Path::new(CONFIGURATION_PATH))?;
+            if candidate.via == packaged.via {
+                println!("Live VIA state: unchanged from packaged configuration");
+            } else {
+                println!("Live VIA state: changed; apply can update it without flashing");
+            }
+            if candidate.qmk == packaged.qmk {
+                println!("QMK firmware settings: unchanged");
+            } else {
+                println!("QMK firmware settings: changed; rebuild and flash required");
+            }
+            Ok(())
+        }
+        "snapshot-live" => snapshot_live_command(rest),
+        other => Err(format!("unknown config command: {other}")),
+    }
+}
+
+fn config_options_command(args: &[String]) -> Result<(), String> {
+    let mut search = None;
+    let mut json = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--search" => {
+                index += 1;
+                search = Some(
+                    args.get(index)
+                        .ok_or("--search requires a value")?
+                        .to_ascii_uppercase(),
+                );
+            }
+            "--json" => json = true,
+            option => return Err(format!("unknown config options option: {option}")),
+        }
+        index += 1;
+    }
+    let catalog = load_catalog()?;
+    let selected: BTreeMap<_, _> = catalog
+        .options
+        .iter()
+        .filter(|(name, _)| search.as_ref().is_none_or(|term| name.contains(term)))
+        .map(|(name, metadata)| (name.clone(), metadata.clone()))
+        .collect();
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&selected).map_err(|error| error.to_string())?
+        );
+    } else {
+        println!("QMK {} ({} options)", catalog.qmk_revision, selected.len());
+        for (name, metadata) in selected {
+            let kind = metadata
+                .get("kind")
+                .and_then(Value::as_str)
+                .unwrap_or("define");
+            let value_type = metadata
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            println!("{name:<40} {kind:<7} {value_type}");
+        }
+    }
+    Ok(())
+}
+
+fn snapshot_live_command(args: &[String]) -> Result<(), String> {
+    let mut config_path = PathBuf::from(CONFIGURATION_PATH);
+    let mut output_path = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--config" => {
+                index += 1;
+                config_path = PathBuf::from(args.get(index).ok_or("--config requires a path")?);
+            }
+            "--output" => {
+                index += 1;
+                output_path = Some(PathBuf::from(
+                    args.get(index).ok_or("--output requires a path")?,
+                ));
+            }
+            option => return Err(format!("unknown snapshot-live option: {option}")),
+        }
+        index += 1;
+    }
+
+    let mut config = load_configuration(&config_path)?;
+    let entries = configuration_entries(&config_path)?;
+    let catalog = load_catalog()?;
+    let devices = via_devices()?;
+    let descriptor = match devices.as_slice() {
+        [descriptor] => descriptor,
+        [] => return Err("no connected VIA-capable Silakka54 device".to_string()),
+        _ => {
+            return Err(
+                "multiple Silakka54 devices are connected; snapshot-live requires exactly one"
+                    .to_string(),
+            );
+        }
+    };
+    let device = open_hid(descriptor)?;
+    let firmware = firmware_status(&device)?;
+    if firmware.abi_hash_prefix != hash_prefix(EXPECTED_ABI_HASH) {
+        return Err(
+            "connected firmware ABI is incompatible; flash before snapshotting".to_string(),
+        );
+    }
+
+    let layer_ids: Vec<_> = config
+        .via
+        .layers
+        .iter()
+        .map(|layer| layer.id.clone())
+        .collect();
+    let mut live_layers = Vec::with_capacity(config.via.layers.len());
+    for (layer_index, layer) in config.via.layers.iter().enumerate() {
+        let mut keys = Vec::with_capacity(layer.keys.len());
+        for entry in entries
+            .iter()
+            .filter(|entry| usize::from(entry.layer) == layer_index)
+        {
+            keys.push(describe_keycode(
+                get_keycode(&device, entry)?,
+                &layer_ids,
+                &catalog.keycodes,
+            )?);
+        }
+        if keys.len() != layer.keys.len() {
+            return Err(format!(
+                "live layer {} has an unexpected matrix shape",
+                layer.name
+            ));
+        }
+        live_layers.push(keys);
+    }
+    for (layer, keys) in config.via.layers.iter_mut().zip(live_layers) {
+        layer.keys = keys;
+    }
+    config.via.layout_options = get_layout_options(&device)?;
+    let macro_capacity = macro_capacity(&device)?;
+    let macro_size = macro_buffer_size(&device)?;
+    config.via.macros =
+        decode_macro_buffer(&get_macro_buffer(&device, macro_size)?, macro_capacity)?;
+    validate_configuration(&config, &catalog)?;
+
+    let rendered = serde_json::to_string_pretty(&config).map_err(|error| error.to_string())? + "\n";
+    if let Some(path) = output_path {
+        let temporary = path.with_extension("json.tmp");
+        fs::write(&temporary, rendered)
+            .map_err(|error| format!("failed to write {}: {error}", temporary.display()))?;
+        fs::rename(&temporary, &path)
+            .map_err(|error| format!("failed to replace {}: {error}", path.display()))?;
+        println!("Wrote live VIA state to {}", path.display());
+    } else {
+        print!("{rendered}");
+    }
+    Ok(())
+}
+
+fn decode_macro_buffer(buffer: &[u8], capacity: u8) -> Result<Vec<String>, String> {
+    let mut macros: Vec<_> = buffer
+        .split(|byte| *byte == 0)
+        .take(usize::from(capacity))
+        .map(|value| {
+            std::str::from_utf8(value)
+                .map(str::to_string)
+                .map_err(|_| "live VIA macro buffer contains non-UTF-8 data".to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    while macros.last().is_some_and(String::is_empty) {
+        macros.pop();
+    }
+    Ok(macros)
+}
+
+fn describe_keycode(
+    keycode: u16,
+    layer_ids: &[String],
+    keycodes: &BTreeMap<String, u16>,
+) -> Result<String, String> {
+    if (0x5220..=0x522f).contains(&keycode) {
+        let layer = usize::from(keycode - 0x5220);
+        return layer_ids
+            .get(layer)
+            .map(|id| format!("MO({id})"))
+            .ok_or_else(|| format!("live keycode references unknown layer {layer}"));
+    }
+    if keycode & 0xf000 == 0x4000 {
+        let layer = usize::from((keycode >> 8) & 0x0f);
+        let tap = preferred_keycode_name(keycode & 0xff, keycodes)?;
+        let layer = layer_ids
+            .get(layer)
+            .ok_or_else(|| format!("live layer-tap references unknown layer {layer}"))?;
+        return Ok(format!("LT({layer}, {tap})"));
+    }
+    if keycode & 0xe000 == 0x2000 {
+        let mods = (keycode >> 8) & 0x1f;
+        let tap = preferred_keycode_name(keycode & 0xff, keycodes)?;
+        let simple = match mods {
+            0x01 => Some("LCTL_T"),
+            0x02 => Some("LSFT_T"),
+            0x04 => Some("LALT_T"),
+            0x08 => Some("LGUI_T"),
+            0x11 => Some("RCTL_T"),
+            0x12 => Some("RSFT_T"),
+            0x14 => Some("RALT_T"),
+            0x18 => Some("RGUI_T"),
+            _ => None,
+        };
+        if let Some(function) = simple {
+            return Ok(format!("{function}({tap})"));
+        }
+        let mut names = Vec::new();
+        for (mask, left, right) in [
+            (0x01, "MOD_LCTL", "MOD_RCTL"),
+            (0x02, "MOD_LSFT", "MOD_RSFT"),
+            (0x04, "MOD_LALT", "MOD_RALT"),
+            (0x08, "MOD_LGUI", "MOD_RGUI"),
+        ] {
+            if mods & mask != 0 {
+                names.push(if mods & 0x10 != 0 { right } else { left });
+            }
+        }
+        return Ok(format!("MT({}, {tap})", names.join("|")));
+    }
+    preferred_keycode_name(keycode, keycodes)
+}
+
+fn preferred_keycode_name(
+    keycode: u16,
+    keycodes: &BTreeMap<String, u16>,
+) -> Result<String, String> {
+    keycodes
+        .iter()
+        .filter(|(_, value)| **value == keycode)
+        .min_by_key(|(name, _)| {
+            (
+                !name.starts_with("KC_"),
+                name.contains("RIGHT"),
+                name.len(),
+                name.as_str(),
+            )
+        })
+        .map(|(name, _)| name.clone())
+        .ok_or_else(|| format!("live VIA keycode 0x{keycode:04x} is absent from pinned QMK"))
+}
+
+fn load_configuration(path: &Path) -> Result<Configuration, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    serde_json::from_str(&contents)
+        .map_err(|error| format!("invalid configuration {}: {error}", path.display()))
+}
+
+fn load_catalog() -> Result<QmkCatalog, String> {
+    let contents = fs::read_to_string(QMK_CATALOG_PATH)
+        .map_err(|error| format!("failed to read QMK catalog {QMK_CATALOG_PATH}: {error}"))?;
+    serde_json::from_str(&contents).map_err(|error| format!("invalid QMK catalog: {error}"))
+}
+
+fn configuration_define_u8(config: &Configuration, name: &str) -> Result<u8, String> {
+    config
+        .qmk
+        .defines
+        .get(name)
+        .and_then(Value::as_u64)
+        .and_then(|value| u8::try_from(value).ok())
+        .ok_or_else(|| format!("qmk.defines.{name} must be an integer from 0 through 255"))
+}
+
+fn validate_configuration(config: &Configuration, catalog: &QmkCatalog) -> Result<(), String> {
+    if config.schema_version != 1 {
+        return Err(format!(
+            "unsupported configuration schema {}, expected 1",
+            config.schema_version
+        ));
+    }
+    let layer_count = configuration_define_u8(config, "DYNAMIC_KEYMAP_LAYER_COUNT")?;
+    let macro_count = configuration_define_u8(config, "DYNAMIC_KEYMAP_MACRO_COUNT")?;
+    if config.via.layers.is_empty() || config.via.layers.len() > usize::from(layer_count) {
+        return Err(format!(
+            "via.layers must contain 1 through {layer_count} layers"
+        ));
+    }
+    if config.via.macros.len() > usize::from(macro_count) {
+        return Err(format!(
+            "via.macros has {} entries but firmware capacity is {macro_count}",
+            config.via.macros.len()
+        ));
+    }
+    for (index, value) in config.via.macros.iter().enumerate() {
+        if !value.is_ascii() || value.as_bytes().contains(&0) {
+            return Err(format!(
+                "via.macros[{index}] must be ASCII text without NUL bytes"
+            ));
+        }
+    }
+    let mut ids = BTreeSet::new();
+    let mut names = BTreeSet::new();
+    for layer in &config.via.layers {
+        if layer.keys.len() != 54 {
+            return Err(format!(
+                "layer {} has {} keys, expected 54",
+                layer.name,
+                layer.keys.len()
+            ));
+        }
+        if !ids.insert(layer.id.as_str()) {
+            return Err(format!("duplicate layer id: {}", layer.id));
+        }
+        if !layer.id.starts_with('_')
+            || !layer
+                .id
+                .chars()
+                .all(|ch| ch == '_' || ch.is_ascii_uppercase() || ch.is_ascii_digit())
+        {
+            return Err(format!(
+                "layer id {} must be an uppercase QMK identifier beginning with _",
+                layer.id
+            ));
+        }
+        if !names.insert(layer.name.as_str()) {
+            return Err(format!("duplicate layer name: {}", layer.name));
+        }
+    }
+    for (name, value) in &config.qmk.defines {
+        let metadata = catalog.options.get(name).ok_or_else(|| {
+            format!("QMK define {name} is absent from the pinned upstream catalog")
+        })?;
+        if metadata.get("kind").and_then(Value::as_str) != Some("define") {
+            return Err(format!(
+                "QMK option {name} belongs in qmk.rules, not qmk.defines"
+            ));
+        }
+        if !(value.is_boolean()
+            || value.is_string()
+            || value.as_i64().is_some()
+            || value.as_u64().is_some())
+        {
+            return Err(format!(
+                "qmk.defines.{name} must be a boolean, integer, or string"
+            ));
+        }
+    }
+    for name in config.qmk.rules.keys() {
+        let metadata = catalog
+            .options
+            .get(name)
+            .ok_or_else(|| format!("QMK rule {name} is absent from the pinned upstream catalog"))?;
+        if metadata.get("kind").and_then(Value::as_str) != Some("rule") {
+            return Err(format!(
+                "QMK option {name} belongs in qmk.defines, not qmk.rules"
+            ));
+        }
+    }
+    for required in ["VIA_ENABLE", "RAW_ENABLE"] {
+        if config.qmk.rules.get(required) != Some(&true) {
+            return Err(format!("qmk.rules.{required} must remain enabled"));
+        }
+    }
+    let tapping = config
+        .qmk
+        .defines
+        .get("TAPPING_TERM")
+        .and_then(Value::as_u64);
+    let quick = config
+        .qmk
+        .defines
+        .get("QUICK_TAP_TERM")
+        .and_then(Value::as_u64);
+    if matches!((quick, tapping), (Some(quick), Some(tapping)) if quick > tapping) {
+        return Err("QUICK_TAP_TERM cannot exceed TAPPING_TERM".to_string());
+    }
+
+    let supported_modifiers = [
+        "MOD_LCTL", "MOD_LSFT", "MOD_LALT", "MOD_LGUI", "MOD_RCTL", "MOD_RSFT", "MOD_RALT",
+        "MOD_RGUI",
+    ];
+    for (field, modifiers, required_define) in [
+        (
+            "hold_on_other_key_press_mods",
+            &config.qmk.tap_hold.hold_on_other_key_press_mods,
+            "HOLD_ON_OTHER_KEY_PRESS_PER_KEY",
+        ),
+        (
+            "speculative_hold_mods",
+            &config.qmk.tap_hold.speculative_hold_mods,
+            "SPECULATIVE_HOLD",
+        ),
+    ] {
+        let mut unique = BTreeSet::new();
+        for modifier in modifiers {
+            if !supported_modifiers.contains(&modifier.as_str()) {
+                return Err(format!(
+                    "qmk.tap_hold.{field} contains unsupported modifier {modifier}"
+                ));
+            }
+            if !unique.insert(modifier) {
+                return Err(format!(
+                    "qmk.tap_hold.{field} contains duplicate modifier {modifier}"
+                ));
+            }
+        }
+        if !modifiers.is_empty()
+            && config
+                .qmk
+                .defines
+                .get(required_define)
+                .and_then(Value::as_bool)
+                != Some(true)
+        {
+            return Err(format!(
+                "qmk.tap_hold.{field} requires qmk.defines.{required_define}=true"
+            ));
+        }
+    }
+
+    if !config.qmk.combos.is_empty() && config.qmk.rules.get("COMBO_ENABLE") != Some(&true) {
+        return Err("qmk.combos requires qmk.rules.COMBO_ENABLE=true".to_string());
+    }
+    let layer_ids: BTreeMap<_, _> = config
+        .via
+        .layers
+        .iter()
+        .enumerate()
+        .flat_map(|(index, layer)| {
+            [
+                (layer.id.as_str(), index as u8),
+                (layer.name.as_str(), index as u8),
+            ]
+        })
+        .collect();
+    let active_keycodes: BTreeSet<_> = config
+        .via
+        .layers
+        .iter()
+        .flat_map(|layer| &layer.keys)
+        .map(|key| resolve_keycode(key, &layer_ids, &catalog.keycodes))
+        .collect::<Result<_, _>>()?;
+    let mut combo_names = BTreeSet::new();
+    for combo in &config.qmk.combos {
+        let mut name_chars = combo.name.chars();
+        let valid_name = name_chars.next().is_some_and(|ch| ch.is_ascii_lowercase())
+            && name_chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_');
+        if !valid_name {
+            return Err(format!(
+                "qmk combo name {:?} must be a lowercase C identifier",
+                combo.name
+            ));
+        }
+        if !combo_names.insert(combo.name.as_str()) {
+            return Err(format!("duplicate QMK combo name: {}", combo.name));
+        }
+        if combo.keys.len() < 2 {
+            return Err(format!(
+                "QMK combo {} must contain at least two keys",
+                combo.name
+            ));
+        }
+        let keys: BTreeSet<_> = combo
+            .keys
+            .iter()
+            .map(|key| resolve_keycode(key, &layer_ids, &catalog.keycodes))
+            .collect::<Result<_, _>>()?;
+        if keys.len() != combo.keys.len() {
+            return Err(format!(
+                "QMK combo {} contains duplicate keycodes",
+                combo.name
+            ));
+        }
+        for key in keys {
+            if !active_keycodes.contains(&key) {
+                return Err(format!(
+                    "QMK combo {} uses a keycode absent from the keymap: 0x{key:04x}",
+                    combo.name
+                ));
+            }
+        }
+        resolve_keycode(&combo.output, &layer_ids, &catalog.keycodes)?;
+    }
+    Ok(())
+}
+
+fn configuration_entries(path: &Path) -> Result<Vec<KeyEntry>, String> {
+    let config = load_configuration(path)?;
+    let catalog = load_catalog()?;
+    validate_configuration(&config, &catalog)?;
+    let packaged = read_keymap_entries()?;
+    let positions: Vec<_> = packaged
+        .iter()
+        .filter(|entry| entry.layer == 0)
+        .map(|entry| (entry.row, entry.col))
+        .collect();
+    if positions.len() != 54 {
+        return Err("packaged layout does not contain 54 matrix positions".to_string());
+    }
+    let capacity = configuration_define_u8(&config, "DYNAMIC_KEYMAP_LAYER_COUNT")?;
+    let layer_ids: BTreeMap<_, _> = config
+        .via
+        .layers
+        .iter()
+        .enumerate()
+        .flat_map(|(index, layer)| {
+            [
+                (layer.id.as_str(), index as u8),
+                (layer.name.as_str(), index as u8),
+            ]
+        })
+        .collect();
+    let mut entries = Vec::with_capacity(usize::from(capacity) * 54);
+    for layer_index in 0..capacity {
+        let configured = config.via.layers.get(usize::from(layer_index));
+        for (index, (row, col)) in positions.iter().copied().enumerate() {
+            let qmk = configured
+                .map(|layer| layer.keys[index].as_str())
+                .unwrap_or("KC_TRNS");
+            entries.push(KeyEntry {
+                layer: layer_index,
+                row,
+                col,
+                keycode: resolve_keycode(qmk, &layer_ids, &catalog.keycodes)?,
+                label: qmk.to_string(),
+                qmk: qmk.to_string(),
+            });
+        }
+    }
+    Ok(entries)
+}
+
+fn resolve_keycode(
+    expression: &str,
+    layer_ids: &BTreeMap<&str, u8>,
+    keycodes: &BTreeMap<String, u16>,
+) -> Result<u16, String> {
+    if let Some(value) = keycodes.get(expression) {
+        return Ok(*value);
+    }
+    // The configuration format intentionally accepts a layer's display name as
+    // a concise momentary-layer key, matching generate-keymap.py.
+    if let Some(layer) = layer_ids.get(expression) {
+        return Ok(0x5220 | u16::from(*layer));
+    }
+    let (function, arguments) = expression
+        .split_once('(')
+        .and_then(|(function, rest)| rest.strip_suffix(')').map(|rest| (function, rest)))
+        .ok_or_else(|| format!("unknown QMK keycode: {expression}"))?;
+    let arguments: Vec<_> = arguments.split(',').map(str::trim).collect();
+    let layer = |value: &str| {
+        layer_ids
+            .get(value)
+            .copied()
+            .or_else(|| value.parse::<u8>().ok())
+            .ok_or_else(|| format!("unknown layer in {expression}: {value}"))
+    };
+    match (function, arguments.as_slice()) {
+        ("MO", [target]) => Ok(0x5220 | u16::from(layer(target)?)),
+        ("LT", [target, tap]) => {
+            let tap = resolve_keycode(tap, layer_ids, keycodes)?;
+            if tap > 0xff {
+                return Err(format!("layer-tap tap key must be basic: {expression}"));
+            }
+            Ok(0x4000 | (u16::from(layer(target)?) << 8) | tap)
+        }
+        ("MT", [modifier, tap]) => mod_tap_keycode(modifier, tap, expression, layer_ids, keycodes),
+        (macro_name, [tap]) if macro_name.ends_with("_T") => {
+            let modifier = match macro_name {
+                "LCTL_T" => "MOD_LCTL",
+                "LSFT_T" => "MOD_LSFT",
+                "LALT_T" => "MOD_LALT",
+                "LGUI_T" => "MOD_LGUI",
+                "RCTL_T" => "MOD_RCTL",
+                "RSFT_T" => "MOD_RSFT",
+                "RALT_T" => "MOD_RALT",
+                "RGUI_T" => "MOD_RGUI",
+                _ => return Err(format!("unsupported QMK keycode: {expression}")),
+            };
+            mod_tap_keycode(modifier, tap, expression, layer_ids, keycodes)
+        }
+        _ => Err(format!("unsupported QMK keycode: {expression}")),
+    }
+}
+
+fn mod_tap_keycode(
+    modifier: &str,
+    tap: &str,
+    expression: &str,
+    layer_ids: &BTreeMap<&str, u8>,
+    keycodes: &BTreeMap<String, u16>,
+) -> Result<u16, String> {
+    let mut mods = 0u16;
+    for modifier in modifier.split('|').map(str::trim) {
+        mods |= match modifier {
+            "MOD_LCTL" => 0x01,
+            "MOD_LSFT" => 0x02,
+            "MOD_LALT" => 0x04,
+            "MOD_LGUI" => 0x08,
+            "MOD_RCTL" => 0x11,
+            "MOD_RSFT" => 0x12,
+            "MOD_RALT" => 0x14,
+            "MOD_RGUI" => 0x18,
+            _ => return Err(format!("unsupported modifier in {expression}: {modifier}")),
+        };
+    }
+    let tap = resolve_keycode(tap, layer_ids, keycodes)?;
+    if tap > 0xff {
+        return Err(format!("mod-tap tap key must be basic: {expression}"));
+    }
+    Ok(0x2000 | ((mods & 0x1f) << 8) | tap)
 }
 
 fn parse_flash_args(
@@ -168,56 +917,46 @@ fn set_flash_half(selected: &mut Option<KeyboardHalf>, half: KeyboardHalf) -> Re
     Ok(())
 }
 
-fn status_command() -> Result<(), String> {
-    let statuses = collect_statuses()?;
-    if statuses.is_empty() {
+fn status_command(args: StatusArgs) -> Result<(), String> {
+    let config = load_configuration(&args.config)?;
+    let entries = configuration_entries(&args.config)?;
+    let statuses = collect_statuses_for(&entries, &config.via)?;
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "configuration": &args.config,
+                "expected": {
+                    "firmware_abi_hash": EXPECTED_ABI_HASH,
+                    "runtime_hash": EXPECTED_RUNTIME_HASH,
+                    "factory_defaults_hash": EXPECTED_KEYMAP_HASH,
+                },
+                "devices": &statuses,
+            }))
+            .map_err(|error| error.to_string())?
+        );
+    } else if statuses.is_empty() {
         println!("Silakka54: no connected raw HID devices for {VID:04x}:{PID:04x}");
-        return Ok(());
-    }
-
-    println!("Silakka54 manifest: {MANIFEST_PATH}");
-    println!("Expected firmware ABI: {EXPECTED_ABI_HASH}");
-    println!("Expected keymap: {EXPECTED_KEYMAP_HASH}");
-    for status in statuses {
-        print_device_status(&status);
-    }
-    Ok(())
-}
-
-fn rebuild_switch_command() -> Result<(), String> {
-    if std::env::var_os("REBUILD_SKIP_SILAKKA54").is_some() {
-        return Ok(());
-    }
-
-    let statuses = collect_statuses()?;
-    if statuses.is_empty() {
-        return Ok(());
-    }
-
-    let firmware_stale = statuses.iter().any(firmware_is_stale);
-    let keymap_stale = statuses
-        .iter()
-        .any(|status| firmware_is_current(status) && status.keymap_drift.unwrap_or(0) > 0);
-
-    if keymap_stale {
-        sync_keymap_command()?;
-    }
-
-    if firmware_stale {
-        if is_interactive() {
-            eprintln!("Silakka54 firmware ABI is stale for a connected half.");
-            if ask_yes_no("Flash the connected Silakka54 half now? [y/N] ")? {
-                flash_firmware_command(true, None)?;
-            } else {
-                eprintln!("Silakka54 firmware flash deferred.");
-            }
-        } else {
-            eprintln!(
-                "Silakka54 firmware ABI is stale; flashing deferred in noninteractive rebuild."
-            );
+    } else {
+        println!("Silakka54 manifest: {MANIFEST_PATH}");
+        println!("Configuration: {}", args.config.display());
+        println!("Expected firmware ABI: {EXPECTED_ABI_HASH}");
+        println!("Expected runtime: {EXPECTED_RUNTIME_HASH}");
+        println!("Expected factory defaults: {EXPECTED_KEYMAP_HASH}");
+        for status in &statuses {
+            print_device_status(status);
         }
     }
-
+    if args.check {
+        if statuses.is_empty() {
+            return Err("no Silakka54 device is connected".to_string());
+        }
+        if statuses.iter().any(|status| {
+            !firmware_is_current(status) || live_state_is_stale(status) || status.error.is_some()
+        }) {
+            return Err("one or more Silakka54 devices are stale or unavailable".to_string());
+        }
+    }
     Ok(())
 }
 
@@ -227,10 +966,7 @@ fn hotplug_command() -> Result<(), String> {
         return Ok(());
     }
 
-    if statuses
-        .iter()
-        .any(|status| firmware_is_current(status) && status.keymap_drift.unwrap_or(0) > 0)
-    {
+    if statuses.iter().any(live_state_is_stale) {
         sync_keymap_command()?;
     }
 
@@ -265,143 +1001,13 @@ fn should_reconcile(previous: &BTreeSet<Vec<u8>>, current: &BTreeSet<Vec<u8>>) -
     !current.is_empty() && current.iter().any(|id| !previous.contains(id))
 }
 
-#[cfg(target_os = "linux")]
-fn prompt_firmware_command() -> Result<(), String> {
-    if std::env::var_os("DISPLAY").is_none() && std::env::var_os("WAYLAND_DISPLAY").is_none() {
-        eprintln!(
-            "Silakka54 firmware is stale; no graphical session is available, deferring flash."
-        );
-        return Ok(());
-    }
-
-    let output = Command::new("zenity")
-        .args([
-            "--list",
-            "--radiolist",
-            "--title",
-            "Silakka54 firmware",
-            "--text",
-            "Firmware is stale. Select the physical half attached to this computer by USB.",
-            "--column",
-            "Select",
-            "--column",
-            "Half",
-            "FALSE",
-            "Left",
-            "FALSE",
-            "Right",
-            "--ok-label",
-            "Flash selected half",
-            "--cancel-label",
-            "Skip this time",
-            "--width",
-            "480",
-            "--height",
-            "280",
-        ])
-        .output()
-        .map_err(|error| format!("failed to run graphical prompt: {error}"))?;
-
-    if !output.status.success() {
-        eprintln!("Silakka54 firmware flash skipped from graphical prompt.");
-        return Ok(());
-    }
-
-    let half = match String::from_utf8_lossy(&output.stdout).trim() {
-        "Left" => KeyboardHalf::Left,
-        "Right" => KeyboardHalf::Right,
-        _ => {
-            eprintln!("Silakka54 firmware flash skipped because no half was selected.");
-            return Ok(());
-        }
-    };
-    flash_firmware_with_progress(half)
-}
-
-#[cfg(target_os = "linux")]
-fn flash_firmware_with_progress(half: KeyboardHalf) -> Result<(), String> {
-    let progress_text = format!(
-        "Flashing the USB-connected {} half… Put that half into bootloader mode if requested.",
-        half.label()
-    );
-    let mut progress = Command::new("zenity")
-        .args([
-            "--progress",
-            "--pulsate",
-            "--auto-close",
-            "--no-cancel",
-            "--title",
-            "Silakka54 firmware",
-            "--text",
-            &progress_text,
-            "--percentage",
-            "0",
-            "--width",
-            "480",
-        ])
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("failed to show firmware progress: {error}"))?;
-    let mut progress_input = progress
-        .stdin
-        .take()
-        .ok_or_else(|| "failed to open firmware progress input".to_string())?;
-
-    let flash_result = flash_firmware_command(true, Some(half));
-    let completion_text = if flash_result.is_ok() {
-        "# Firmware flashed successfully."
-    } else {
-        "# Firmware flash failed."
-    };
-    let _ = writeln!(progress_input, "{completion_text}");
-    let _ = writeln!(progress_input, "100");
-    drop(progress_input);
-    let _ = progress.wait();
-
-    if let Err(error) = &flash_result {
-        let message = format!("Firmware flashing failed:\n\n{error}");
-        let _ = Command::new("zenity")
-            .args([
-                "--error",
-                "--title",
-                "Silakka54 firmware",
-                "--text",
-                &message,
-                "--width",
-                "480",
-            ])
-            .status();
-    }
-
-    flash_result
-}
-
-#[cfg(target_os = "macos")]
-fn prompt_firmware_command() -> Result<(), String> {
-    let script = r#"button returned of (display dialog "Firmware is stale. Select the physical half attached to this computer by USB." with title "Silakka54 firmware" buttons {"Skip this time", "Flash left", "Flash right"} default button "Flash left")"#;
-    let output = Command::new("/usr/bin/osascript")
-        .args(["-e", script])
-        .output()
-        .map_err(|error| format!("failed to run macOS firmware prompt: {error}"))?;
-
-    if output.status.success() {
-        match String::from_utf8_lossy(&output.stdout).trim() {
-            "Flash left" => return flash_firmware_command(true, Some(KeyboardHalf::Left)),
-            "Flash right" => return flash_firmware_command(true, Some(KeyboardHalf::Right)),
-            _ => {}
-        }
-    }
-    eprintln!("Silakka54 firmware flash skipped from graphical prompt.");
-    Ok(())
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn prompt_firmware_command() -> Result<(), String> {
-    Err("graphical firmware prompts are unsupported on this platform".to_string())
-}
-
 fn sync_keymap_command() -> Result<(), String> {
-    let entries = read_keymap_entries()?;
+    sync_keymap_command_with_config(PathBuf::from(CONFIGURATION_PATH))
+}
+
+fn sync_keymap_command_with_config(config_path: PathBuf) -> Result<(), String> {
+    let candidate = load_configuration(&config_path)?;
+    let entries = configuration_entries(&config_path)?;
     let devices = via_devices()?;
     if devices.is_empty() {
         println!("Silakka54: no connected VIA-capable HID devices for {VID:04x}:{PID:04x}");
@@ -409,7 +1015,18 @@ fn sync_keymap_command() -> Result<(), String> {
     }
 
     let mut changed_total = 0usize;
+    let mut failures = Vec::new();
     for descriptor in devices {
+        let compatibility = open_hid(&descriptor)
+            .and_then(|device| firmware_status(&device))
+            .is_ok_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH));
+        if !compatibility {
+            failures.push(format!(
+                "{}: firmware ABI is incompatible; flash before applying live state",
+                descriptor.display_name
+            ));
+            continue;
+        }
         match sync_keymap_for_device(&descriptor, &entries) {
             Ok(changed) => {
                 changed_total += changed;
@@ -421,13 +1038,39 @@ fn sync_keymap_command() -> Result<(), String> {
                         descriptor.display_name
                     );
                 }
+                match open_hid(&descriptor)
+                    .and_then(|device| sync_via_state_for_device(&device, &candidate.via))
+                {
+                    Ok(extras) if !extras.is_empty() => {
+                        println!(
+                            "{}: updated {}",
+                            descriptor.display_name,
+                            extras.join(" and ")
+                        );
+                    }
+                    Ok(_) => {}
+                    Err(error) => failures.push(format!(
+                        "{}: VIA state sync failed: {error}",
+                        descriptor.display_name
+                    )),
+                }
             }
-            Err(error) => eprintln!("{}: keymap sync failed: {error}", descriptor.display_name),
+            Err(error) => failures.push(format!(
+                "{}: keymap sync failed: {error}",
+                descriptor.display_name
+            )),
         }
     }
 
     if changed_total > 0 {
         println!("Silakka54 dynamic keymap synced ({changed_total} keycodes changed).");
+    }
+    if !failures.is_empty() {
+        return Err(failures.join("\n"));
+    }
+    let packaged = load_configuration(Path::new(CONFIGURATION_PATH))?;
+    if candidate.qmk != packaged.qmk {
+        println!("QMK firmware settings differ from the packaged build; rebuild and flash are still required.");
     }
     Ok(())
 }
@@ -449,17 +1092,11 @@ fn flash_firmware_command(yes: bool, half: Option<KeyboardHalf>) -> Result<(), S
         return Ok(());
     }
 
-    if request_silakka54_bootloader_jump()? {
-        match wait_for_bootloader_mount(Duration::from_secs(30)) {
+    let mounts_before = bootloader_mounts();
+    if request_silakka54_bootloader_jump(half)? {
+        match wait_for_new_bootloader_mount(&mounts_before, Duration::from_secs(30)) {
             Ok(mount) => return copy_firmware_and_verify(&mount, half),
             Err(error) => eprintln!("Silakka54 bootloader jump did not produce RPI-RP2: {error}"),
-        }
-    }
-
-    if request_vial_bootloader_jump()? {
-        match wait_for_bootloader_mount(Duration::from_secs(30)) {
-            Ok(mount) => return copy_firmware_and_verify(&mount, half),
-            Err(error) => eprintln!("Vial bootloader jump did not produce RPI-RP2: {error}"),
         }
     }
 
@@ -467,59 +1104,52 @@ fn flash_firmware_command(yes: bool, half: Option<KeyboardHalf>) -> Result<(), S
     copy_firmware_and_verify(&mount, half)
 }
 
-fn request_silakka54_bootloader_jump() -> Result<bool, String> {
+fn request_silakka54_bootloader_jump(half: KeyboardHalf) -> Result<bool, String> {
+    let mut candidates = Vec::new();
+    let mut identified_other_half = false;
     for descriptor in via_devices()? {
-        match open_hid(&descriptor) {
-            Ok(device) => match silakka54_bootloader_jump(&device) {
-                Ok(()) => {
-                    eprintln!(
-                        "{}: requested Silakka54 bootloader jump",
-                        descriptor.display_name
-                    );
-                    return Ok(true);
-                }
-                Err(error) => eprintln!(
-                    "{}: Silakka54 bootloader jump unavailable: {error}",
+        let device = match open_hid(&descriptor) {
+            Ok(device) => device,
+            Err(error) => {
+                eprintln!(
+                    "{}: could not open HID device: {error}",
                     descriptor.display_name
-                ),
-            },
-            Err(error) => eprintln!(
-                "{}: could not open HID device for Silakka54 bootloader jump: {error}",
-                descriptor.display_name
-            ),
+                );
+                continue;
+            }
+        };
+        match firmware_status(&device).and_then(|status| {
+            status
+                .half
+                .ok_or_else(|| "firmware did not report its physical half".to_string())
+        }) {
+            Ok(reported) if reported == half => candidates.push((descriptor, device)),
+            Ok(_) => identified_other_half = true,
+            Err(error) => eprintln!("{}: {error}", descriptor.display_name),
         }
     }
-    Ok(false)
-}
-
-fn request_vial_bootloader_jump() -> Result<bool, String> {
-    for descriptor in via_devices()? {
-        match open_hid(&descriptor) {
-            Ok(device) => match raw_transaction(
-                &device,
-                command_report(ID_BOOTLOADER_JUMP),
-                ID_BOOTLOADER_JUMP,
-                Duration::from_millis(500),
-            ) {
-                Ok(_) => {
-                    eprintln!(
-                        "{}: requested Vial bootloader jump",
-                        descriptor.display_name
-                    );
-                    return Ok(true);
-                }
-                Err(error) => eprintln!(
-                    "{}: Vial bootloader jump unavailable: {error}",
-                    descriptor.display_name
-                ),
-            },
-            Err(error) => eprintln!(
-                "{}: could not open HID device for bootloader jump: {error}",
-                descriptor.display_name
-            ),
-        }
+    if candidates.len() > 1 {
+        return Err(format!(
+            "multiple connected devices report as the {} half; disconnect all but one",
+            half.label()
+        ));
     }
-    Ok(false)
+    let Some((descriptor, device)) = candidates.pop() else {
+        if identified_other_half {
+            return Err(format!(
+                "the connected keyboard reports the opposite physical half; refusing {} firmware",
+                half.label()
+            ));
+        }
+        return Ok(false);
+    };
+    silakka54_bootloader_jump(&device)?;
+    eprintln!(
+        "{}: requested Silakka54 bootloader jump for the {} half",
+        descriptor.display_name,
+        half.label()
+    );
+    Ok(true)
 }
 
 fn copy_firmware_and_verify(mount: &Path, half: KeyboardHalf) -> Result<(), String> {
@@ -542,8 +1172,16 @@ fn copy_firmware_and_verify(mount: &Path, half: KeyboardHalf) -> Result<(), Stri
     while Instant::now() < deadline {
         thread::sleep(Duration::from_secs(1));
         match collect_statuses() {
-            Ok(statuses) if statuses.iter().any(firmware_is_current) => {
-                println!("Silakka54 firmware ABI verified after reconnect.");
+            Ok(statuses)
+                if statuses.iter().any(|status| {
+                    firmware_is_current(status)
+                        && status.firmware.as_ref().and_then(|firmware| firmware.half) == Some(half)
+                }) =>
+            {
+                println!(
+                    "Silakka54 {}-half firmware verified after reconnect.",
+                    half.label()
+                );
                 return Ok(());
             }
             Ok(_) => {}
@@ -572,19 +1210,32 @@ fn sync_firmware_copy(target: &Path) -> Result<(), String> {
 }
 
 fn collect_statuses() -> Result<Vec<DeviceStatus>, String> {
-    let entries = read_keymap_entries().unwrap_or_default();
+    let config = load_configuration(Path::new(CONFIGURATION_PATH))?;
+    let entries = configuration_entries(Path::new(CONFIGURATION_PATH))?;
+    collect_statuses_for(&entries, &config.via)
+}
+
+fn collect_statuses_for(
+    entries: &[KeyEntry],
+    desired: &ViaConfiguration,
+) -> Result<Vec<DeviceStatus>, String> {
     raw_hid_devices()?
         .iter()
-        .map(|descriptor| Ok(device_status(descriptor, &entries)))
+        .map(|descriptor| Ok(device_status(descriptor, entries, desired)))
         .collect()
 }
 
-fn device_status(descriptor: &DeviceDescriptor, entries: &[KeyEntry]) -> DeviceStatus {
+fn device_status(
+    descriptor: &DeviceDescriptor,
+    entries: &[KeyEntry],
+    desired: &ViaConfiguration,
+) -> DeviceStatus {
     let mut status = DeviceStatus {
         name: descriptor.display_name.clone(),
         via_protocol: None,
         firmware: None,
         keymap_drift: None,
+        via_state_drift: None,
         error: None,
     };
 
@@ -607,6 +1258,7 @@ fn device_status(descriptor: &DeviceDescriptor, entries: &[KeyEntry]) -> DeviceS
         .is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH))
     {
         status.keymap_drift = keymap_drift_for_device(&device, entries).ok();
+        status.via_state_drift = via_state_drift_for_device(&device, desired).ok();
     }
 
     status
@@ -630,11 +1282,33 @@ fn print_device_status(status: &DeviceStatus) {
                 "stale"
             };
             println!("  firmware ABI: {} ({abi_state})", firmware.abi_hash_prefix);
-            println!("  compiled keymap: {}", firmware.keymap_hash_prefix);
+            let runtime_state =
+                if firmware.runtime_hash_prefix == hash_prefix(EXPECTED_RUNTIME_HASH) {
+                    "current"
+                } else {
+                    "flash required"
+                };
+            let defaults_state = if firmware.keymap_hash_prefix == hash_prefix(EXPECTED_KEYMAP_HASH)
+            {
+                "current"
+            } else {
+                "optional reflash"
+            };
             println!(
-                "  dynamic matrix: {} layers, {} rows, {} cols",
-                firmware.layer_count, firmware.rows, firmware.cols
+                "  runtime firmware: {} ({runtime_state})",
+                firmware.runtime_hash_prefix
             );
+            println!(
+                "  factory defaults: {} ({defaults_state})",
+                firmware.keymap_hash_prefix
+            );
+            println!(
+                "  dynamic storage: {} layers, {} macros, {} rows, {} cols",
+                firmware.layer_count, firmware.macro_count, firmware.rows, firmware.cols
+            );
+            if let Some(half) = firmware.half {
+                println!("  physical half: {}", half.label());
+            }
         }
         None if status.via_protocol.is_some() => {
             println!("  firmware ABI: unavailable; full flash required")
@@ -646,13 +1320,34 @@ fn print_device_status(status: &DeviceStatus) {
         Some(count) => println!("  dynamic keymap: stale ({count} keycodes differ)"),
         None => println!("  dynamic keymap: not checked"),
     }
+    match &status.via_state_drift {
+        Some(drift) if drift.is_empty() => println!("  layout options/macros: current"),
+        Some(drift) => println!("  layout options/macros: stale ({})", drift.join(", ")),
+        None => println!("  layout options/macros: not checked"),
+    }
 }
 
-fn firmware_is_current(status: &DeviceStatus) -> bool {
+fn live_state_is_stale(status: &DeviceStatus) -> bool {
+    firmware_is_compatible(status)
+        && (status.keymap_drift.unwrap_or(0) > 0
+            || status
+                .via_state_drift
+                .as_ref()
+                .is_some_and(|drift| !drift.is_empty()))
+}
+
+fn firmware_is_compatible(status: &DeviceStatus) -> bool {
     status
         .firmware
         .as_ref()
         .is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH))
+}
+
+fn firmware_is_current(status: &DeviceStatus) -> bool {
+    status.firmware.as_ref().is_some_and(|firmware| {
+        firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH)
+            && firmware.runtime_hash_prefix == hash_prefix(EXPECTED_RUNTIME_HASH)
+    })
 }
 
 fn firmware_is_stale(status: &DeviceStatus) -> bool {
@@ -721,28 +1416,46 @@ fn via_protocol(device: &dyn HidTransport) -> Result<u16, String> {
 }
 
 fn firmware_status(device: &dyn HidTransport) -> Result<FirmwareStatus, String> {
+    let capabilities = firmware_status_page(device, 0)?;
+    let hashes = firmware_status_page(device, 1)?;
+    let defaults = firmware_status_page(device, 2)?;
+    Ok(FirmwareStatus {
+        abi_hash_prefix: bytes_to_hex(&hashes[11..19]),
+        runtime_hash_prefix: bytes_to_hex(&hashes[19..27]),
+        keymap_hash_prefix: bytes_to_hex(&defaults[11..19]),
+        layer_count: capabilities[11],
+        macro_count: capabilities[12],
+        rows: capabilities[13],
+        cols: capabilities[14],
+        half: match capabilities[15] {
+            1 => Some(KeyboardHalf::Left),
+            2 => Some(KeyboardHalf::Right),
+            _ => None,
+        },
+    })
+}
+
+fn firmware_status_page(device: &dyn HidTransport, page: u8) -> Result<[u8; REPORT_LEN], String> {
     let mut report = command_report(ID_GET_KEYBOARD_VALUE);
     report[1] = SILAKKA54_SYNC_QUERY;
     report[2] = SILAKKA54_SYNC_VERSION;
+    report[3] = page;
     let response = raw_transaction(
         device,
         report,
         ID_GET_KEYBOARD_VALUE,
         Duration::from_secs(1),
     )?;
-    if response[1] != SILAKKA54_SYNC_QUERY || response[2] != SILAKKA54_SYNC_VERSION {
+    if response[1] != SILAKKA54_SYNC_QUERY
+        || response[2] != SILAKKA54_SYNC_VERSION
+        || response[3] != page
+    {
         return Err("firmware did not answer Silakka54 sync query".to_string());
     }
-    if &response[3..10] != SILAKKA54_SYNC_MAGIC {
+    if &response[4..11] != SILAKKA54_SYNC_MAGIC {
         return Err("firmware sync magic mismatch".to_string());
     }
-    Ok(FirmwareStatus {
-        abi_hash_prefix: bytes_to_hex(&response[11..19]),
-        keymap_hash_prefix: bytes_to_hex(&response[19..27]),
-        layer_count: response[27],
-        rows: response[28],
-        cols: response[29],
-    })
+    Ok(response)
 }
 
 fn silakka54_bootloader_jump(device: &dyn HidTransport) -> Result<(), String> {
@@ -762,6 +1475,168 @@ fn silakka54_bootloader_jump(device: &dyn HidTransport) -> Result<(), String> {
         return Err("firmware sync magic mismatch".to_string());
     }
     Ok(())
+}
+
+fn get_layout_options(device: &dyn HidTransport) -> Result<u32, String> {
+    let mut report = command_report(ID_GET_KEYBOARD_VALUE);
+    report[1] = ID_LAYOUT_OPTIONS;
+    let response = raw_transaction(
+        device,
+        report,
+        ID_GET_KEYBOARD_VALUE,
+        Duration::from_secs(1),
+    )?;
+    Ok(u32::from_be_bytes([
+        response[2],
+        response[3],
+        response[4],
+        response[5],
+    ]))
+}
+
+fn set_layout_options(device: &dyn HidTransport, value: u32) -> Result<(), String> {
+    let mut report = command_report(ID_SET_KEYBOARD_VALUE);
+    report[1] = ID_LAYOUT_OPTIONS;
+    report[2..6].copy_from_slice(&value.to_be_bytes());
+    raw_transaction(
+        device,
+        report,
+        ID_SET_KEYBOARD_VALUE,
+        Duration::from_secs(1),
+    )
+    .map(|_| ())
+}
+
+fn macro_capacity(device: &dyn HidTransport) -> Result<u8, String> {
+    let response = raw_transaction(
+        device,
+        command_report(ID_DYNAMIC_KEYMAP_MACRO_GET_COUNT),
+        ID_DYNAMIC_KEYMAP_MACRO_GET_COUNT,
+        Duration::from_secs(1),
+    )?;
+    Ok(response[1])
+}
+
+fn macro_buffer_size(device: &dyn HidTransport) -> Result<usize, String> {
+    let response = raw_transaction(
+        device,
+        command_report(ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER_SIZE),
+        ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER_SIZE,
+        Duration::from_secs(1),
+    )?;
+    Ok(usize::from(u16::from_be_bytes([response[1], response[2]])))
+}
+
+fn get_macro_buffer(device: &dyn HidTransport, size: usize) -> Result<Vec<u8>, String> {
+    let mut buffer = vec![0; size];
+    for offset in (0..size).step_by(28) {
+        let chunk_size = (size - offset).min(28);
+        let offset = u16::try_from(offset).map_err(|_| "VIA macro buffer exceeds 65535 bytes")?;
+        let mut report = command_report(ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER);
+        report[1..3].copy_from_slice(&offset.to_be_bytes());
+        report[3] = chunk_size as u8;
+        let response = raw_transaction(
+            device,
+            report,
+            ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER,
+            Duration::from_secs(1),
+        )?;
+        let start = usize::from(offset);
+        buffer[start..start + chunk_size].copy_from_slice(&response[4..4 + chunk_size]);
+    }
+    Ok(buffer)
+}
+
+fn set_macro_buffer(device: &dyn HidTransport, buffer: &[u8]) -> Result<(), String> {
+    for offset in (0..buffer.len()).step_by(28) {
+        let chunk_size = (buffer.len() - offset).min(28);
+        let encoded_offset =
+            u16::try_from(offset).map_err(|_| "VIA macro buffer exceeds 65535 bytes")?;
+        let mut report = command_report(ID_DYNAMIC_KEYMAP_MACRO_SET_BUFFER);
+        report[1..3].copy_from_slice(&encoded_offset.to_be_bytes());
+        report[3] = chunk_size as u8;
+        report[4..4 + chunk_size].copy_from_slice(&buffer[offset..offset + chunk_size]);
+        raw_transaction(
+            device,
+            report,
+            ID_DYNAMIC_KEYMAP_MACRO_SET_BUFFER,
+            Duration::from_secs(1),
+        )?;
+    }
+    Ok(())
+}
+
+fn desired_macro_buffer(
+    macros: &[String],
+    capacity: u8,
+    buffer_size: usize,
+) -> Result<Vec<u8>, String> {
+    if macros.len() > usize::from(capacity) {
+        return Err(format!(
+            "configuration has {} macros but connected firmware supports {capacity}",
+            macros.len()
+        ));
+    }
+    let mut output = vec![0; buffer_size];
+    let mut cursor = 0;
+    for (index, value) in macros.iter().enumerate() {
+        let required = value.len() + 1;
+        if cursor + required > output.len() {
+            return Err(format!(
+                "via.macros[{index}] exceeds the connected firmware's {buffer_size}-byte macro buffer"
+            ));
+        }
+        output[cursor..cursor + value.len()].copy_from_slice(value.as_bytes());
+        cursor += required;
+    }
+    Ok(output)
+}
+
+fn via_state_drift_for_device(
+    device: &dyn HidTransport,
+    desired: &ViaConfiguration,
+) -> Result<Vec<String>, String> {
+    let mut drift = Vec::new();
+    let layout = get_layout_options(device)?;
+    if layout != desired.layout_options {
+        drift.push(format!(
+            "layout options 0x{layout:08x} != 0x{:08x}",
+            desired.layout_options
+        ));
+    }
+    let capacity = macro_capacity(device)?;
+    let size = macro_buffer_size(device)?;
+    let expected = desired_macro_buffer(&desired.macros, capacity, size)?;
+    if get_macro_buffer(device, size)? != expected {
+        drift.push("macro buffer differs".to_string());
+    }
+    Ok(drift)
+}
+
+fn sync_via_state_for_device(
+    device: &dyn HidTransport,
+    desired: &ViaConfiguration,
+) -> Result<Vec<String>, String> {
+    let mut changed = Vec::new();
+    if get_layout_options(device)? != desired.layout_options {
+        set_layout_options(device, desired.layout_options)?;
+        if get_layout_options(device)? != desired.layout_options {
+            return Err("layout options did not verify after write".to_string());
+        }
+        changed.push("layout options".to_string());
+    }
+
+    let capacity = macro_capacity(device)?;
+    let size = macro_buffer_size(device)?;
+    let expected = desired_macro_buffer(&desired.macros, capacity, size)?;
+    if get_macro_buffer(device, size)? != expected {
+        set_macro_buffer(device, &expected)?;
+        if get_macro_buffer(device, size)? != expected {
+            return Err("macro buffer did not verify after write".to_string());
+        }
+        changed.push("macros".to_string());
+    }
+    Ok(changed)
 }
 
 fn get_keycode(device: &dyn HidTransport, entry: &KeyEntry) -> Result<u16, String> {
@@ -988,25 +1863,28 @@ fn ask_keyboard_half() -> Result<Option<KeyboardHalf>, String> {
 
 #[cfg(target_os = "linux")]
 fn request_user_prompt() -> Result<(), String> {
-    let status = Command::new("systemctl")
-        .args([
-            "--user",
-            "--machine=conroy@.host",
-            "--no-block",
-            "start",
-            "silakka54-firmware-prompt.service",
-        ])
+    let message = "Silakka54 firmware settings changed. Run `rebuild`, then flash the connected half explicitly.";
+    if Command::new("notify-send")
+        .args(["Silakka54 firmware update", message])
         .status()
-        .map_err(|error| format!("failed to request user prompt: {error}"))?;
-    if !status.success() {
-        eprintln!("Silakka54 firmware is stale; graphical prompt could not be started.");
+        .is_err()
+    {
+        eprintln!("{message}");
     }
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn request_user_prompt() -> Result<(), String> {
-    prompt_firmware_command()
+    let script = r#"display notification "Run rebuild, then flash the connected half explicitly." with title "Silakka54 firmware update""#;
+    if Command::new("/usr/bin/osascript")
+        .args(["-e", script])
+        .status()
+        .is_err()
+    {
+        eprintln!("Silakka54 firmware settings changed; rebuild and flash explicitly.");
+    }
+    Ok(())
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -1018,34 +1896,69 @@ fn wait_for_bootloader_mount(timeout: Duration) -> Result<PathBuf, String> {
     eprintln!("Waiting for RPI-RP2 bootloader mount. Put the connected Silakka54 half into bootloader mode if needed.");
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
-        if let Some(path) = find_bootloader_mount() {
-            return Ok(path);
+        let mounts: Vec<_> = bootloader_mounts().into_iter().collect();
+        match mounts.as_slice() {
+            [path] => return Ok(path.clone()),
+            [] => {}
+            _ => {
+                return Err(
+                    "multiple RPI-RP2 mounts are present; refusing an ambiguous flash".to_string(),
+                );
+            }
         }
         thread::sleep(Duration::from_secs(1));
     }
     Err("timed out waiting for RPI-RP2 bootloader mount".to_string())
 }
 
-fn find_bootloader_mount() -> Option<PathBuf> {
-    let user = std::env::var("USER").unwrap_or_else(|_| "conroy".to_string());
-    let candidates = [
-        PathBuf::from(format!("/run/media/{user}/RPI-RP2")),
-        PathBuf::from(format!("/media/{user}/RPI-RP2")),
+fn wait_for_new_bootloader_mount(
+    previous: &BTreeSet<PathBuf>,
+    timeout: Duration,
+) -> Result<PathBuf, String> {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        let new: Vec<_> = bootloader_mounts().difference(previous).cloned().collect();
+        match new.as_slice() {
+            [path] => return Ok(path.clone()),
+            [] => thread::sleep(Duration::from_secs(1)),
+            _ => {
+                return Err(
+                    "multiple new RPI-RP2 mounts appeared; refusing an ambiguous flash".to_string(),
+                )
+            }
+        }
+    }
+    Err("timed out waiting for a new RPI-RP2 bootloader mount".to_string())
+}
+
+fn bootloader_mounts() -> BTreeSet<PathBuf> {
+    let mut candidates = vec![
         PathBuf::from("/mnt/RPI-RP2"),
         PathBuf::from("/Volumes/RPI-RP2"),
     ];
-    if let Some(path) = find_existing_mount(candidates.iter()) {
-        return Some(path);
+    if let Some(user) = std::env::var_os("USER") {
+        candidates.push(PathBuf::from("/run/media").join(&user).join("RPI-RP2"));
+        candidates.push(PathBuf::from("/media").join(user).join("RPI-RP2"));
     }
+    let mut mounts: BTreeSet<_> = candidates
+        .into_iter()
+        .filter(|path| is_bootloader_mount(path))
+        .collect();
 
-    let mounts = fs::read_to_string("/proc/mounts").ok()?;
-    mounts.lines().find_map(|line| {
-        let mount = line.split_whitespace().nth(1)?.replace("\\040", " ");
-        let path = PathBuf::from(mount);
-        is_bootloader_mount(&path).then_some(path)
-    })
+    if let Ok(contents) = fs::read_to_string("/proc/mounts") {
+        for line in contents.lines() {
+            if let Some(mount) = line.split_whitespace().nth(1) {
+                let path = PathBuf::from(mount.replace("\\040", " "));
+                if is_bootloader_mount(&path) {
+                    mounts.insert(path);
+                }
+            }
+        }
+    }
+    mounts
 }
 
+#[cfg(test)]
 fn find_existing_mount<'a>(paths: impl Iterator<Item = &'a PathBuf>) -> Option<PathBuf> {
     paths
         .filter(|path| is_bootloader_mount(path))
@@ -1054,7 +1967,9 @@ fn find_existing_mount<'a>(paths: impl Iterator<Item = &'a PathBuf>) -> Option<P
 }
 
 fn is_bootloader_mount(path: &Path) -> bool {
-    path.is_dir() && path.file_name().is_some_and(|name| name == "RPI-RP2")
+    path.is_dir()
+        && path.file_name().is_some_and(|name| name == "RPI-RP2")
+        && (path.join("INFO_UF2.TXT").is_file() || path.join("INDEX.HTM").is_file())
 }
 
 #[cfg(test)]
@@ -1151,10 +2066,52 @@ mod tests {
         let other = root.join("OTHER");
         fs::create_dir_all(&expected).unwrap();
         fs::create_dir_all(&other).unwrap();
+        fs::write(expected.join("INFO_UF2.TXT"), "UF2 Bootloader").unwrap();
         assert_eq!(
             find_existing_mount([&other, &expected].into_iter()),
             Some(expected.clone())
         );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn layer_name_is_a_momentary_layer_keycode() {
+        let layers = BTreeMap::from([("Base", 0), ("Nav", 2)]);
+        assert_eq!(
+            resolve_keycode("Nav", &layers, &BTreeMap::new()).unwrap(),
+            0x5222
+        );
+    }
+
+    #[test]
+    fn macros_are_encoded_as_via_nul_separated_buffer() {
+        assert_eq!(
+            desired_macro_buffer(&["one".into(), "two".into()], 4, 12).unwrap(),
+            b"one\0two\0\0\0\0\0".to_vec()
+        );
+        assert!(desired_macro_buffer(&["too long".into()], 1, 4).is_err());
+        assert!(desired_macro_buffer(&["one".into(), "two".into()], 1, 12).is_err());
+    }
+
+    #[test]
+    fn live_keycodes_round_trip_to_configuration_expressions() {
+        let keycodes = BTreeMap::from([("KC_A".to_string(), 0x04), ("KC_SPC".to_string(), 0x2c)]);
+        let layers = vec!["_BASE".to_string(), "_NAV".to_string()];
+        assert_eq!(
+            describe_keycode(0x5221, &layers, &keycodes).unwrap(),
+            "MO(_NAV)"
+        );
+        assert_eq!(
+            describe_keycode(0x412c, &layers, &keycodes).unwrap(),
+            "LT(_NAV, KC_SPC)"
+        );
+        assert_eq!(
+            describe_keycode(0x2104, &layers, &keycodes).unwrap(),
+            "LCTL_T(KC_A)"
+        );
+        assert_eq!(
+            decode_macro_buffer(b"one\0two\0\0\0", 4).unwrap(),
+            vec!["one", "two"]
+        );
     }
 }

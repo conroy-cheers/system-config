@@ -1,52 +1,46 @@
 {
+  callPackage,
   gtk3,
+  inputs,
   lib,
   pkg-config,
-  rustc,
-  stdenv,
+  rustPlatform,
 }:
 
-stdenv.mkDerivation {
+let
+  silakka54 = callPackage ../../packages/silakka54 {
+    qmkSource = inputs.qmk;
+    qmkRev = inputs.qmk.rev;
+  };
+in
+rustPlatform.buildRustPackage {
   pname = "keymap-editor";
-  version = "0.1.0";
+  version = "0.2.0";
 
   src = lib.cleanSource ./.;
 
+  cargoLock.lockFile = ./Cargo.lock;
+
   nativeBuildInputs = [
     pkg-config
-    rustc
   ];
 
   buildInputs = [
     gtk3
   ];
 
-  dontConfigure = true;
-
-  buildPhase = ''
-    runHook preBuild
-
-    substitute main.rs generated-main.rs \
-      --replace-fail @default_keymap@ "${../../packages/silakka54/keymap.yaml}"
-
-    rustc --edition=2021 generated-main.rs \
-      -o keymap-editor \
-      $(pkg-config --libs-only-L gtk+-3.0) \
-      $(pkg-config --libs-only-l gtk+-3.0)
-
-    runHook postBuild
+  postPatch = ''
+    substituteInPlace main.rs \
+      --replace-fail @default_keymap@ "${../../packages/silakka54/configuration.json}" \
+      --replace-fail @silakka54_sync@ "${lib.getExe silakka54}"
   '';
 
-  installPhase = ''
-    runHook preInstall
-
-    install -Dm0755 keymap-editor "$out/bin/keymap-editor"
-
-    runHook postInstall
+  preBuild = ''
+    export RUSTFLAGS="$(pkg-config --libs-only-L gtk+-3.0) $(pkg-config --libs-only-l gtk+-3.0)"
   '';
 
   meta = {
-    description = "Interactive GTK keymap.yaml editor for Silakka54";
+    description = "Interactive GTK JSON configuration editor for Silakka54";
     license = lib.licenses.mit;
     mainProgram = "keymap-editor";
     platforms = lib.platforms.linux;

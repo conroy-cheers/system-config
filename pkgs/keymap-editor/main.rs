@@ -1,9 +1,12 @@
+use serde_json::Value;
 use std::ffi::{CStr, CString};
 use std::fs;
 use std::os::raw::{c_char, c_double, c_int, c_uint, c_ulong, c_void};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 const DEFAULT_KEYMAP: &str = "@default_keymap@";
+const SILAKKA54_SYNC: &str = "@silakka54_sync@";
 const KEY_COUNT: usize = 54;
 const GTK_WINDOW_TOPLEVEL: c_int = 0;
 const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
@@ -177,6 +180,18 @@ extern "C" {
     fn gtk_label_new(text: *const c_char) -> *mut c_void;
     fn gtk_label_set_text(label: *mut c_void, text: *const c_char);
     fn gtk_label_set_xalign(label: *mut c_void, xalign: f32);
+    fn gtk_expander_new(label: *const c_char) -> *mut c_void;
+    fn gtk_grid_new() -> *mut c_void;
+    fn gtk_grid_attach(
+        grid: *mut c_void,
+        child: *mut c_void,
+        left: c_int,
+        top: c_int,
+        width: c_int,
+        height: c_int,
+    );
+    fn gtk_grid_set_column_spacing(grid: *mut c_void, spacing: c_uint);
+    fn gtk_grid_set_row_spacing(grid: *mut c_void, spacing: c_uint);
     fn gtk_main();
     fn gtk_main_quit();
     fn gtk_widget_add_events(widget: *mut c_void, events: c_int);
@@ -385,6 +400,24 @@ struct Args {
     render_png: Option<PathBuf>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum QmkSection {
+    Define,
+    Rule,
+}
+
+#[derive(Clone, Debug)]
+struct QmkSetting {
+    section: QmkSection,
+    name: String,
+    value: Value,
+}
+
+struct QmkField {
+    setting: QmkSetting,
+    entry: *mut c_void,
+}
+
 struct AppState {
     path: PathBuf,
     layers: Vec<Layer>,
@@ -397,6 +430,7 @@ struct AppState {
     editor_entry: *mut c_void,
     tap_entry: *mut c_void,
     hold_combo: *mut c_void,
+    qmk_fields: Vec<QmkField>,
 }
 
 struct QuickAction {
@@ -418,9 +452,18 @@ fn main() {
             std::process::exit(1);
         }
     };
+    let qmk_settings = match load_qmk_settings(&args.keymap_path) {
+        Ok(settings) => settings,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+    };
 
     if args.validate_only {
-        if let Err(error) = validate_layers(&layers) {
+        if let Err(error) =
+            validate_layers(&layers).and_then(|()| validate_qmk_settings(&qmk_settings))
+        {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -437,7 +480,7 @@ fn main() {
         return;
     }
 
-    run_gui(args.keymap_path, layers);
+    run_gui(args.keymap_path, layers, qmk_settings);
 }
 
 fn parse_args() -> Args {
@@ -459,7 +502,7 @@ fn parse_args() -> Args {
                 render_png = Some(PathBuf::from(path));
             }
             "--help" | "-h" => {
-                println!("Usage: keymap-editor [--print-path] [--validate] [--render-png out.png] [keymap.yaml]");
+                println!("Usage: keymap-editor [--print-path] [--validate] [--render-png out.png] [configuration.json]");
                 std::process::exit(0);
             }
             value if value.starts_with('-') => {
@@ -480,8 +523,8 @@ fn parse_args() -> Args {
 
 fn default_keymap_path() -> PathBuf {
     let candidates = [
-        PathBuf::from("packages/silakka54/keymap.yaml"),
-        dirs_home().join(".config/system-config/packages/silakka54/keymap.yaml"),
+        PathBuf::from("packages/silakka54/configuration.json"),
+        dirs_home().join(".config/system-config/packages/silakka54/configuration.json"),
         PathBuf::from(DEFAULT_KEYMAP),
     ];
 
@@ -497,7 +540,7 @@ fn dirs_home() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
-fn run_gui(path: PathBuf, layers: Vec<Layer>) {
+fn run_gui(path: PathBuf, layers: Vec<Layer>, qmk_settings: Vec<QmkSetting>) {
     let title = cstring("Silakka54 Keymap Editor");
     let destroy = cstring("destroy");
     let draw = cstring("draw");
@@ -520,6 +563,7 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
         let toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
         let combo = gtk_combo_box_text_new();
         let save_button = gtk_button_new_with_label(cstring("Save").as_ptr());
+        let apply_live_button = gtk_button_new_with_label(cstring("Save + Apply Live").as_ptr());
         let reload_button = gtk_button_new_with_label(cstring("Reload").as_ptr());
         let validate_button = gtk_button_new_with_label(cstring("Validate").as_ptr());
         let drawing_area = gtk_drawing_area_new();
@@ -535,6 +579,39 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
         let hold_combo = gtk_combo_box_text_new();
         let apply_tap_hold_button = gtk_button_new_with_label(cstring("Apply tap / hold").as_ptr());
         let status = gtk_label_new(cstring("").as_ptr());
+        let settings_expander =
+            gtk_expander_new(cstring("QMK firmware settings (rebuild + flash required)").as_ptr());
+        let settings_grid = gtk_grid_new();
+        gtk_grid_set_column_spacing(settings_grid, 10);
+        gtk_grid_set_row_spacing(settings_grid, 5);
+        let mut qmk_fields = Vec::with_capacity(qmk_settings.len());
+        for (index, setting) in qmk_settings.into_iter().enumerate() {
+            let pair = index % 2;
+            let row = index / 2;
+            let label = gtk_label_new(cstring(&setting.name).as_ptr());
+            let entry = gtk_entry_new();
+            gtk_label_set_xalign(label, 0.0);
+            gtk_entry_set_width_chars(entry, 16);
+            gtk_entry_set_text(entry, cstring(&setting_text(&setting.value)).as_ptr());
+            gtk_grid_attach(
+                settings_grid,
+                label,
+                (pair * 2) as c_int,
+                row as c_int,
+                1,
+                1,
+            );
+            gtk_grid_attach(
+                settings_grid,
+                entry,
+                (pair * 2 + 1) as c_int,
+                row as c_int,
+                1,
+                1,
+            );
+            qmk_fields.push(QmkField { setting, entry });
+        }
+        gtk_container_add(settings_expander, settings_grid);
 
         gtk_label_set_xalign(status, 0.0);
         gtk_label_set_xalign(selected_label, 0.0);
@@ -546,6 +623,7 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
 
         gtk_box_pack_start(toolbar, combo, FALSE, FALSE, 0);
         gtk_box_pack_start(toolbar, save_button, FALSE, FALSE, 0);
+        gtk_box_pack_start(toolbar, apply_live_button, FALSE, FALSE, 0);
         gtk_box_pack_start(toolbar, reload_button, FALSE, FALSE, 0);
         gtk_box_pack_start(toolbar, validate_button, FALSE, FALSE, 0);
 
@@ -570,6 +648,7 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
         gtk_box_pack_start(root, drawing_area, TRUE, TRUE, 0);
         gtk_box_pack_start(root, editor, FALSE, FALSE, 0);
         gtk_box_pack_start(root, tap_hold_editor, FALSE, FALSE, 0);
+        gtk_box_pack_start(root, settings_expander, FALSE, FALSE, 0);
         gtk_box_pack_start(root, status, FALSE, FALSE, 0);
         gtk_container_add(window, root);
 
@@ -585,6 +664,7 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
             editor_entry,
             tap_entry,
             hold_combo,
+            qmk_fields,
         }));
 
         populate_combo(&*state);
@@ -636,6 +716,14 @@ fn run_gui(path: PathBuf, layers: Vec<Layer>) {
             save_button,
             clicked.as_ptr(),
             on_save as *const c_void,
+            state as *mut c_void,
+            None,
+            0,
+        );
+        g_signal_connect_data(
+            apply_live_button,
+            clicked.as_ptr(),
+            on_apply_live as *const c_void,
             state as *mut c_void,
             None,
             0,
@@ -802,34 +890,57 @@ unsafe extern "C" fn on_layer_changed(widget: *mut c_void, data: *mut c_void) {
 
 unsafe extern "C" fn on_save(_widget: *mut c_void, data: *mut c_void) {
     let state = &mut *(data as *mut AppState);
-    if let Err(error) = collect_editor(state) {
-        set_status(state, &error);
-        return;
-    }
-    if let Err(error) = validate_layers(&state.layers) {
-        set_status(state, &error);
-        return;
-    }
-    let backup = state.path.with_extension("yaml.bak");
-    if let Err(error) = fs::copy(&state.path, &backup) {
-        set_status(state, &format!("Could not write backup: {error}"));
-        return;
-    }
-    if let Err(error) = fs::write(&state.path, render_yaml(&state.layers)) {
+    if let Err(error) = persist_state(state) {
         set_status(
             state,
             &format!("Could not save {}: {error}", state.path.display()),
         );
         return;
     }
-    set_status(
-        state,
-        &format!(
-            "Saved {} (backup: {})",
-            state.path.display(),
-            backup.display()
+    set_status(state, &format!("Saved {}", state.path.display()));
+}
+
+unsafe extern "C" fn on_apply_live(_widget: *mut c_void, data: *mut c_void) {
+    let state = &mut *(data as *mut AppState);
+    if let Err(error) = persist_state(state) {
+        set_status(state, &format!("Could not save before applying: {error}"));
+        return;
+    }
+    match Command::new(SILAKKA54_SYNC)
+        .args(["apply", "--config"])
+        .arg(&state.path)
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let detail = String::from_utf8_lossy(&output.stdout);
+            let detail = detail.lines().last().unwrap_or("live VIA state is current");
+            set_status(state, &format!("Saved and applied: {detail}"));
+        }
+        Ok(output) => {
+            let detail = String::from_utf8_lossy(&output.stderr);
+            let detail = detail
+                .lines()
+                .last()
+                .unwrap_or("unknown synchronization error");
+            set_status(state, &format!("Saved, but live apply failed: {detail}"));
+        }
+        Err(error) => set_status(
+            state,
+            &format!("Saved, but could not run live apply: {error}"),
         ),
-    );
+    }
+}
+
+unsafe fn persist_state(state: &mut AppState) -> Result<(), String> {
+    collect_editor(state)?;
+    validate_layers(&state.layers)?;
+    let settings = collect_qmk_settings(&state.qmk_fields)?;
+    validate_qmk_settings(&settings)?;
+    save_configuration(&state.path, &state.layers, &settings)?;
+    for (field, setting) in state.qmk_fields.iter_mut().zip(settings) {
+        field.setting = setting;
+    }
+    Ok(())
 }
 
 unsafe extern "C" fn on_reload(_widget: *mut c_void, data: *mut c_void) {
@@ -840,7 +951,33 @@ unsafe extern "C" fn on_reload(_widget: *mut c_void, data: *mut c_void) {
     }
     match load_layers(&state.path) {
         Ok(layers) => {
+            let settings = match load_qmk_settings(&state.path) {
+                Ok(settings) => settings,
+                Err(error) => {
+                    set_status(state, &error);
+                    return;
+                }
+            };
+            if settings.len() != state.qmk_fields.len()
+                || settings
+                    .iter()
+                    .zip(&state.qmk_fields)
+                    .any(|(setting, field)| {
+                        setting.section != field.setting.section
+                            || setting.name != field.setting.name
+                    })
+            {
+                set_status(
+                    state,
+                    "QMK setting names changed on disk; reopen the editor to reload the schema",
+                );
+                return;
+            }
             state.layers = layers;
+            for (field, setting) in state.qmk_fields.iter_mut().zip(settings) {
+                gtk_entry_set_text(field.entry, cstring(&setting_text(&setting.value)).as_ptr());
+                field.setting = setting;
+            }
             state.current_layer = state
                 .current_layer
                 .min(state.layers.len().saturating_sub(1));
@@ -861,8 +998,15 @@ unsafe extern "C" fn on_validate(_widget: *mut c_void, data: *mut c_void) {
         set_status(state, &error);
         return;
     }
-    match validate_layers(&state.layers) {
-        Ok(()) => set_status(state, "Keymap labels are valid"),
+    let settings = match collect_qmk_settings(&state.qmk_fields) {
+        Ok(settings) => settings,
+        Err(error) => {
+            set_status(state, &error);
+            return;
+        }
+    };
+    match validate_layers(&state.layers).and_then(|()| validate_qmk_settings(&settings)) {
+        Ok(()) => set_status(state, "Keymap and QMK setting values are valid"),
         Err(error) => set_status(state, &error),
     }
 }
@@ -984,6 +1128,7 @@ fn render_preview_png(path: &Path, layers: Vec<Layer>) -> Result<(), String> {
             editor_entry: std::ptr::null_mut(),
             tap_entry: std::ptr::null_mut(),
             hold_combo: std::ptr::null_mut(),
+            qmk_fields: Vec::new(),
         };
         draw_keyboard(cr, &state, REF_WIDTH, REF_HEIGHT);
         let status = cairo_surface_write_to_png(surface, cstring(&path.to_string_lossy()).as_ptr());
@@ -1082,9 +1227,10 @@ unsafe fn draw_key(
             key_width * 0.76,
         );
     } else {
+        let display_label = qmk_tap_to_label(label);
         draw_centered_text(
             cr,
-            label,
+            &display_label,
             0.0,
             -key_height * 0.04,
             key_width.min(key_height) * 0.25,
@@ -1428,8 +1574,14 @@ fn display_layer_identifier(identifier: &str) -> String {
 
 fn qmk_tap_to_label(keycode: &str) -> String {
     match keycode {
+        "KC_TRNS" => "___".to_string(),
+        "KC_NO" => "---".to_string(),
         "KC_ESC" => "Esc".to_string(),
         "KC_TAB" => "Tab".to_string(),
+        "KC_LCTL" | "KC_RCTL" => "Ctrl".to_string(),
+        "KC_LSFT" | "KC_RSFT" => "Shift".to_string(),
+        "KC_LALT" | "KC_RALT" => "Alt".to_string(),
+        "KC_LGUI" | "KC_RGUI" => "GUI".to_string(),
         "KC_BSPC" => "Bspc".to_string(),
         "KC_SPC" => "Space".to_string(),
         "KC_ENT" => "Enter".to_string(),
@@ -1454,6 +1606,38 @@ fn qmk_tap_to_label(keycode: &str) -> String {
         "KC_LBRC" => "[".to_string(),
         "KC_RBRC" => "]".to_string(),
         "KC_EQL" => "=".to_string(),
+        "KC_EXLM" => "!".to_string(),
+        "KC_AT" => "@".to_string(),
+        "KC_HASH" => "#".to_string(),
+        "KC_DLR" => "$".to_string(),
+        "KC_PERC" => "%".to_string(),
+        "KC_CIRC" => "^".to_string(),
+        "KC_AMPR" => "&".to_string(),
+        "KC_ASTR" => "*".to_string(),
+        "KC_LPRN" => "(".to_string(),
+        "KC_RPRN" => ")".to_string(),
+        "KC_UNDS" => "_".to_string(),
+        "KC_PLUS" => "+".to_string(),
+        "KC_LCBR" => "{".to_string(),
+        "KC_RCBR" => "}".to_string(),
+        "KC_PIPE" => "|".to_string(),
+        "KC_COLN" => ":".to_string(),
+        "KC_DQUO" => "\"".to_string(),
+        "KC_LT" => "<".to_string(),
+        "KC_GT" => ">".to_string(),
+        "KC_QUES" => "?".to_string(),
+        "KC_TILD" => "~".to_string(),
+        "KC_CAPS" => "Caps".to_string(),
+        "KC_APP" | "KC_MENU" => "Menu".to_string(),
+        "KC_MUTE" => "Mute".to_string(),
+        "KC_VOLD" => "Vol-".to_string(),
+        "KC_VOLU" => "Vol+".to_string(),
+        "KC_MPRV" => "Prev".to_string(),
+        "KC_MNXT" => "Next".to_string(),
+        "KC_MPLY" => "Play".to_string(),
+        "KC_UNDO" => "Undo".to_string(),
+        "KC_AGIN" | "KC_AGAIN" | "KC_REDO" => "Redo".to_string(),
+        "QK_BOOT" => "Boot".to_string(),
         value if value.len() == 4 && value.starts_with("KC_") => value[3..].to_string(),
         value
             if value.strip_prefix("KC_F").is_some_and(|number| {
@@ -1561,62 +1745,126 @@ fn load_layers(path: &Path) -> Result<Vec<Layer>, String> {
     parse_layers(&text).map_err(|error| format!("{}: {error}", path.display()))
 }
 
-fn parse_layers(text: &str) -> Result<Vec<Layer>, String> {
-    let mut in_layers = false;
-    let mut layers = Vec::new();
-    let mut current: Option<Layer> = None;
-
-    for (line_number, raw_line) in text.lines().enumerate() {
-        let line = raw_line.trim_end();
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if trimmed == "layers:" {
-            in_layers = true;
-            continue;
-        }
-        if !in_layers {
-            continue;
-        }
-
-        if line.starts_with("  ") && !line.starts_with("    ") && trimmed.ends_with(':') {
-            if let Some(layer) = current.take() {
-                layers.push(layer);
+fn load_qmk_settings(path: &Path) -> Result<Vec<QmkSetting>, String> {
+    let text = fs::read_to_string(path)
+        .map_err(|error| format!("Could not read {}: {error}", path.display()))?;
+    let value: Value =
+        serde_json::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
+    let mut settings = Vec::new();
+    for (section, pointer) in [
+        (QmkSection::Define, "/qmk/defines"),
+        (QmkSection::Rule, "/qmk/rules"),
+    ] {
+        let object = value
+            .pointer(pointer)
+            .and_then(Value::as_object)
+            .ok_or_else(|| format!("{pointer} must be an object"))?;
+        for (name, value) in object {
+            if !value.is_boolean() && !value.is_number() && !value.is_string() {
+                return Err(format!("{pointer}/{name} must be a scalar value"));
             }
-            let name = trimmed.trim_end_matches(':').to_string();
-            if name.is_empty() {
-                return Err(format!("line {} has an empty layer name", line_number + 1));
-            }
-            current = Some(Layer {
-                name,
-                keys: Vec::new(),
+            settings.push(QmkSetting {
+                section,
+                name: name.clone(),
+                value: value.clone(),
             });
-            continue;
         }
-
-        if line.starts_with("    - ") {
-            let Some(layer) = current.as_mut() else {
-                return Err(format!(
-                    "line {} has a key before any layer",
-                    line_number + 1
-                ));
-            };
-            layer.keys.push(
-                parse_scalar(&line[6..])
-                    .map_err(|error| format!("line {}: {error}", line_number + 1))?,
-            );
-            continue;
-        }
-
-        return Err(format!(
-            "line {} is not valid keymap.yaml syntax",
-            line_number + 1
-        ));
     }
+    Ok(settings)
+}
 
-    if let Some(layer) = current {
-        layers.push(layer);
+fn setting_text(value: &Value) -> String {
+    value
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| value.to_string())
+}
+
+unsafe fn collect_qmk_settings(fields: &[QmkField]) -> Result<Vec<QmkSetting>, String> {
+    fields
+        .iter()
+        .map(|field| {
+            let text = CStr::from_ptr(gtk_entry_get_text(field.entry))
+                .to_string_lossy()
+                .trim()
+                .to_string();
+            let value = match &field.setting.value {
+                Value::Bool(_) => match text.as_str() {
+                    "true" => Value::Bool(true),
+                    "false" => Value::Bool(false),
+                    _ => {
+                        return Err(format!("{} must be true or false", field.setting.name));
+                    }
+                },
+                Value::Number(_) => {
+                    let parsed: Value = serde_json::from_str(&text)
+                        .map_err(|_| format!("{} must be a JSON number", field.setting.name))?;
+                    if !parsed.is_number() {
+                        return Err(format!("{} must be a number", field.setting.name));
+                    }
+                    parsed
+                }
+                Value::String(_) => Value::String(text),
+                _ => {
+                    return Err(format!(
+                        "{} has an unsupported value type",
+                        field.setting.name
+                    ))
+                }
+            };
+            Ok(QmkSetting {
+                section: field.setting.section,
+                name: field.setting.name.clone(),
+                value,
+            })
+        })
+        .collect()
+}
+
+fn validate_qmk_settings(settings: &[QmkSetting]) -> Result<(), String> {
+    let number = |name: &str| {
+        settings
+            .iter()
+            .find(|setting| setting.section == QmkSection::Define && setting.name == name)
+            .and_then(|setting| setting.value.as_u64())
+    };
+    if matches!(
+        (number("QUICK_TAP_TERM"), number("TAPPING_TERM")),
+        (Some(quick), Some(tapping)) if quick > tapping
+    ) {
+        return Err("QUICK_TAP_TERM cannot exceed TAPPING_TERM".to_string());
+    }
+    Ok(())
+}
+
+fn parse_layers(text: &str) -> Result<Vec<Layer>, String> {
+    let value: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
+    if value.get("schema_version").and_then(Value::as_u64) != Some(1) {
+        return Err("unsupported or missing schema_version".to_string());
+    }
+    let source = value
+        .pointer("/via/layers")
+        .and_then(Value::as_array)
+        .ok_or("via.layers must be an array")?;
+    let mut layers = Vec::with_capacity(source.len());
+    for layer in source {
+        let name = layer
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or("each layer must have a string name")?
+            .to_string();
+        let keys = layer
+            .get("keys")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("layer {name} must have a keys array"))?
+            .iter()
+            .map(|key| {
+                key.as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| format!("layer {name} contains a non-string key"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        layers.push(Layer { name, keys });
     }
     if layers.is_empty() {
         return Err("no layers found".to_string());
@@ -1634,65 +1882,87 @@ fn parse_layers(text: &str) -> Result<Vec<Layer>, String> {
     Ok(layers)
 }
 
-fn parse_scalar(value: &str) -> Result<String, String> {
-    let value = value.trim();
-    if value.starts_with('"') {
-        parse_double_quoted(value)
-    } else if value.starts_with('\'') {
-        parse_single_quoted(value)
-    } else {
-        Ok(value.to_string())
+fn save_configuration(
+    path: &Path,
+    layers: &[Layer],
+    qmk_settings: &[QmkSetting],
+) -> Result<(), String> {
+    let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let mut value: Value = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    let target = value
+        .pointer_mut("/via/layers")
+        .and_then(Value::as_array_mut)
+        .ok_or("via.layers must be an array")?;
+    if target.len() != layers.len() {
+        return Err("the number of layers changed on disk; reload before saving".to_string());
     }
+    for (target, layer) in target.iter_mut().zip(layers) {
+        let object = target.as_object_mut().ok_or("layer must be an object")?;
+        object.insert("name".to_string(), Value::String(layer.name.clone()));
+        object.insert(
+            "keys".to_string(),
+            Value::Array(
+                layer
+                    .keys
+                    .iter()
+                    .map(|key| Value::String(canonical_key(key, layers)))
+                    .collect(),
+            ),
+        );
+    }
+    for setting in qmk_settings {
+        let section = match setting.section {
+            QmkSection::Define => "defines",
+            QmkSection::Rule => "rules",
+        };
+        value
+            .pointer_mut(&format!("/qmk/{section}"))
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| format!("qmk.{section} must be an object"))?
+            .insert(setting.name.clone(), setting.value.clone());
+    }
+    let rendered = serde_json::to_string_pretty(&value).map_err(|error| error.to_string())? + "\n";
+    let temporary = path.with_extension("json.tmp");
+    fs::write(&temporary, rendered).map_err(|error| error.to_string())?;
+    fs::rename(&temporary, path).map_err(|error| error.to_string())
 }
 
-fn parse_double_quoted(value: &str) -> Result<String, String> {
-    let mut chars = value.chars();
-    if chars.next() != Some('"') {
-        return Err("expected quoted value".to_string());
+fn canonical_key(key: &str, layers: &[Layer]) -> String {
+    if key.starts_with("KC_") || key.starts_with("QK_") || key.contains('(') {
+        return key.to_string();
     }
-    let mut output = String::new();
-    let mut escaped = false;
-    for ch in chars {
-        if escaped {
-            match ch {
-                '"' => output.push('"'),
-                '\\' => output.push('\\'),
-                'n' => output.push('\n'),
-                'r' => output.push('\r'),
-                't' => output.push('\t'),
-                other => output.push(other),
-            }
-            escaped = false;
-        } else if ch == '\\' {
-            escaped = true;
-        } else if ch == '"' {
-            return Ok(output);
-        } else {
-            output.push(ch);
-        }
+    if let Some(layer) = layers.iter().find(|layer| layer.name == key) {
+        return format!("MO({})", qmk_layer_identifier(&layer.name));
     }
-    Err("unterminated quoted value".to_string())
-}
-
-fn parse_single_quoted(value: &str) -> Result<String, String> {
-    let mut chars = value.chars().peekable();
-    if chars.next() != Some('\'') {
-        return Err("expected single-quoted value".to_string());
+    if let Some(keycode) = tap_label_to_qmk(key) {
+        return keycode;
     }
-    let mut output = String::new();
-    while let Some(ch) = chars.next() {
-        if ch == '\'' {
-            if chars.peek() == Some(&'\'') {
-                chars.next();
-                output.push('\'');
-            } else {
-                return Ok(output);
-            }
-        } else {
-            output.push(ch);
-        }
+    match key {
+        "!" => "KC_EXLM",
+        "@" => "KC_AT",
+        "#" => "KC_HASH",
+        "$" => "KC_DLR",
+        "%" => "KC_PERC",
+        "^" => "KC_CIRC",
+        "&" => "KC_AMPR",
+        "*" => "KC_ASTR",
+        "(" => "KC_LPRN",
+        ")" => "KC_RPRN",
+        "_" => "KC_UNDS",
+        "+" => "KC_PLUS",
+        "{" => "KC_LCBR",
+        "}" => "KC_RCBR",
+        "|" => "KC_PIPE",
+        ":" => "KC_COLN",
+        "\"" => "KC_DQUO",
+        "<" => "KC_LT",
+        ">" => "KC_GT",
+        "?" => "KC_QUES",
+        "~" => "KC_TILD",
+        "Boot" => "QK_BOOT",
+        other => other,
     }
-    Err("unterminated single-quoted value".to_string())
+    .to_string()
 }
 
 fn validate_layers(layers: &[Layer]) -> Result<(), String> {
@@ -1763,54 +2033,6 @@ fn is_function_call(value: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == ',' || ch == ' ')
 }
 
-fn render_yaml(layers: &[Layer]) -> String {
-    let mut output = String::from("layers:\n");
-    for (index, layer) in layers.iter().enumerate() {
-        if index > 0 {
-            output.push('\n');
-        }
-        output.push_str("  ");
-        output.push_str(&layer.name);
-        output.push_str(":\n");
-        for key in &layer.keys {
-            output.push_str("    - ");
-            output.push_str(&yaml_scalar(key));
-            output.push('\n');
-        }
-    }
-    output
-}
-
-fn yaml_scalar(value: &str) -> String {
-    if is_plain_yaml_scalar(value) {
-        value.to_string()
-    } else {
-        let mut quoted = String::from("\"");
-        for ch in value.chars() {
-            match ch {
-                '"' => quoted.push_str("\\\""),
-                '\\' => quoted.push_str("\\\\"),
-                '\n' => quoted.push_str("\\n"),
-                '\r' => quoted.push_str("\\r"),
-                '\t' => quoted.push_str("\\t"),
-                other => quoted.push(other),
-            }
-        }
-        quoted.push('"');
-        quoted
-    }
-}
-
-fn is_plain_yaml_scalar(value: &str) -> bool {
-    let mut chars = value.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first.is_ascii_alphabetic() || first == '_')
-        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '+' || ch == '-')
-        && !matches!(value, "true" | "false" | "null" | "Null" | "NULL")
-}
-
 unsafe fn set_rgb(cr: *mut c_void, color: Color) {
     cairo_set_source_rgb(cr, color.red, color.green, color.blue);
 }
@@ -1861,5 +2083,13 @@ mod tests {
     fn generated_tap_hold_keys_are_valid_labels() {
         assert!(valid_label("LGUI_T(KC_TAB)", &["Base", "Num"]));
         assert!(valid_label("LT(_NUM, KC_ENT)", &["Base", "Num"]));
+    }
+
+    #[test]
+    fn qmk_keycodes_render_as_human_legends() {
+        assert_eq!(qmk_tap_to_label("KC_RSFT"), "Shift");
+        assert_eq!(qmk_tap_to_label("KC_PIPE"), "|");
+        assert_eq!(qmk_tap_to_label("KC_EXLM"), "!");
+        assert_eq!(qmk_tap_to_label("KC_MNXT"), "Next");
     }
 }

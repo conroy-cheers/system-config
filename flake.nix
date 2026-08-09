@@ -92,6 +92,14 @@
       url = "github:nixos/nixpkgs/nixos-unstable";
     };
 
+    # Firmware source of truth. Keep this non-flake input locked with its
+    # submodules so the firmware, keycodes, schemas, and config catalog always
+    # come from the same QMK revision.
+    qmk = {
+      url = "git+https://github.com/qmk/qmk_firmware.git?submodules=1";
+      flake = false;
+    };
+
     determinate = {
       url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
     };

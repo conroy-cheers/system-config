@@ -3620,6 +3620,24 @@
         "type": "github"
       }
     },
+    "qmk": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785921907,
+        "narHash": "sha256-MKpsTHsyRT0V7jIgGQtaUrPJhZSjfU0ciYKKUSGj+bg=",
+        "ref": "refs/heads/master",
+        "rev": "0456ffb38e67160e2c59a91ab00f424d3765f1f6",
+        "revCount": 29581,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/qmk/qmk_firmware.git"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/qmk/qmk_firmware.git"
+      }
+    },
     "ragenix": {
       "inputs": {
         "agenix": [
@@ -3697,6 +3715,7 @@
         "nvf": "nvf",
         "pkl-flake": "pkl-flake",
         "prusa-slicer-profiles": "prusa-slicer-profiles",
+        "qmk": "qmk",
         "ragenix": "ragenix",
         "spicetify-nix": "spicetify-nix",
         "stylix": "stylix",
