@@ -204,22 +204,25 @@ in
       # Direnv
       programs.direnv-instant = {
         enable = true;
-        enableBashIntegration = false;
-        enableFishIntegration = !config.programs.tinymux.enable && builtins.elem "fish" cfg.shells;
-        enableNushellIntegration = !config.programs.tinymux.enable && builtins.elem "nushell" cfg.shells;
-        enableZshIntegration = !config.programs.tinymux.enable && builtins.elem "zsh" cfg.shells;
-        settings.mux_delay = 0;
+        enableBashIntegration = builtins.elem "bash" cfg.shells;
+        enableFishIntegration = builtins.elem "fish" cfg.shells;
+        enableNushellIntegration = builtins.elem "nushell" cfg.shells;
+        enableZshIntegration = builtins.elem "zsh" cfg.shells;
+        settings = {
+          mux_delay = 0;
+          kitty_launch_args = [
+            "--location"
+            "hsplit"
+            "--keep-focus"
+            "--self"
+          ];
+        };
       };
       programs.tinymux = {
         enable = lib.mkDefault true;
         session = {
           enable = lib.mkDefault (builtins.elem "fish" cfg.shells);
           shells = lib.mkDefault [ "fish" ];
-        };
-        direnvInstant = {
-          enable = lib.mkDefault cfg.direnv;
-          package = lib.mkDefault null;
-          shells = lib.mkDefault (map (shell: if shell == "nushell" then "nu" else shell) cfg.shells);
         };
       };
       programs.direnv = mkIf cfg.direnv {
