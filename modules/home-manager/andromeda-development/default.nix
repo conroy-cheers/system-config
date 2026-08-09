@@ -203,6 +203,13 @@ in
   options = {
     andromeda.development = {
       enable = lib.mkEnableOption "andromeda development config";
+      codexPackage = lib.mkOption {
+        type = lib.types.package;
+        readOnly = true;
+        internal = true;
+        default = codex-andromeda-wrapped;
+        description = "The wrapped Codex CLI package owned by the Andromeda profile";
+      };
       tftpServer.enable = lib.mkEnableOption "andromeda tftp dev server";
     };
   };

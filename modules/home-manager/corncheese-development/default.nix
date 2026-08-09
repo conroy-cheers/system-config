@@ -199,16 +199,39 @@ let
         }
     '';
   };
+  codexDesktopPackage = inputs.codex-desktop-linux.packages.${pkgs.system}.default;
+  codexAndromedaDesktopAppId = "codex-desktop-andromeda";
+  codexAndromedaDesktop = pkgs.runCommand "codex-desktop-andromeda" {
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+  } ''
+    mkdir -p "$out/bin"
+    makeWrapper ${lib.getExe' codexDesktopPackage "codex-desktop"} "$out/bin/codex-desktop-andromeda" \
+      --set CODEX_CLI_PATH "${lib.getExe' config.andromeda.development.codexPackage "codex-andromeda"}" \
+      --set CODEX_HOME "${config.home.homeDirectory}/.codex-andromeda" \
+      --set CODEX_APP_ID "${codexAndromedaDesktopAppId}" \
+      --set CODEX_LINUX_APP_ID "${codexAndromedaDesktopAppId}" \
+      --set CODEX_LINUX_APP_DISPLAY_NAME "Codex Andromeda" \
+      --set CODEX_WEBVIEW_PORT "5176"
+  '';
 in
 {
   imports = [
     "${inputs.vscode-server}/modules/vscode-server/home.nix"
     inputs.nvf.homeManagerModules.default
+    inputs.codex-desktop-linux.homeManagerModules.default
   ];
 
   options = {
     corncheese.development = {
       enable = lib.mkEnableOption "corncheese development environment";
+      codexPackage = lib.mkOption {
+        type = lib.types.package;
+        readOnly = true;
+        internal = true;
+        default = codex-wrapped;
+        description = "The wrapped Codex CLI package owned by the corncheese profile";
+      };
+      codexDesktop.enable = lib.mkEnableOption "Codex Desktop with regular and Andromeda profiles";
       ssh = {
         enable = lib.mkEnableOption "corncheese developer ssh config";
         onePassword = lib.mkEnableOption "corncheese developer ssh 1password integration";
@@ -251,6 +274,22 @@ in
 
   config = lib.mkIf cfg.enable {
     services.vscode-server.enable = true;
+
+    programs.codexDesktopLinux = lib.mkIf cfg.codexDesktop.enable {
+      enable = true;
+      cliPackage = codex-wrapped;
+    };
+
+    xdg.desktopEntries.codex-desktop-andromeda = lib.mkIf cfg.codexDesktop.enable {
+      name = "Codex Andromeda";
+      genericName = "AI coding assistant";
+      comment = "Codex Desktop using the Andromeda CLI profile";
+      exec = "${lib.getExe' codexAndromedaDesktop "codex-desktop-andromeda"} %U";
+      icon = "codex-desktop";
+      terminal = false;
+      categories = [ "Development" ];
+      settings.StartupWMClass = codexAndromedaDesktopAppId;
+    };
 
     programs.vscodium = lib.mkIf cfg.vscode.enable {
       enable = true;
@@ -753,6 +792,7 @@ in
     home.packages =
       with pkgs;
       builtins.concatLists [
+        (lib.optional cfg.codexDesktop.enable codexAndromedaDesktop)
         [
           # Nix
           nixd

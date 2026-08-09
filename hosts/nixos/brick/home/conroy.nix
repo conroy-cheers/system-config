@@ -115,6 +115,8 @@
     development.enable = true;
   };
 
+  corncheese.development.codexDesktop.enable = true;
+
   programs.colorshell.enable = true;
 
   wayland.windowManager.hyprland.settings = {
