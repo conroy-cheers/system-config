@@ -11,7 +11,10 @@ let
   cfg = config.andromeda.development;
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexAndromedaConfigFile = "${codexAndromedaHome}/config.toml";
-  codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
+  codexPackageBase = inputs.codex-flake.packages.${meta.system}.codex;
+  codexPackage = codexPackageBase.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./codex-resume-picker.patch ];
+  });
   andromedaShellHook =
     inputs.andromeda-shell-config.packages.${pkgs.stdenv.hostPlatform.system}.andromeda-shell-hook;
   codexAzureWorkaroundLastCheckedVersion = "0.147.0";
