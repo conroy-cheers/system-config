@@ -87,6 +87,14 @@ let
       "${codexConfigFile}" \
       ${lib.escapeShellArgs codexRemovedNixMcpServers}
   '';
+  herdrPackage = inputs.llm-agents.packages.${meta.system}.herdr;
+  installHerdrIntegrations = pkgs.writeShellScript "install-herdr-integrations" ''
+    export HOME=${lib.escapeShellArg config.home.homeDirectory}
+
+    ${pkgs.coreutils}/bin/mkdir -p "$HOME/.claude"
+    ${lib.getExe herdrPackage} integration install codex
+    ${lib.getExe herdrPackage} integration install claude
+  '';
 
   onePassPath =
     if pkgs.stdenv.hostPlatform.isDarwin then
@@ -769,6 +777,10 @@ in
       ${mergeCodexConfig}
     '';
 
+    home.activation.installHerdrIntegrations = lib.hm.dag.entryAfter [ "mergeCodexConfig" ] ''
+      ${installHerdrIntegrations}
+    '';
+
     systemd.user.services.codex-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
       Unit = {
         Description = "Merge Codex config with Nix-defined configuration";
@@ -817,6 +829,7 @@ in
           tmux
           claude-code-wrapped
           codex-wrapped
+          herdrPackage
 
           ghidra
 

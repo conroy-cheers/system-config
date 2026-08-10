@@ -161,6 +161,13 @@ let
       "${codexAndromedaConfigFile}" \
       ${lib.escapeShellArgs codexAndromedaRemovedNixKeys}
   '';
+  herdrPackage = inputs.llm-agents.packages.${meta.system}.herdr;
+  installHerdrCodexAndromedaIntegration = pkgs.writeShellScript "install-herdr-codex-andromeda-integration" ''
+    export HOME=${lib.escapeShellArg config.home.homeDirectory}
+    export CODEX_HOME=${lib.escapeShellArg codexAndromedaHome}
+
+    ${lib.getExe herdrPackage} integration install codex
+  '';
   codex-andromeda-wrapped = pkgs.symlinkJoin {
     name = "codex-andromeda-wrapped";
     paths = [ codexPackage ];
@@ -313,6 +320,12 @@ in
     home.activation.mergeCodexAndromedaConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ${mergeCodexAndromedaConfig}
     '';
+
+    home.activation.installHerdrCodexAndromedaIntegration =
+      lib.hm.dag.entryAfter [ "mergeCodexAndromedaConfig" ]
+        ''
+          ${installHerdrCodexAndromedaIntegration}
+        '';
 
     home.activation.checkCodexAzureWorkaround =
       lib.hm.dag.entryAfter
