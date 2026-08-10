@@ -38,7 +38,12 @@ const ID_LAYOUT_OPTIONS: u8 = 0x02;
 const SILAKKA54_SYNC_QUERY: u8 = 0x54;
 const SILAKKA54_SYNC_BOOTLOADER: u8 = 0x42;
 const SILAKKA54_SYNC_VERSION: u8 = 2;
+const SILAKKA54_LEGACY_SYNC_VERSION: u8 = 1;
 const SILAKKA54_SYNC_MAGIC: &[u8] = b"SL54SYN";
+const HOTPLUG_STATUS_ATTEMPTS: usize = 4;
+const HOTPLUG_STATUS_RETRY_DELAY: Duration = Duration::from_millis(750);
+const HID_TRANSACTION_RETRY_INTERVAL: Duration = Duration::from_millis(10);
+const NOTIFICATION_STATE_FILE: &str = "silakka54/firmware-notification";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -140,7 +145,7 @@ impl DeviceDescriptor {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct FirmwareStatus {
     abi_hash_prefix: String,
     runtime_hash_prefix: String,
@@ -152,11 +157,33 @@ struct FirmwareStatus {
     half: Option<KeyboardHalf>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
+struct LegacyFirmwareStatus {
+    abi_hash_prefix: String,
+    keymap_hash_prefix: String,
+    layer_count: u8,
+    rows: u8,
+    cols: u8,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "state", content = "details", rename_all = "snake_case")]
+enum FirmwareProbe {
+    NotChecked,
+    Version2(FirmwareStatus),
+    LegacyVersion1(LegacyFirmwareStatus),
+    Unavailable {
+        current_error: String,
+        legacy_error: String,
+    },
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct DeviceStatus {
     name: String,
     via_protocol: Option<u16>,
-    firmware: Option<FirmwareStatus>,
+    via_error: Option<String>,
+    firmware: FirmwareProbe,
     keymap_drift: Option<usize>,
     via_state_drift: Option<Vec<String>>,
     error: Option<String>,
@@ -961,7 +988,9 @@ fn status_command(args: StatusArgs) -> Result<(), String> {
 }
 
 fn hotplug_command() -> Result<(), String> {
-    let statuses = collect_statuses()?;
+    let statuses = collect_statuses_with_retry(collect_statuses, HOTPLUG_STATUS_ATTEMPTS, || {
+        thread::sleep(HOTPLUG_STATUS_RETRY_DELAY)
+    })?;
     if statuses.is_empty() {
         return Ok(());
     }
@@ -970,17 +999,114 @@ fn hotplug_command() -> Result<(), String> {
         sync_keymap_command()?;
     }
 
-    if statuses.iter().any(firmware_is_stale) {
-        request_user_prompt()?;
+    if let Some(key) = firmware_notification_key(&statuses) {
+        let path = notification_state_path()?;
+        if !notify_once(&path, &key, request_user_prompt)? {
+            eprintln!("Silakka54 firmware mismatch was already reported; suppressing duplicate notification");
+        }
+    } else if statuses.iter().all(firmware_is_current) {
+        clear_notification_state(&notification_state_path()?)?;
+    } else if statuses.iter().any(firmware_is_unknown) {
+        eprintln!(
+            "Silakka54 firmware status remained unavailable after {HOTPLUG_STATUS_ATTEMPTS} attempts; not sending an update notification"
+        );
     }
 
     Ok(())
 }
 
+fn collect_statuses_with_retry<F, W>(
+    mut collect: F,
+    attempts: usize,
+    mut wait: W,
+) -> Result<Vec<DeviceStatus>, String>
+where
+    F: FnMut() -> Result<Vec<DeviceStatus>, String>,
+    W: FnMut(),
+{
+    let attempts = attempts.max(1);
+    let mut statuses = collect()?;
+    for _ in 1..attempts {
+        if !statuses.iter().any(firmware_is_unknown) {
+            break;
+        }
+        wait();
+        statuses = collect()?;
+    }
+    Ok(statuses)
+}
+
+fn firmware_notification_key(statuses: &[DeviceStatus]) -> Option<String> {
+    let stale: BTreeSet<_> = statuses
+        .iter()
+        .filter(|status| firmware_is_stale(status))
+        .map(|status| match &status.firmware {
+            FirmwareProbe::Version2(firmware) => format!(
+                "v2:{}:{}",
+                firmware.abi_hash_prefix, firmware.runtime_hash_prefix
+            ),
+            FirmwareProbe::LegacyVersion1(firmware) => {
+                format!("v1:{}", firmware.abi_hash_prefix)
+            }
+            FirmwareProbe::NotChecked | FirmwareProbe::Unavailable { .. } => {
+                unreachable!("stale firmware has a confirmed status")
+            }
+        })
+        .collect();
+    if stale.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "expected:{}:{}\n{}\n",
+        hash_prefix(EXPECTED_ABI_HASH),
+        hash_prefix(EXPECTED_RUNTIME_HASH),
+        stale.into_iter().collect::<Vec<_>>().join("\n")
+    ))
+}
+
+fn notification_state_path() -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("SILAKKA54_NOTIFICATION_STATE") {
+        return Ok(PathBuf::from(path));
+    }
+    let root = std::env::var_os("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state")))
+        .ok_or("XDG_STATE_HOME and HOME are both unset")?;
+    Ok(root.join(NOTIFICATION_STATE_FILE))
+}
+
+fn notify_once<F>(path: &Path, key: &str, mut notify: F) -> Result<bool, String>
+where
+    F: FnMut() -> Result<(), String>,
+{
+    if fs::read_to_string(path).is_ok_and(|existing| existing == key) {
+        return Ok(false);
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+    }
+    let temporary = path.with_extension(format!("tmp-{}", std::process::id()));
+    fs::write(&temporary, key)
+        .map_err(|error| format!("failed to write {}: {error}", temporary.display()))?;
+    fs::rename(&temporary, path)
+        .map_err(|error| format!("failed to replace {}: {error}", path.display()))?;
+    notify()?;
+    Ok(true)
+}
+
+fn clear_notification_state(path: &Path) -> Result<(), String> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("failed to remove {}: {error}", path.display())),
+    }
+}
+
 fn watch_command() -> Result<(), String> {
     let mut previous = BTreeSet::new();
     loop {
-        match via_devices() {
+        match raw_hid_devices() {
             Ok(devices) => {
                 let current: BTreeSet<_> = devices.iter().map(DeviceDescriptor::id).collect();
                 if should_reconcile(&previous, &current) {
@@ -1175,7 +1301,11 @@ fn copy_firmware_and_verify(mount: &Path, half: KeyboardHalf) -> Result<(), Stri
             Ok(statuses)
                 if statuses.iter().any(|status| {
                     firmware_is_current(status)
-                        && status.firmware.as_ref().and_then(|firmware| firmware.half) == Some(half)
+                        && matches!(
+                            &status.firmware,
+                            FirmwareProbe::Version2(firmware)
+                                if firmware.half == Some(half)
+                        )
                 }) =>
             {
                 println!(
@@ -1233,7 +1363,8 @@ fn device_status(
     let mut status = DeviceStatus {
         name: descriptor.display_name.clone(),
         via_protocol: None,
-        firmware: None,
+        via_error: None,
+        firmware: FirmwareProbe::NotChecked,
         keymap_drift: None,
         via_state_drift: None,
         error: None,
@@ -1247,16 +1378,28 @@ fn device_status(
         }
     };
 
-    status.via_protocol = via_protocol(&device).ok();
+    match via_protocol(&device) {
+        Ok(protocol) => status.via_protocol = Some(protocol),
+        Err(error) => status.via_error = Some(error),
+    }
     if status.via_protocol.is_some() {
-        status.firmware = firmware_status(&device).ok();
+        status.firmware = match firmware_status(&device) {
+            Ok(firmware) => FirmwareProbe::Version2(firmware),
+            Err(current_error) => match legacy_firmware_status(&device) {
+                Ok(firmware) => FirmwareProbe::LegacyVersion1(firmware),
+                Err(legacy_error) => FirmwareProbe::Unavailable {
+                    current_error,
+                    legacy_error,
+                },
+            },
+        };
     }
 
-    if status
-        .firmware
-        .as_ref()
-        .is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH))
-    {
+    if matches!(
+        &status.firmware,
+        FirmwareProbe::Version2(firmware)
+            if firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH)
+    ) {
         status.keymap_drift = keymap_drift_for_device(&device, entries).ok();
         status.via_state_drift = via_state_drift_for_device(&device, desired).ok();
     }
@@ -1272,10 +1415,16 @@ fn print_device_status(status: &DeviceStatus) {
     }
     match status.via_protocol {
         Some(version) => println!("  VIA protocol: 0x{version:04x}"),
-        None => println!("  VIA protocol: unavailable (non-VIA HID interface)"),
+        None => println!(
+            "  VIA protocol: unavailable ({})",
+            status
+                .via_error
+                .as_deref()
+                .unwrap_or("non-VIA HID interface")
+        ),
     }
     match &status.firmware {
-        Some(firmware) => {
+        FirmwareProbe::Version2(firmware) => {
             let abi_state = if firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH) {
                 "current"
             } else {
@@ -1310,10 +1459,29 @@ fn print_device_status(status: &DeviceStatus) {
                 println!("  physical half: {}", half.label());
             }
         }
-        None if status.via_protocol.is_some() => {
-            println!("  firmware ABI: unavailable; full flash required")
+        FirmwareProbe::LegacyVersion1(firmware) => {
+            println!(
+                "  firmware ABI: {} (legacy protocol; flash required)",
+                firmware.abi_hash_prefix
+            );
+            println!(
+                "  factory defaults: {} (legacy)",
+                firmware.keymap_hash_prefix
+            );
+            println!(
+                "  dynamic storage: {} layers, {} rows, {} cols",
+                firmware.layer_count, firmware.rows, firmware.cols
+            );
         }
-        None => println!("  firmware ABI: not checked"),
+        FirmwareProbe::Unavailable {
+            current_error,
+            legacy_error,
+        } => {
+            println!(
+                "  firmware ABI: unavailable (current probe: {current_error}; legacy probe: {legacy_error})"
+            )
+        }
+        FirmwareProbe::NotChecked => println!("  firmware ABI: not checked"),
     }
     match status.keymap_drift {
         Some(0) => println!("  dynamic keymap: current"),
@@ -1337,21 +1505,34 @@ fn live_state_is_stale(status: &DeviceStatus) -> bool {
 }
 
 fn firmware_is_compatible(status: &DeviceStatus) -> bool {
-    status
-        .firmware
-        .as_ref()
-        .is_some_and(|firmware| firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH))
+    matches!(
+        &status.firmware,
+        FirmwareProbe::Version2(firmware)
+            if firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH)
+    )
 }
 
 fn firmware_is_current(status: &DeviceStatus) -> bool {
-    status.firmware.as_ref().is_some_and(|firmware| {
-        firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH)
-            && firmware.runtime_hash_prefix == hash_prefix(EXPECTED_RUNTIME_HASH)
-    })
+    matches!(
+        &status.firmware,
+        FirmwareProbe::Version2(firmware)
+            if firmware.abi_hash_prefix == hash_prefix(EXPECTED_ABI_HASH)
+                && firmware.runtime_hash_prefix == hash_prefix(EXPECTED_RUNTIME_HASH)
+    )
 }
 
 fn firmware_is_stale(status: &DeviceStatus) -> bool {
-    status.error.is_none() && status.via_protocol.is_some() && !firmware_is_current(status)
+    matches!(&status.firmware, FirmwareProbe::LegacyVersion1(_))
+        || matches!(&status.firmware, FirmwareProbe::Version2(_)) && !firmware_is_current(status)
+}
+
+fn firmware_is_unknown(status: &DeviceStatus) -> bool {
+    status.error.is_some()
+        || status.via_error.is_some()
+        || matches!(
+            &status.firmware,
+            FirmwareProbe::NotChecked | FirmwareProbe::Unavailable { .. }
+        )
 }
 
 fn raw_hid_devices() -> Result<Vec<DeviceDescriptor>, String> {
@@ -1432,6 +1613,31 @@ fn firmware_status(device: &dyn HidTransport) -> Result<FirmwareStatus, String> 
             2 => Some(KeyboardHalf::Right),
             _ => None,
         },
+    })
+}
+
+fn legacy_firmware_status(device: &dyn HidTransport) -> Result<LegacyFirmwareStatus, String> {
+    let mut report = command_report(ID_GET_KEYBOARD_VALUE);
+    report[1] = SILAKKA54_SYNC_QUERY;
+    report[2] = SILAKKA54_LEGACY_SYNC_VERSION;
+    let response = raw_transaction(
+        device,
+        report,
+        ID_GET_KEYBOARD_VALUE,
+        Duration::from_secs(1),
+    )?;
+    if response[1] != SILAKKA54_SYNC_QUERY || response[2] != SILAKKA54_LEGACY_SYNC_VERSION {
+        return Err("firmware did not answer legacy Silakka54 sync query".to_string());
+    }
+    if &response[3..10] != SILAKKA54_SYNC_MAGIC {
+        return Err("legacy firmware sync magic mismatch".to_string());
+    }
+    Ok(LegacyFirmwareStatus {
+        abi_hash_prefix: bytes_to_hex(&response[11..19]),
+        keymap_hash_prefix: bytes_to_hex(&response[19..27]),
+        layer_count: response[27],
+        rows: response[28],
+        cols: response[29],
     })
 }
 
@@ -1683,15 +1889,22 @@ fn raw_transaction(
 ) -> Result<[u8; REPORT_LEN], String> {
     let mut output = [0u8; REPORT_LEN + 1];
     output[1..].copy_from_slice(&report);
-    device
-        .write(&output)
-        .map_err(|error| format!("HID write failed: {error}"))?;
-
     let deadline = Instant::now() + timeout;
+    let mut next_write = Instant::now();
     let mut buffer = [0u8; REPORT_LEN + 1];
     while Instant::now() < deadline {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        let timeout_ms = remaining.min(Duration::from_millis(100)).as_millis().max(1) as i32;
+        let now = Instant::now();
+        if now >= next_write {
+            device
+                .write(&output)
+                .map_err(|error| format!("HID write failed: {error}"))?;
+            next_write = now + HID_TRANSACTION_RETRY_INTERVAL;
+        }
+        let read_deadline = deadline.min(next_write);
+        let timeout_ms = read_deadline
+            .saturating_duration_since(Instant::now())
+            .as_millis()
+            .max(1) as i32;
         let len = device
             .read_timeout(&mut buffer, timeout_ms)
             .map_err(|error| format!("HID read failed: {error}"))?;
@@ -1702,13 +1915,36 @@ fn raw_transaction(
         if normalized.len() >= REPORT_LEN && normalized[0] == expected_command {
             let mut response = [0u8; REPORT_LEN];
             response.copy_from_slice(&normalized[..REPORT_LEN]);
-            return Ok(response);
+            if response_matches_request(&report, &response) {
+                return Ok(response);
+            }
         }
     }
 
     Err(format!(
         "timed out waiting for HID response 0x{expected_command:02x}"
     ))
+}
+
+fn response_matches_request(request: &[u8; REPORT_LEN], response: &[u8; REPORT_LEN]) -> bool {
+    if response[0] != request[0] {
+        return false;
+    }
+    match request[0] {
+        ID_GET_KEYBOARD_VALUE if request[1] == SILAKKA54_SYNC_QUERY => {
+            response[1] == request[1]
+                && response[2] == request[2]
+                && (request[2] == SILAKKA54_LEGACY_SYNC_VERSION || response[3] == request[3])
+        }
+        ID_GET_KEYBOARD_VALUE => response[1] == request[1],
+        ID_SET_KEYBOARD_VALUE => response[1..6] == request[1..6],
+        ID_DYNAMIC_KEYMAP_GET_KEYCODE => response[1..4] == request[1..4],
+        ID_DYNAMIC_KEYMAP_SET_KEYCODE => response[1..6] == request[1..6],
+        ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER | ID_DYNAMIC_KEYMAP_MACRO_SET_BUFFER => {
+            response[1..4] == request[1..4]
+        }
+        _ => true,
+    }
 }
 
 fn normalize_report(buffer: &[u8]) -> &[u8] {
@@ -1863,12 +2099,17 @@ fn ask_keyboard_half() -> Result<Option<KeyboardHalf>, String> {
 
 #[cfg(target_os = "linux")]
 fn request_user_prompt() -> Result<(), String> {
-    let message = "Silakka54 firmware settings changed. Run `rebuild`, then flash the connected half explicitly.";
-    if Command::new("notify-send")
-        .args(["Silakka54 firmware update", message])
+    let message = "The connected Silakka54 firmware does not match this system generation. Flash the connected half explicitly with `silakka54-sync flash --left` or `--right`.";
+    let delivered = Command::new("notify-send")
+        .args([
+            "--app-name=Silakka54",
+            "--hint=string:x-canonical-private-synchronous:silakka54-firmware-update",
+            "Silakka54 firmware update",
+            message,
+        ])
         .status()
-        .is_err()
-    {
+        .is_ok_and(|status| status.success());
+    if !delivered {
         eprintln!("{message}");
     }
     Ok(())
@@ -1876,13 +2117,14 @@ fn request_user_prompt() -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn request_user_prompt() -> Result<(), String> {
-    let script = r#"display notification "Run rebuild, then flash the connected half explicitly." with title "Silakka54 firmware update""#;
-    if Command::new("/usr/bin/osascript")
+    let message = "The connected Silakka54 firmware does not match this system generation. Flash the connected half explicitly with silakka54-sync flash --left or --right.";
+    let script = r#"display notification "The connected Silakka54 firmware does not match this system generation. Flash the connected half explicitly with silakka54-sync flash --left or --right." with title "Silakka54 firmware update""#;
+    let delivered = Command::new("/usr/bin/osascript")
         .args(["-e", script])
         .status()
-        .is_err()
-    {
-        eprintln!("Silakka54 firmware settings changed; rebuild and flash explicitly.");
+        .is_ok_and(|status| status.success());
+    if !delivered {
+        eprintln!("{message}");
     }
     Ok(())
 }
@@ -1975,6 +2217,7 @@ fn is_bootloader_mount(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
     use std::collections::VecDeque;
     use std::sync::Mutex;
 
@@ -1997,6 +2240,61 @@ mod tests {
             data[..response.len()].copy_from_slice(&response);
             Ok(response.len())
         }
+    }
+
+    struct RetryTransport {
+        writes: Mutex<usize>,
+        response: Mutex<Option<Vec<u8>>>,
+    }
+
+    impl HidTransport for RetryTransport {
+        fn write(&self, data: &[u8]) -> Result<usize, String> {
+            *self.writes.lock().unwrap() += 1;
+            Ok(data.len())
+        }
+
+        fn read_timeout(&self, data: &mut [u8], _timeout_ms: i32) -> Result<usize, String> {
+            if *self.writes.lock().unwrap() < 2 {
+                return Ok(0);
+            }
+            let Some(response) = self.response.lock().unwrap().take() else {
+                return Ok(0);
+            };
+            data[..response.len()].copy_from_slice(&response);
+            Ok(response.len())
+        }
+    }
+
+    fn firmware_status_for(abi: &str, runtime: &str) -> FirmwareStatus {
+        FirmwareStatus {
+            abi_hash_prefix: abi.to_string(),
+            runtime_hash_prefix: runtime.to_string(),
+            keymap_hash_prefix: hash_prefix(EXPECTED_KEYMAP_HASH),
+            layer_count: 4,
+            macro_count: 8,
+            rows: 10,
+            cols: 6,
+            half: Some(KeyboardHalf::Left),
+        }
+    }
+
+    fn device_status_for(firmware: FirmwareProbe) -> DeviceStatus {
+        DeviceStatus {
+            name: "test device".to_string(),
+            via_protocol: Some(0x000d),
+            via_error: None,
+            firmware,
+            keymap_drift: Some(0),
+            via_state_drift: Some(Vec::new()),
+            error: None,
+        }
+    }
+
+    fn current_device_status() -> DeviceStatus {
+        device_status_for(FirmwareProbe::Version2(firmware_status_for(
+            &hash_prefix(EXPECTED_ABI_HASH),
+            &hash_prefix(EXPECTED_RUNTIME_HASH),
+        )))
     }
 
     #[test]
@@ -2050,6 +2348,39 @@ mod tests {
     }
 
     #[test]
+    fn transaction_retries_until_the_device_replies() {
+        let mut response = vec![0; REPORT_LEN];
+        response[0] = ID_GET_PROTOCOL_VERSION;
+        let transport = RetryTransport {
+            writes: Mutex::new(0),
+            response: Mutex::new(Some(response)),
+        };
+
+        raw_transaction(
+            &transport,
+            command_report(ID_GET_PROTOCOL_VERSION),
+            ID_GET_PROTOCOL_VERSION,
+            Duration::from_millis(200),
+        )
+        .unwrap();
+
+        assert_eq!(*transport.writes.lock().unwrap(), 2);
+    }
+
+    #[test]
+    fn transaction_correlation_rejects_a_stale_firmware_page() {
+        let mut request = command_report(ID_GET_KEYBOARD_VALUE);
+        request[1] = SILAKKA54_SYNC_QUERY;
+        request[2] = SILAKKA54_SYNC_VERSION;
+        request[3] = 1;
+        let mut stale = request;
+        stale[3] = 0;
+
+        assert!(!response_matches_request(&request, &stale));
+        assert!(response_matches_request(&request, &request));
+    }
+
+    #[test]
     fn watcher_reconciles_only_new_devices() {
         let first = BTreeSet::from([b"first".to_vec()]);
         let both = BTreeSet::from([b"first".to_vec(), b"second".to_vec()]);
@@ -2057,6 +2388,154 @@ mod tests {
         assert!(!should_reconcile(&first, &first));
         assert!(should_reconcile(&first, &both));
         assert!(!should_reconcile(&both, &BTreeSet::new()));
+    }
+
+    #[test]
+    fn unavailable_firmware_is_unknown_not_stale() {
+        let status = device_status_for(FirmwareProbe::Unavailable {
+            current_error: "timed out".to_string(),
+            legacy_error: "timed out".to_string(),
+        });
+
+        assert!(firmware_is_unknown(&status));
+        assert!(!firmware_is_stale(&status));
+        assert_eq!(firmware_notification_key(&[status]), None);
+    }
+
+    #[test]
+    fn only_confirmed_mismatches_produce_notification_keys() {
+        let stale_v2 = device_status_for(FirmwareProbe::Version2(firmware_status_for(
+            "0000000000000000",
+            "1111111111111111",
+        )));
+        let stale_v1 = device_status_for(FirmwareProbe::LegacyVersion1(LegacyFirmwareStatus {
+            abi_hash_prefix: "2222222222222222".to_string(),
+            keymap_hash_prefix: "3333333333333333".to_string(),
+            layer_count: 4,
+            rows: 10,
+            cols: 6,
+        }));
+
+        assert!(firmware_is_stale(&stale_v2));
+        assert!(firmware_is_stale(&stale_v1));
+        let key = firmware_notification_key(&[stale_v2, stale_v1]).unwrap();
+        assert!(key.contains("v2:0000000000000000:1111111111111111"));
+        assert!(key.contains("v1:2222222222222222"));
+    }
+
+    #[test]
+    fn notification_key_does_not_depend_on_hid_path() {
+        let mut first = device_status_for(FirmwareProbe::Version2(firmware_status_for(
+            "0000000000000000",
+            "1111111111111111",
+        )));
+        let mut second = first.clone();
+        first.name = "/dev/hidraw1".to_string();
+        second.name = "/dev/hidraw9".to_string();
+
+        assert_eq!(
+            firmware_notification_key(&[first]),
+            firmware_notification_key(&[second])
+        );
+    }
+
+    #[test]
+    fn hotplug_status_retries_unknown_results() {
+        let unknown = device_status_for(FirmwareProbe::Unavailable {
+            current_error: "timed out".to_string(),
+            legacy_error: "timed out".to_string(),
+        });
+        let mut responses = VecDeque::from([vec![unknown], vec![current_device_status()]]);
+        let mut collections = 0;
+        let mut waits = 0;
+
+        let statuses = collect_statuses_with_retry(
+            || {
+                collections += 1;
+                Ok(responses.pop_front().unwrap())
+            },
+            4,
+            || waits += 1,
+        )
+        .unwrap();
+
+        assert_eq!(collections, 2);
+        assert_eq!(waits, 1);
+        assert!(statuses.iter().all(firmware_is_current));
+    }
+
+    #[test]
+    fn hotplug_status_does_not_retry_confirmed_stale_firmware() {
+        let stale = device_status_for(FirmwareProbe::LegacyVersion1(LegacyFirmwareStatus {
+            abi_hash_prefix: "2222222222222222".to_string(),
+            keymap_hash_prefix: "3333333333333333".to_string(),
+            layer_count: 4,
+            rows: 10,
+            cols: 6,
+        }));
+        let mut collections = 0;
+
+        let statuses = collect_statuses_with_retry(
+            || {
+                collections += 1;
+                Ok(vec![stale.clone()])
+            },
+            4,
+            || panic!("confirmed stale state should not be retried"),
+        )
+        .unwrap();
+
+        assert_eq!(collections, 1);
+        assert!(firmware_is_stale(&statuses[0]));
+    }
+
+    #[test]
+    fn notification_state_suppresses_duplicates_and_resets() {
+        let root = std::env::temp_dir().join(format!(
+            "silakka54-notification-test-{}",
+            std::process::id()
+        ));
+        let state = root.join("firmware-notification");
+        let notifications = Cell::new(0);
+        let send = || {
+            notifications.set(notifications.get() + 1);
+            Ok(())
+        };
+
+        assert!(notify_once(&state, "first", send).unwrap());
+        assert!(!notify_once(&state, "first", send).unwrap());
+        assert!(notify_once(&state, "second", send).unwrap());
+        assert_eq!(notifications.get(), 2);
+        assert_eq!(fs::read_to_string(&state).unwrap(), "second");
+
+        clear_notification_state(&state).unwrap();
+        assert!(!state.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_firmware_probe_confirms_version_one_status() {
+        let transport = MockTransport::default();
+        let mut response = vec![0; REPORT_LEN];
+        response[0] = ID_GET_KEYBOARD_VALUE;
+        response[1] = SILAKKA54_SYNC_QUERY;
+        response[2] = SILAKKA54_LEGACY_SYNC_VERSION;
+        response[3..10].copy_from_slice(SILAKKA54_SYNC_MAGIC);
+        response[11..19].copy_from_slice(&[0x11; 8]);
+        response[19..27].copy_from_slice(&[0x22; 8]);
+        response[27] = 4;
+        response[28] = 10;
+        response[29] = 6;
+        transport.reads.lock().unwrap().push_back(response);
+
+        let firmware = legacy_firmware_status(&transport).unwrap();
+
+        assert_eq!(firmware.abi_hash_prefix, "1111111111111111");
+        assert_eq!(firmware.keymap_hash_prefix, "2222222222222222");
+        assert_eq!(
+            (firmware.layer_count, firmware.rows, firmware.cols),
+            (4, 10, 6)
+        );
     }
 
     #[test]
