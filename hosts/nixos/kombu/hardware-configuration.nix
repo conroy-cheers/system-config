@@ -17,7 +17,11 @@
       "usb_storage"
       "sd_mod"
     ];
-    initrd.kernelModules = [ ];
+    initrd.kernelModules = [
+      "nvidia"
+      "nvidia_modeset"
+      "nvidia_drm"
+    ];
     kernelModules = [
       "kvm-amd"
       "it87"
