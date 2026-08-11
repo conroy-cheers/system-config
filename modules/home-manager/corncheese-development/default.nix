@@ -101,13 +101,20 @@ let
       ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
     else
       "~/.1password/agent.sock";
-  nebulaHostAddresses = import ../../common/corncheese-development/nebula-hosts.nix;
-  nebulaSshSettings = lib.mapAttrs (_name: address: {
-    HostName = address;
-    User = "conroy";
-    IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
-    IdentitiesOnly = true;
-  }) nebulaHostAddresses;
+  nebulaInventory = import ../../common/corncheese-development/nebula-inventory.nix { inherit lib; };
+  sshIdentities = nebulaInventory.identities;
+  nebulaHosts = nebulaInventory.hosts;
+  nebulaSshSettings = lib.concatMapAttrs (
+    name: host:
+    lib.optionalAttrs (host.ssh != null) {
+      ${name} = {
+        HostName = host.address;
+        User = host.ssh.user;
+        IdentityFile = "${config.home.homeDirectory}/.ssh/${sshIdentities.${host.ssh.identity}.fileName}";
+        IdentitiesOnly = true;
+      };
+    }
+  ) nebulaHosts;
   homeJumpHosts = [
     "pve"
     "bigbrain"
@@ -741,19 +748,12 @@ in
 
     home.file = lib.mkMerge [
       (lib.mkIf cfg.ssh.enable (
-        let
-          # Get all files from the source directory
-          sshFiles = builtins.readDir ./pubkeys;
-
-          # Create a set of file mappings for each identity file
-          fileMapper = filename: {
-            # Target path will be in ~/.ssh/
-            ".ssh/${filename}".source = pkgs.copyPathToStore (./pubkeys + "/${filename}");
-          };
-        in
-        lib.mkMerge [
-          (lib.foldl (acc: filename: acc // (fileMapper filename)) { } (builtins.attrNames sshFiles))
-        ]
+        lib.mapAttrs' (
+          _name: identity:
+          lib.nameValuePair ".ssh/${identity.fileName}" {
+            text = "${identity.publicKey}\n";
+          }
+        ) sshIdentities
       ))
     ];
 

@@ -5,17 +5,26 @@
 }:
 
 let
-  hostAddresses = import ./nebula-hosts.nix;
+  inventory = import ./nebula-inventory.nix { inherit lib; };
+  inherit (inventory) hosts;
+  hostAddresses = lib.mapAttrs (_: host: host.address) hosts;
   pkiDir = ./nebula-pki;
   lighthouseAddress = hostAddresses.snow;
   isLighthouse = hostName == "snow";
 in
 {
-  inherit hostAddresses lighthouseAddress isLighthouse;
+  inherit
+    hosts
+    hostAddresses
+    inventory
+    lighthouseAddress
+    isLighthouse
+    ;
 
   caCertificate = pkiDir + "/ca.crt";
   hostCertificate = pkiDir + "/${hostName}.crt";
-  managedHost = builtins.hasAttr hostName hostAddresses;
+  host = hosts.${hostName} or null;
+  managedHost = builtins.hasAttr hostName hosts;
   hasHostCertificate = builtins.pathExists (pkiDir + "/${hostName}.crt");
   lighthouses = lib.optional (!isLighthouse) lighthouseAddress;
   relays = lib.optional (!isLighthouse) lighthouseAddress;

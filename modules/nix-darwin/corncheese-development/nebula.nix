@@ -13,6 +13,8 @@ let
     inherit lib hostName;
     inherit (cfg) lighthouseEndpoints;
   };
+  ssh = if mesh.host == null then null else mesh.host.ssh;
+  sshIdentity = if ssh == null then null else mesh.inventory.identities.${ssh.identity};
   active = cfg.enable && mesh.managedHost && meta.pubkey != null && mesh.hasHostCertificate;
   keyPath = config.age.secrets."corncheese.nebula.key".path;
   hostsBlock = pkgs.writeText "nebula-corncheese-hosts" (
@@ -58,38 +60,54 @@ in
 {
   imports = [ ../../common/corncheese-development/nebula.nix ];
 
-  config = {
-    system.activationScripts.networking.text = lib.mkAfter ''
-      nebula_hosts_tmp=$(/usr/bin/mktemp /etc/hosts.nebula.XXXXXX)
-      /usr/bin/awk '
-        $0 == "# BEGIN corncheese Nebula hosts" { managed = 1; next }
-        $0 == "# END corncheese Nebula hosts" { managed = 0; next }
-        !managed { print }
-      ' /etc/hosts > "$nebula_hosts_tmp"
-      ${lib.optionalString active ''
-        /bin/cat ${hostsBlock} >> "$nebula_hosts_tmp"
-      ''}
-      /usr/sbin/chown root:wheel "$nebula_hosts_tmp"
-      /bin/chmod 0644 "$nebula_hosts_tmp"
-      /bin/mv "$nebula_hosts_tmp" /etc/hosts
-    '';
+  config = lib.mkMerge [
+    (lib.mkIf (ssh != null) {
+      assertions = [
+        {
+          assertion = ssh.user == "root" || lib.elem ssh.user config.users.knownUsers;
+          message = ''
+            Nebula SSH user `${ssh.user}` for `${hostName}` must already be
+            declared in users.knownUsers.
+          '';
+        }
+      ];
 
-    launchd.daemons.nebula-corncheese = lib.mkIf active {
-      script = ''
-        if [ ! -r ${lib.escapeShellArg keyPath} ]; then
-          echo "Nebula key is not readable yet: ${keyPath}" >&2
-          exit 1
-        fi
+      users.users.${ssh.user}.openssh.authorizedKeys.keys = [ sshIdentity.publicKey ];
+    })
 
-        exec ${lib.getExe' pkgs.nebula "nebula"} -config ${nebulaConfig}
+    {
+      system.activationScripts.networking.text = lib.mkAfter ''
+        nebula_hosts_tmp=$(/usr/bin/mktemp /etc/hosts.nebula.XXXXXX)
+        /usr/bin/awk '
+          $0 == "# BEGIN corncheese Nebula hosts" { managed = 1; next }
+          $0 == "# END corncheese Nebula hosts" { managed = 0; next }
+          !managed { print }
+        ' /etc/hosts > "$nebula_hosts_tmp"
+        ${lib.optionalString active ''
+          /bin/cat ${hostsBlock} >> "$nebula_hosts_tmp"
+        ''}
+        /usr/sbin/chown root:wheel "$nebula_hosts_tmp"
+        /bin/chmod 0644 "$nebula_hosts_tmp"
+        /bin/mv "$nebula_hosts_tmp" /etc/hosts
       '';
-      serviceConfig = {
-        RunAtLoad = true;
-        KeepAlive = true;
-        ThrottleInterval = 5;
-        StandardOutPath = "/var/log/nebula-corncheese.out.log";
-        StandardErrorPath = "/var/log/nebula-corncheese.err.log";
+
+      launchd.daemons.nebula-corncheese = lib.mkIf active {
+        script = ''
+          if [ ! -r ${lib.escapeShellArg keyPath} ]; then
+            echo "Nebula key is not readable yet: ${keyPath}" >&2
+            exit 1
+          fi
+
+          exec ${lib.getExe' pkgs.nebula "nebula"} -config ${nebulaConfig}
+        '';
+        serviceConfig = {
+          RunAtLoad = true;
+          KeepAlive = true;
+          ThrottleInterval = 5;
+          StandardOutPath = "/var/log/nebula-corncheese.out.log";
+          StandardErrorPath = "/var/log/nebula-corncheese.err.log";
+        };
       };
-    };
-  };
+    }
+  ];
 }

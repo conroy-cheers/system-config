@@ -219,9 +219,6 @@ in
         "dialout"
         "video"
       ];
-      openssh.authorizedKeys.keys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINKbNTRUenigTtrUSGKImYezWzT/KFOR7dZSpSuvsKNY"
-      ];
       hashedPasswordFile = config.age.secrets."conroy.user.password".path;
       shell = pkgs.fish;
     };

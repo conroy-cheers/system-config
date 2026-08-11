@@ -13,9 +13,6 @@
     uid = 501;
     description = "Conroy Cheers";
     home = "/Users/conroy";
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
-    ];
     shell = pkgs.fish;
   };
   users.knownUsers = [ "conroy" ];

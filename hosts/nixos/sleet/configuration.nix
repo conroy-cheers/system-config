@@ -416,9 +416,6 @@ in
   users.users.conroy = {
     isNormalUser = true;
     hashedPasswordFile = config.age.secrets."conroy.user.password".path;
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINKbNTRUenigTtrUSGKImYezWzT/KFOR7dZSpSuvsKNY" # conroy-home
-    ];
     shell = pkgs.fish;
     extraGroups = [
       "wheel"

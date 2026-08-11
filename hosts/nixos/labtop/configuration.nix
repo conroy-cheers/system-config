@@ -255,7 +255,6 @@
     isNormalUser = true;
     hashedPasswordFile = config.age.secrets."conroy.user.password".path;
     openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKvtQAUGvh3UmjM7blBM86VItgYD+22HYKzCBrXDsFGB" # conroy
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICfUubORT1oZ+j5COiJKOUi9Bq7Lvc0vWc9/oIK03w3e" # labtop system key
     ];
     shell = pkgs.zsh;
