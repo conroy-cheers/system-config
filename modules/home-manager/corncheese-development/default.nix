@@ -14,8 +14,20 @@ let
   walbridgeRuntimeThemeEnabled = pkgs.stdenv.hostPlatform.isLinux && colorshellEnabled;
 
   codexHome = "${config.home.homeDirectory}/.codex";
+  codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexConfigFile = "${codexHome}/config.toml";
   ccusagePackage = inputs.llm-agents.packages.${meta.system}.ccusage;
+  ccusageCodexHomes = [
+    codexHome
+  ]
+  ++ lib.optional config.andromeda.development.enable codexAndromedaHome;
+  ccusage = pkgs.writeShellApplication {
+    name = "ccusage";
+    text = ''
+      export CODEX_HOME=${lib.escapeShellArg (lib.concatStringsSep "," ccusageCodexHomes)}
+      exec ${lib.getExe ccusagePackage} "$@"
+    '';
+  };
   codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
     tui.pet = "rocky";
     mcp_servers.ReVa = {
@@ -145,7 +157,6 @@ let
           lib.makeBinPath (
             with pkgs;
             [
-              ccusagePackage
               ripgrep
               fd
               gnused
@@ -228,7 +239,7 @@ let
         mkdir -p "$out/bin"
         makeWrapper ${lib.getExe' codexDesktopPackage "codex-desktop"} "$out/bin/codex-desktop-andromeda" \
           --set CODEX_CLI_PATH "${lib.getExe' config.andromeda.development.codexPackage "codex-andromeda"}" \
-          --set CODEX_HOME "${config.home.homeDirectory}/.codex-andromeda" \
+          --set CODEX_HOME "${codexAndromedaHome}" \
           --set CODEX_APP_ID "${codexAndromedaDesktopAppId}" \
           --set CODEX_LINUX_APP_ID "${codexAndromedaDesktopAppId}" \
           --set CODEX_LINUX_APP_DISPLAY_NAME "Codex Andromeda" \
@@ -831,6 +842,7 @@ in
           tmux
           claude-code-wrapped
           codex-wrapped
+          ccusage
           herdrPackage
 
           ghidra
