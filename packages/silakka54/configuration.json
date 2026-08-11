@@ -1,10 +1,28 @@
 {
+  "qmk": {
+    "defines": {
+      "CHORDAL_HOLD": true,
+      "DYNAMIC_KEYMAP_LAYER_COUNT": 8,
+      "DYNAMIC_KEYMAP_MACRO_COUNT": 16,
+      "EE_HANDS": true,
+      "FLOW_TAP_TERM": 150,
+      "HOLD_ON_OTHER_KEY_PRESS": false,
+      "PERMISSIVE_HOLD": true,
+      "QUICK_TAP_TERM": 120,
+      "RETRO_TAPPING": false,
+      "TAPPING_TERM": 220
+    },
+    "rules": {
+      "LAYER_LOCK_ENABLE": true,
+      "RAW_ENABLE": true,
+      "VIA_ENABLE": true
+    }
+  },
   "schema_version": 1,
   "via": {
     "layers": [
       {
         "id": "_BASE",
-        "name": "Base",
         "keys": [
           "KC_ESC",
           "KC_1",
@@ -54,17 +72,17 @@
           "KC_SCLN",
           "KC_DOT",
           "KC_LSFT",
-          "Nav",
-          "Num",
+          "MO(_NAV)",
+          "MO(_NUM)",
           "KC_SPC",
           "KC_RSFT",
           "KC_ENT",
-          "Sym"
-        ]
+          "MO(_SYM)"
+        ],
+        "name": "Base"
       },
       {
         "id": "_NUM",
-        "name": "Num",
         "keys": [
           "KC_TRNS",
           "KC_TRNS",
@@ -120,11 +138,11 @@
           "KC_TRNS",
           "KC_0",
           "KC_TRNS"
-        ]
+        ],
+        "name": "Num"
       },
       {
         "id": "_NAV",
-        "name": "Nav",
         "keys": [
           "KC_TRNS",
           "KC_TRNS",
@@ -137,7 +155,7 @@
           "KC_TRNS",
           "KC_TRNS",
           "KC_TRNS",
-          "KC_TRNS",
+          "KC_PSCR",
           "KC_TRNS",
           "KC_TRNS",
           "KC_TRNS",
@@ -180,11 +198,11 @@
           "KC_TRNS",
           "KC_TRNS",
           "KC_DEL"
-        ]
+        ],
+        "name": "Nav"
       },
       {
         "id": "_SYM",
-        "name": "Sym",
         "keys": [
           "KC_TRNS",
           "KC_TRNS",
@@ -240,29 +258,11 @@
           "KC_TRNS",
           "KC_TRNS",
           "KC_TRNS"
-        ]
+        ],
+        "name": "Sym"
       }
     ],
     "layout_options": 0,
     "macros": []
-  },
-  "qmk": {
-    "defines": {
-      "TAPPING_TERM": 220,
-      "QUICK_TAP_TERM": 120,
-      "FLOW_TAP_TERM": 150,
-      "PERMISSIVE_HOLD": true,
-      "HOLD_ON_OTHER_KEY_PRESS": false,
-      "RETRO_TAPPING": false,
-      "CHORDAL_HOLD": true,
-      "EE_HANDS": true,
-      "DYNAMIC_KEYMAP_LAYER_COUNT": 8,
-      "DYNAMIC_KEYMAP_MACRO_COUNT": 16
-    },
-    "rules": {
-      "VIA_ENABLE": true,
-      "RAW_ENABLE": true,
-      "LAYER_LOCK_ENABLE": true
-    }
   }
 }
