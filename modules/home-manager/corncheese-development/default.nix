@@ -15,6 +15,7 @@ let
 
   codexHome = "${config.home.homeDirectory}/.codex";
   codexConfigFile = "${codexHome}/config.toml";
+  ccusagePackage = inputs.llm-agents.packages.${meta.system}.ccusage;
   codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
     tui.pet = "rocky";
     mcp_servers.ReVa = {
@@ -144,6 +145,7 @@ let
           lib.makeBinPath (
             with pkgs;
             [
+              ccusagePackage
               ripgrep
               fd
               gnused

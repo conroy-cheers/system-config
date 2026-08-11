@@ -12,6 +12,7 @@ let
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexAndromedaConfigFile = "${codexAndromedaHome}/config.toml";
   codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
+  ccusagePackage = inputs.llm-agents.packages.${meta.system}.ccusage;
   andromedaShellHook =
     inputs.andromeda-shell-config.packages.${pkgs.stdenv.hostPlatform.system}.andromeda-shell-hook;
   codexAzureWorkaroundLastCheckedVersion = "0.147.0";
@@ -180,6 +181,7 @@ let
         --run '${pkgs.coreutils}/bin/mkdir -p "${codexAndromedaHome}"' \
         --prefix PATH : ${
           lib.makeBinPath [
+            ccusagePackage
             pkgs.azure-cli
             pkgs.ripgrep
             pkgs.fd
