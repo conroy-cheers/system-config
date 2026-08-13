@@ -14,6 +14,102 @@ let
   codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
   andromedaShellHook =
     inputs.andromeda-shell-config.packages.${pkgs.stdenv.hostPlatform.system}.andromeda-shell-hook;
+  bitwardenMasterPasswordItemId = "usoq2y3rdt2pgetb7rfpqhufpe";
+  bitwardenSsoIdentifier = "andromeda";
+  bitwardenAuthenticated = pkgs.writeShellApplication {
+    name = "bw-auth";
+    runtimeInputs = [
+      pkgs.bitwarden-cli
+      pkgs.jq
+      pkgs.util-linux
+    ];
+    text = ''
+      if [ "$#" -eq 0 ]; then
+        exec bw
+      fi
+
+      for argument in "$@"; do
+        case "$argument" in
+          --session|--session=*)
+            echo "bw-auth manages the session; use bw directly to pass --session" >&2
+            exit 2
+            ;;
+        esac
+      done
+
+      command=
+      for argument in "$@"; do
+        case "$argument" in
+          -*)
+            ;;
+          *)
+            command="$argument"
+            break
+            ;;
+        esac
+      done
+
+      case "$command" in
+        status|sync|list|get|create|edit|delete|restore|move|confirm|import|export|share|archive|send|receive)
+          ;;
+        serve)
+          echo "bw-auth does not support the long-running 'serve' command; authenticate and run bw serve directly" >&2
+          exit 2
+          ;;
+        *)
+          exec bw "$@"
+          ;;
+      esac
+
+      umask 077
+      unset BW_SESSION
+
+      lock_directory=${lib.escapeShellArg "${config.xdg.cacheHome}/bw-auth"}
+      mkdir -p "$lock_directory"
+      exec 9>"$lock_directory/lock"
+      flock 9
+
+      if [ -x /run/wrappers/bin/op ]; then
+        op_cli=/run/wrappers/bin/op
+      else
+        op_cli=${lib.getExe pkgs._1password-cli}
+      fi
+
+      status="$(bw status --raw | jq -er '.status')"
+      case "$status" in
+        unauthenticated)
+          if ! { true </dev/tty; } 2>/dev/null; then
+            echo "Bitwarden SSO login requires a terminal; run 'bw login --sso' interactively and retry" >&2
+            exit 1
+          fi
+          bw login --sso ${lib.escapeShellArg bitwardenSsoIdentifier} </dev/tty >&2
+          ;;
+        locked)
+          ;;
+        unlocked)
+          ;;
+        *)
+          echo "unexpected Bitwarden CLI status: $status" >&2
+          exit 1
+          ;;
+      esac
+
+      session="$(
+        "$op_cli" item get ${lib.escapeShellArg bitwardenMasterPasswordItemId} \
+          --fields label=password \
+          --reveal \
+          | bw unlock --passwordfile /dev/stdin --raw
+      )"
+
+      if [ -z "$session" ]; then
+        echo "Bitwarden unlock returned an empty session key" >&2
+        exit 1
+      fi
+
+      export BW_SESSION="$session"
+      exec bw "$@"
+    '';
+  };
   codexAzureWorkaroundLastCheckedVersion = "0.147.0";
   # Codex 0.147.0 wraps Responses Lite tools in a `functions` namespace with an
   # empty description, which Azure rejects. Remove this override after
@@ -458,8 +554,10 @@ in
 
     home.packages = [
       andromedaShellHook
+      bitwardenAuthenticated
       codex-andromeda-wrapped
       pkgs.atlassian-cli
+      pkgs.bitwarden-cli
     ];
 
     # The dispatcher must run after direnv or direnv-instant has selected the
