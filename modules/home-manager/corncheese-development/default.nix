@@ -29,6 +29,12 @@ let
     '';
   };
   codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
+    skills.config = [
+      {
+        name = "github:yeet";
+        enabled = false;
+      }
+    ];
     tui.pet = "rocky";
     mcp_servers.ReVa = {
       command = lib.getExe pkgs.reverse-engineering-assistant;

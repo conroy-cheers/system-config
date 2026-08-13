@@ -153,6 +153,12 @@ let
     "users_search"
   ];
   codexAndromedaConfig = (pkgs.formats.toml { }).generate "codex-andromeda-config.toml" {
+    skills.config = [
+      {
+        name = "github:yeet";
+        enabled = false;
+      }
+    ];
     model = "gpt-5.6-sol";
     model_catalog_json = "${codexAzureModelCatalog}";
     model_provider = "azure";
