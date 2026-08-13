@@ -67,6 +67,12 @@ in
         focus_on_activate = true;
       }
 
+      # Follow activation requests when opening links in the existing browser window.
+      {
+        match.class = "^(chromium-browser)$";
+        focus_on_activate = true;
+      }
+
       {
         match = {
           class = "^(firefox)$";
