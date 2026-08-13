@@ -278,6 +278,7 @@ let
     postBuild = ''
       mv $out/bin/codex $out/bin/codex-andromeda
       wrapProgram $out/bin/codex-andromeda \
+        --argv0 codex \
         --set CODEX_HOME "${codexAndromedaHome}" \
         --run '${pkgs.coreutils}/bin/mkdir -p "${codexAndromedaHome}"' \
         --prefix PATH : ${
