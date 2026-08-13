@@ -313,6 +313,15 @@ in
   config = lib.mkIf cfg.enable {
     services.vscode-server.enable = true;
 
+    programs.herdr = {
+      enable = true;
+      package = herdrPackage;
+      settings = {
+        onboarding = false;
+        ui.agent_panel_sort = "spaces";
+        experimental.kitty_graphics = true;
+      };
+    };
     programs.codexDesktopLinux = lib.mkIf cfg.codexDesktop.enable {
       enable = true;
       cliPackage = codex-wrapped;
@@ -776,7 +785,10 @@ in
       ))
     ];
 
-    xdg.configFile = lib.mkIf cfg.ssh.onePassword {
+    xdg.configFile = {
+      "herdr/config.toml".force = true;
+    }
+    // lib.optionalAttrs cfg.ssh.onePassword {
       "1Password/ssh/agent.toml".text = lib.mkAfter ''
         [[ssh-keys]]
         vault = "Private"
@@ -849,7 +861,6 @@ in
           claude-code-wrapped
           codex-wrapped
           ccusage
-          herdrPackage
 
           ghidra
 
