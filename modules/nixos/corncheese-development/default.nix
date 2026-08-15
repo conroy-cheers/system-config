@@ -65,14 +65,23 @@ in
           content = ''
             $githubConfig
           '';
-          path = "/etc/nix/nix.extra-access-tokens.conf";
           mode = "0444";
         };
       };
 
       nix.extraOptions = ''
-        !include ${builtins.baseNameOf config.age-template.files."nix.extra-access-tokens.conf".path}
+        !include ${config.age-template.files."nix.extra-access-tokens.conf".path}
       '';
+
+      system.activationScripts.nixExtraAccessTokensMigration =
+        lib.stringAfter
+          [
+            "agenix-template-nix.extra-access-tokens.conf"
+          ]
+          ''
+            rm -f /etc/nix/nix.extra-access-tokens.conf
+            chmod 0755 /etc/nix
+          '';
     })
     (lib.mkIf cfg.enable {
       nix = {
