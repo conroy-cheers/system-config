@@ -35,6 +35,7 @@ const ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER_SIZE: u8 = 0x0d;
 const ID_DYNAMIC_KEYMAP_MACRO_GET_BUFFER: u8 = 0x0e;
 const ID_DYNAMIC_KEYMAP_MACRO_SET_BUFFER: u8 = 0x0f;
 const ID_LAYOUT_OPTIONS: u8 = 0x02;
+const SILAKKA54_SYNC_LAYER: u8 = 0x4c;
 const SILAKKA54_SYNC_QUERY: u8 = 0x54;
 const SILAKKA54_SYNC_BOOTLOADER: u8 = 0x42;
 const SILAKKA54_SYNC_VERSION: u8 = 2;
@@ -214,6 +215,7 @@ fn main() -> ExitCode {
             parse_config_arg(&remaining).and_then(sync_keymap_command_with_config)
         }
         "config" => config_command(&remaining),
+        "layer" => layer_command(&remaining),
         "flash" | "flash-firmware" => parse_flash_args(remaining.into_iter())
             .and_then(|(yes, half)| flash_firmware_command(yes, half)),
         "hotplug" => hotplug_command(),
@@ -242,6 +244,9 @@ fn print_help() {
     println!("  config options [--search TERM] [--json]");
     println!("  config diff [--config FILE]");
     println!("  config snapshot-live [--config FILE] [--output FILE]");
+    println!(
+        "  layer NAME                   Move to a configured layer (for example Game or Base)"
+    );
     println!("  flash --left|--right [--yes]");
     println!("  hotplug | watch");
 }
@@ -325,6 +330,77 @@ fn config_command(args: &[String]) -> Result<(), String> {
         "snapshot-live" => snapshot_live_command(rest),
         other => Err(format!("unknown config command: {other}")),
     }
+}
+
+fn resolve_layer(config: &Configuration, requested: &str) -> Result<(u8, String), String> {
+    let matches: Vec<_> = config
+        .via
+        .layers
+        .iter()
+        .enumerate()
+        .filter(|(_, layer)| {
+            layer.name.eq_ignore_ascii_case(requested)
+                || layer.id.eq_ignore_ascii_case(requested)
+                || layer
+                    .id
+                    .strip_prefix('_')
+                    .is_some_and(|id| id.eq_ignore_ascii_case(requested))
+        })
+        .collect();
+    match matches.as_slice() {
+        [(index, layer)] => Ok((
+            u8::try_from(*index).map_err(|_| "configured layer index exceeds 255".to_string())?,
+            layer.name.clone(),
+        )),
+        [] => Err(format!(
+            "unknown layer {requested:?}; configured layers are {}",
+            config
+                .via
+                .layers
+                .iter()
+                .map(|layer| layer.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+        _ => Err(format!("layer name {requested:?} is ambiguous")),
+    }
+}
+
+fn layer_command(args: &[String]) -> Result<(), String> {
+    let [requested] = args else {
+        return Err("layer requires exactly one configured layer name".to_string());
+    };
+    let config = load_configuration(Path::new(CONFIGURATION_PATH))?;
+    let (target, name) = resolve_layer(&config, requested)?;
+    let devices = via_devices()?;
+    let descriptor = match devices.as_slice() {
+        [descriptor] => descriptor,
+        [] => return Err("no connected VIA-capable Silakka54 device".to_string()),
+        _ => {
+            return Err(
+                "multiple Silakka54 devices are connected; layer requires exactly one"
+                    .to_string(),
+            );
+        }
+    };
+    let device = open_hid(descriptor)?;
+    let firmware = firmware_status(&device)?;
+    if firmware.abi_hash_prefix != hash_prefix(EXPECTED_ABI_HASH)
+        || firmware.runtime_hash_prefix != hash_prefix(EXPECTED_RUNTIME_HASH)
+    {
+        return Err(
+            "connected firmware is not current; flash it before setting a layer".to_string(),
+        );
+    }
+    if target >= firmware.layer_count {
+        return Err(format!(
+            "connected firmware exposes {} layers, but {name} is layer {target}",
+            firmware.layer_count
+        ));
+    }
+    set_active_layer(&device, target)?;
+    println!("Silakka54 layer set to {name} ({target}).");
+    Ok(())
 }
 
 fn config_options_command(args: &[String]) -> Result<(), String> {
@@ -490,6 +566,13 @@ fn describe_keycode(
     layer_ids: &[String],
     keycodes: &BTreeMap<String, u16>,
 ) -> Result<String, String> {
+    if (0x5200..=0x521f).contains(&keycode) {
+        let layer = usize::from(keycode - 0x5200);
+        return layer_ids
+            .get(layer)
+            .map(|id| format!("TO({id})"))
+            .ok_or_else(|| format!("live keycode references unknown layer {layer}"));
+    }
     if (0x5220..=0x522f).contains(&keycode) {
         let layer = usize::from(keycode - 0x5220);
         return layer_ids
@@ -865,6 +948,13 @@ fn resolve_keycode(
             .ok_or_else(|| format!("unknown layer in {expression}: {value}"))
     };
     match (function, arguments.as_slice()) {
+        ("TO", [target]) => {
+            let target = layer(target)?;
+            if target > 31 {
+                return Err(format!("layer move target must be 0 through 31: {expression}"));
+            }
+            Ok(0x5200 | u16::from(target))
+        }
         ("MO", [target]) => Ok(0x5220 | u16::from(layer(target)?)),
         ("LT", [target, tap]) => {
             let tap = resolve_keycode(tap, layer_ids, keycodes)?;
@@ -1683,6 +1773,38 @@ fn silakka54_bootloader_jump(device: &dyn HidTransport) -> Result<(), String> {
     Ok(())
 }
 
+fn set_active_layer(device: &dyn HidTransport, target: u8) -> Result<(), String> {
+    let mut report = command_report(ID_GET_KEYBOARD_VALUE);
+    report[1] = SILAKKA54_SYNC_LAYER;
+    report[2] = SILAKKA54_SYNC_VERSION;
+    report[3] = target;
+    let response = raw_transaction(
+        device,
+        report,
+        ID_GET_KEYBOARD_VALUE,
+        Duration::from_secs(1),
+    )?;
+    if response[1] != SILAKKA54_SYNC_LAYER
+        || response[2] != SILAKKA54_SYNC_VERSION
+        || response[3] != target
+    {
+        return Err("firmware did not acknowledge the layer move".to_string());
+    }
+    if &response[4..11] != SILAKKA54_SYNC_MAGIC {
+        return Err("firmware sync magic mismatch".to_string());
+    }
+    if response[11] != 0 {
+        return Err(format!("firmware rejected layer {target}"));
+    }
+    if response[12] != target {
+        return Err(format!(
+            "firmware acknowledged layer {target}, but reports layer {}",
+            response[12]
+        ));
+    }
+    Ok(())
+}
+
 fn get_layout_options(device: &dyn HidTransport) -> Result<u32, String> {
     let mut report = command_report(ID_GET_KEYBOARD_VALUE);
     report[1] = ID_LAYOUT_OPTIONS;
@@ -1931,7 +2053,10 @@ fn response_matches_request(request: &[u8; REPORT_LEN], response: &[u8; REPORT_L
         return false;
     }
     match request[0] {
-        ID_GET_KEYBOARD_VALUE if request[1] == SILAKKA54_SYNC_QUERY => {
+        ID_GET_KEYBOARD_VALUE
+            if request[1] == SILAKKA54_SYNC_QUERY
+                || request[1] == SILAKKA54_SYNC_LAYER =>
+        {
             response[1] == request[1]
                 && response[2] == request[2]
                 && (request[2] == SILAKKA54_LEGACY_SYNC_VERSION || response[3] == request[3])
@@ -2381,6 +2506,65 @@ mod tests {
     }
 
     #[test]
+    fn layer_move_uses_the_versioned_sync_command() {
+        let transport = MockTransport::default();
+        let mut response = vec![0; REPORT_LEN];
+        response[0] = ID_GET_KEYBOARD_VALUE;
+        response[1] = SILAKKA54_SYNC_LAYER;
+        response[2] = SILAKKA54_SYNC_VERSION;
+        response[3] = 4;
+        response[4..11].copy_from_slice(SILAKKA54_SYNC_MAGIC);
+        response[12] = 4;
+        transport.reads.lock().unwrap().push_back(response);
+
+        set_active_layer(&transport, 4).unwrap();
+
+        let writes = transport.writes.lock().unwrap();
+        assert_eq!(writes[0][1], ID_GET_KEYBOARD_VALUE);
+        assert_eq!(writes[0][2], SILAKKA54_SYNC_LAYER);
+        assert_eq!(writes[0][3], SILAKKA54_SYNC_VERSION);
+        assert_eq!(writes[0][4], 4);
+    }
+
+    #[test]
+    fn layer_resolution_accepts_display_and_identifier_names() {
+        let config = Configuration {
+            schema_version: 1,
+            via: ViaConfiguration {
+                layers: vec![
+                    ConfiguredLayer {
+                        id: "_BASE".to_string(),
+                        name: "Base".to_string(),
+                        keys: Vec::new(),
+                    },
+                    ConfiguredLayer {
+                        id: "_GAME".to_string(),
+                        name: "Game".to_string(),
+                        keys: Vec::new(),
+                    },
+                ],
+                layout_options: 0,
+                macros: Vec::new(),
+            },
+            qmk: QmkConfiguration {
+                defines: BTreeMap::new(),
+                rules: BTreeMap::new(),
+                tap_hold: TapHoldConfiguration::default(),
+                combos: Vec::new(),
+            },
+        };
+
+        assert_eq!(
+            resolve_layer(&config, "game").unwrap(),
+            (1, "Game".to_string())
+        );
+        assert_eq!(
+            resolve_layer(&config, "_BASE").unwrap(),
+            (0, "Base".to_string())
+        );
+    }
+
+    #[test]
     fn watcher_reconciles_only_new_devices() {
         let first = BTreeSet::from([b"first".to_vec()]);
         let both = BTreeSet::from([b"first".to_vec(), b"second".to_vec()]);
@@ -2559,6 +2743,30 @@ mod tests {
         assert_eq!(
             resolve_keycode("Nav", &layers, &BTreeMap::new()).unwrap(),
             0x5222
+        );
+    }
+
+    #[test]
+    fn layer_move_round_trips_configuration_expression() {
+        let layer_map = BTreeMap::from([("_BASE", 0), ("_GAME", 4)]);
+        let layer_ids = vec![
+            "_BASE".to_string(),
+            "_NUM".to_string(),
+            "_NAV".to_string(),
+            "_SYM".to_string(),
+            "_GAME".to_string(),
+        ];
+        assert_eq!(
+            resolve_keycode("TO(_GAME)", &layer_map, &BTreeMap::new()).unwrap(),
+            0x5204
+        );
+        assert_eq!(
+            describe_keycode(0x5200, &layer_ids, &BTreeMap::new()).unwrap(),
+            "TO(_BASE)"
+        );
+        assert_eq!(
+            describe_keycode(0x5204, &layer_ids, &BTreeMap::new()).unwrap(),
+            "TO(_GAME)"
         );
     }
 

@@ -188,6 +188,7 @@ rustPlatform.buildRustPackage {
       "silakka54_sync": {
         "query": "0x54",
         "bootloader_jump": "0x42",
+        "set_layer": "0x4C",
         "version": 2
       },
       "qmk_revision": "${qmkRev}",

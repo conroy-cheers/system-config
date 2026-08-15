@@ -147,6 +147,13 @@ def via_keycode(code):
         raise ValueError(f"unresolved layer name in {code!r}")
     if match := re.fullmatch(r"MO\((\d+)\)", code):
         return 0x5220 | int(match.group(1))
+    if match := re.fullmatch(r"TO\((_[A-Z0-9_]+)\)", code):
+        raise ValueError(f"unresolved layer name in {code!r}")
+    if match := re.fullmatch(r"TO\((\d+)\)", code):
+        layer = int(match.group(1))
+        if not 0 <= layer <= 31:
+            raise ValueError(f"layer move requires a layer from 0 through 31, got {layer}")
+        return 0x5200 | layer
     if code in KEYCODES:
         return KEYCODES[code]
     raise ValueError(f"no VIA numeric keycode for {code!r}")
@@ -204,6 +211,7 @@ def dynamic_entries(layers, layer_indices, layout):
             for name, layer_index in layer_indices.items():
                 code = code.replace(f"MO({c_ident(name)})", f"MO({layer_index})")
                 code = code.replace(f"LT({c_ident(name)},", f"LT({layer_index},")
+                code = code.replace(f"TO({c_ident(name)})", f"TO({layer_index})")
             row, col = layout_entry["matrix"]
             entries.append(
                 {
@@ -463,6 +471,7 @@ def main():
 
 #define SILAKKA54_SYNC_QUERY 0x54
 #define SILAKKA54_SYNC_BOOTLOADER 0x42
+#define SILAKKA54_SYNC_LAYER 0x4C
 #define SILAKKA54_SYNC_VERSION 2
 #define CURRENT_LAYER_HID_VERSION {CURRENT_LAYER_HID_VERSION}
 #define CURRENT_LAYER_HID_QUERY {CURRENT_LAYER_HID_QUERY}
@@ -557,6 +566,24 @@ bool via_command_kb(uint8_t *data, uint8_t length) {{
         raw_hid_send(data, length);
         wait_ms(100);
         bootloader_jump();
+        return true;
+    }}
+
+    if (data[1] == SILAKKA54_SYNC_LAYER) {{
+        uint8_t target = data[3];
+        bool valid = target < DYNAMIC_KEYMAP_LAYER_COUNT;
+        if (valid) {{
+            layer_move(target);
+        }}
+        memset(data, 0, length);
+        data[0] = 0x02;
+        data[1] = SILAKKA54_SYNC_LAYER;
+        data[2] = SILAKKA54_SYNC_VERSION;
+        data[3] = target;
+        memcpy(data + 4, silakka54_sync_magic, sizeof(silakka54_sync_magic));
+        data[11] = valid ? 0 : 1;
+        data[12] = get_highest_layer(layer_state);
+        raw_hid_send(data, length);
         return true;
     }}
 

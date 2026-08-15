@@ -15,6 +15,7 @@ let
       gnugrep
       hyprland
       jq
+      silakka54
       socat
     ];
     text = ''
@@ -50,9 +51,11 @@ let
 
         if [[ "$next_mode" == "game" ]]; then
           hypr dispatch 'hl.dsp.submap("game")' >/dev/null 2>&1 || true
+          silakka54-sync layer Game >/dev/null 2>&1 || true
           printf '%s' game > "$state_file"
         else
           hypr dispatch 'hl.dsp.submap("reset")' >/dev/null 2>&1 || true
+          silakka54-sync layer Base >/dev/null 2>&1 || true
           : > "$state_file"
         fi
 
