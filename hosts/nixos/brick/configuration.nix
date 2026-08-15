@@ -144,7 +144,10 @@ in
         equalizer.enable = true;
       };
       nvidia = false;
-      gaming.enable = true;
+      gaming = {
+        enable = true;
+        steam.disableShaderRateLimiter = true;
+      };
     };
   };
 

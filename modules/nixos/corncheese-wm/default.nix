@@ -54,7 +54,13 @@ in
         };
       };
       nvidia = mkEnableOption "special nvidia configuration";
-      gaming.enable = mkEnableOption "corncheese gaming configuration";
+      gaming = {
+        enable = mkEnableOption "corncheese gaming configuration";
+        steam.disableShaderRateLimiter = mkEnableOption ''
+          aggressive Steam shader processing without Fossilize's
+          pressure-based worker throttling
+        '';
+      };
     };
   };
 
@@ -158,6 +164,9 @@ in
           protontricks.enable = true;
           gamescopeSession.enable = true;
           package = pkgs.steam.override {
+            extraEnv = lib.optionalAttrs cfg.gaming.steam.disableShaderRateLimiter {
+              FOSSILIZE_DISABLE_RATE_LIMITER = "1";
+            };
             extraPkgs =
               pkgs': with pkgs'; [
                 libxcursor
