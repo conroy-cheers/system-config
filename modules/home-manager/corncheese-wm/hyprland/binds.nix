@@ -190,7 +190,7 @@ in
               hl.bind(mod .. " + 9", hl.dsp.exec_cmd("hyprworkspace 9"))
               hl.bind(mod .. " + CTRL + left", hl.dsp.focus({ workspace = "r-1" }))
               hl.bind(mod .. " + CTRL + right", hl.dsp.focus({ workspace = "r+1" }))
-              hl.bind(mod .. " + CTRL + 0", hl.dsp.workspace.toggle_special())
+              hl.bind("grave + Return", hl.dsp.workspace.toggle_special(), { dont_inhibit = true })
               hl.bind(mod .. " + SHIFT + W", hl.dsp.window.fullscreen())
             end
           '')

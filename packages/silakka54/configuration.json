@@ -316,7 +316,7 @@
           "KC_GRV",
           "KC_SPC",
           "KC_ENT",
-          "KC_BSPC",
+          "KC_ENT",
           "TO(_BASE)"
         ],
         "name": "Game"
