@@ -6,6 +6,36 @@
   ...
 }:
 
+let
+  configurePlexMpvShim = pkgs.writeShellApplication {
+    name = "configure-plex-mpv-shim";
+    runtimeInputs = with pkgs; [
+      coreutils
+      jq
+    ];
+    text = ''
+      config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/plex-mpv-shim"
+      config_file="$config_dir/conf.json"
+
+      mkdir -p "$config_dir"
+      if [[ ! -e "$config_file" ]]; then
+        printf '{}\n' > "$config_file"
+      fi
+
+      temp_file="$(mktemp --tmpdir="$config_dir" conf.json.XXXXXX)"
+      trap 'rm -f "$temp_file"' EXIT
+
+      jq \
+        '.direct_limit = true | .transcode_kbps = 20000' \
+        "$config_file" > "$temp_file"
+
+      if ! cmp --silent "$config_file" "$temp_file"; then
+        chmod --reference="$config_file" "$temp_file"
+        mv "$temp_file" "$config_file"
+      fi
+    '';
+  };
+in
 {
   imports = [
     inputs.wired.homeManagerModules.default
@@ -177,6 +207,14 @@
   };
 
   services.udiskie.enable = true;
+
+  # The shim reports its 2 Mbps default to remote Plex servers even when the
+  # direct-play limit is disabled. Use its highest standard profile and make
+  # the limit explicit, so larger files take the supported HLS decision path
+  # instead of failing an ad-hoc direct-play request.
+  systemd.user.services.plex-mpv-shim.Service.ExecStartPre = [
+    "${configurePlexMpvShim}/bin/configure-plex-mpv-shim"
+  ];
 
   # Enable the GPG Agent daemon.
   services.gpg-agent = {
