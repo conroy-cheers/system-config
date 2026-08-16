@@ -10,6 +10,23 @@ SYNC_MAGIC = b"SL54SYN"
 CURRENT_LAYER_HID_VERSION = 1
 CURRENT_LAYER_HID_QUERY = 0
 CURRENT_LAYER_HID_REPORT = 1
+MIDI_PROTOCOL_VERSION = 1
+MIDI_CHANNEL = 15
+
+MIDI_CANDIDATE_CONTROLS = {
+    ("left", "Ctrl"): 20,
+    ("left", "Alt"): 21,
+    ("left", "GUI"): 22,
+    ("right", "GUI"): 23,
+    ("right", "Alt"): 24,
+    ("right", "Ctrl"): 25,
+}
+MIDI_MODIFIER_CONTROLS = {
+    "Ctrl": 30,
+    "Alt": 31,
+    "GUI": 32,
+    "Shift": 33,
+}
 
 ALIASES = {
     "___": "KC_TRNS",
@@ -272,6 +289,164 @@ def render_keymap_yaml(layers):
     return "\n".join(lines).rstrip() + "\n"
 
 
+def midi_protocol(configured_layers, layout):
+    base_layers = [layer for layer in configured_layers if layer.get("name") == "Base"]
+    if len(base_layers) != 1:
+        raise ValueError("exactly one Base layer is required for MIDI candidate controls")
+
+    candidates = []
+    seen_controls = set()
+    seen_keycodes = set()
+    for index, keycode in enumerate(base_layers[0]["keys"]):
+        match = re.fullmatch(r"([LR](CTL|ALT|GUI)_T)\(([^()]+)\)", str(keycode))
+        if not match:
+            continue
+        family = {"CTL": "Ctrl", "ALT": "Alt", "GUI": "GUI"}[match.group(2)]
+        matrix_row = layout[index]["matrix"][0]
+        side = "left" if matrix_row < 5 else "right"
+        identity = (side, family)
+        if identity in seen_controls:
+            raise ValueError(f"Base layer has duplicate {side} {family} MIDI candidate control")
+        if keycode in seen_keycodes:
+            raise ValueError(f"Base layer has duplicate MIDI candidate keycode {keycode}")
+        seen_controls.add(identity)
+        seen_keycodes.add(keycode)
+        control = MIDI_CANDIDATE_CONTROLS[identity]
+        candidates.append(
+            {
+                "control": control,
+                "side": side,
+                "family": family,
+                "qmk": keycode,
+                "tap_keycode": match.group(3),
+            }
+        )
+
+    missing = set(MIDI_CANDIDATE_CONTROLS) - seen_controls
+    if missing:
+        raise ValueError(
+            "Base layer is missing MIDI candidate controls: "
+            + ", ".join(f"{side} {family}" for side, family in sorted(missing))
+        )
+
+    candidates.sort(key=lambda candidate: candidate["control"])
+    return {
+        "protocol": "silakka54-semantic-midi",
+        "version": MIDI_PROTOCOL_VERSION,
+        "channel": MIDI_CHANNEL + 1,
+        "candidate_controls": candidates,
+        "modifier_controls": [
+            {"control": control, "family": family}
+            for family, control in MIDI_MODIFIER_CONTROLS.items()
+        ],
+        "layer_message": "program-change",
+        "layers": [
+            {"program": index, "name": layer["name"]}
+            for index, layer in enumerate(configured_layers)
+        ],
+    }
+
+
+def render_midi_behavior(protocol):
+    candidate_cases = "\n".join(
+        f"        case {candidate['qmk']}: control = {candidate['control']}; candidate_index = {index}; break;"
+        for index, candidate in enumerate(protocol["candidate_controls"])
+    )
+    modifier_entries = [
+        (30, "MOD_MASK_CTRL"),
+        (31, "MOD_MASK_ALT"),
+        (32, "MOD_MASK_GUI"),
+        (33, "MOD_MASK_SHIFT"),
+    ]
+    modifier_updates = "\n".join(
+        f"    silakka54_update_modifier({index}, {mask}, {control}, mods);"
+        for index, (control, mask) in enumerate(modifier_entries)
+    )
+    snapshot_candidates = "\n".join(
+        f"        case {index}: silakka54_midi_cc({candidate['control']}, silakka54_candidate_state[{index}] ? 127 : 0); break;"
+        for index, candidate in enumerate(protocol["candidate_controls"])
+    )
+    snapshot_modifiers = "\n".join(
+        f"        case {index + len(protocol['candidate_controls'])}: silakka54_midi_cc({control}, (silakka54_last_mods & {mask}) ? 127 : 0); break;"
+        for index, (control, mask) in enumerate(modifier_entries)
+    )
+    snapshot_layer_index = len(protocol["candidate_controls"]) + len(modifier_entries)
+    snapshot_count = snapshot_layer_index + 1
+
+    return f"""#ifdef MIDI_ENABLE
+#    include \"qmk_midi.h\"
+
+#    define SILAKKA54_MIDI_CHANNEL {MIDI_CHANNEL}
+#    define SILAKKA54_MIDI_SNAPSHOT_COUNT {snapshot_count}
+
+static bool silakka54_candidate_state[{len(protocol['candidate_controls'])}] = {{false}};
+static uint8_t silakka54_last_mods = 0;
+static uint8_t silakka54_snapshot_index = SILAKKA54_MIDI_SNAPSHOT_COUNT;
+static uint32_t silakka54_snapshot_timer = 0;
+
+static bool silakka54_is_midi_sender(void) {{
+#    ifdef SPLIT_KEYBOARD
+    return is_keyboard_master();
+#    else
+    return true;
+#    endif
+}}
+
+static void silakka54_midi_cc(uint8_t control, uint8_t value) {{
+    if (silakka54_is_midi_sender()) {{
+        midi_send_cc(&midi_device, SILAKKA54_MIDI_CHANNEL, control, value);
+    }}
+}}
+
+static void silakka54_midi_layer(uint8_t layer) {{
+    if (silakka54_is_midi_sender()) {{
+        midi_send_programchange(&midi_device, SILAKKA54_MIDI_CHANNEL, layer);
+    }}
+}}
+
+bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {{
+    uint8_t control = 0;
+    uint8_t candidate_index = 0;
+    switch (keycode) {{
+{candidate_cases}
+        default: return true;
+    }}
+    silakka54_candidate_state[candidate_index] = record->event.pressed;
+    silakka54_midi_cc(control, record->event.pressed ? 127 : 0);
+    return true;
+}}
+
+static void silakka54_update_modifier(uint8_t index, uint8_t mask, uint8_t control, uint8_t mods) {{
+    bool previous = (silakka54_last_mods & mask) != 0;
+    bool current = (mods & mask) != 0;
+    if (previous != current) {{
+        silakka54_midi_cc(control, current ? 127 : 0);
+    }}
+    (void)index;
+}}
+
+void housekeeping_task_user(void) {{
+    uint8_t mods = get_mods();
+{modifier_updates}
+    silakka54_last_mods = mods;
+
+    if (timer_elapsed32(silakka54_snapshot_timer) >= 1000) {{
+        silakka54_snapshot_timer = timer_read32();
+        silakka54_snapshot_index = 0;
+    }}
+    if (silakka54_snapshot_index >= SILAKKA54_MIDI_SNAPSHOT_COUNT) {{
+        return;
+    }}
+    switch (silakka54_snapshot_index) {{
+{snapshot_candidates}
+{snapshot_modifiers}
+        case {snapshot_layer_index}: silakka54_midi_layer(get_highest_layer(layer_state)); break;
+    }}
+    ++silakka54_snapshot_index;
+}}
+#endif"""
+
+
 def configured_modifiers(tap_hold, name):
     modifiers = tap_hold.get(name, [])
     if not isinstance(modifiers, list) or not all(isinstance(item, str) for item in modifiers):
@@ -369,6 +544,7 @@ def main():
     parser.add_argument("--output-metadata", required=True, type=Path)
     parser.add_argument("--output-dynamic-keymap", required=True, type=Path)
     parser.add_argument("--output-dynamic-keymap-tsv", required=True, type=Path)
+    parser.add_argument("--output-midi-protocol", required=True, type=Path)
     parser.add_argument("--firmware-abi-hash", required=True)
     parser.add_argument("--runtime-hash", required=True)
     parser.add_argument("--defaults-hash", required=True)
@@ -382,6 +558,7 @@ def main():
     layout = info["layouts"]["LAYOUT"]["layout"]
     key_count = len(layout)
     configured_layers = data["via"]["layers"]
+    protocol = midi_protocol(configured_layers, layout)
     layers = {layer["name"]: layer["keys"] for layer in configured_layers}
     layer_names = list(layers)
     layer_indices = {name: index for index, name in enumerate(layer_names)}
@@ -443,6 +620,7 @@ def main():
             ),
             render_mod_tap_callback("get_speculative_hold", speculative_hold_mods),
             render_combos(combos, layers, layer_indices),
+            render_midi_behavior(protocol),
         ]
         if item
     )
@@ -450,6 +628,7 @@ def main():
     args.output_config_h.write_text(render_config_h(data["qmk"]["defines"]))
     args.output_rules_mk.write_text(render_rules_mk(data["qmk"]["rules"]))
     args.output_keymap_yaml.write_text(render_keymap_yaml(configured_layers))
+    args.output_midi_protocol.write_text(json.dumps(protocol, indent=2) + "\n")
 
     args.output_c.write_text(
         f"""// Generated from configuration.json. Do not edit this file by hand.
@@ -528,6 +707,11 @@ static void silakka54_send_layer_report(uint8_t layer) {{
 void keyboard_post_init_user(void) {{
     reported_layer = get_highest_layer(layer_state);
     silakka54_send_layer_report(reported_layer);
+#ifdef MIDI_ENABLE
+    silakka54_last_mods = get_mods();
+    silakka54_snapshot_timer = timer_read32();
+    silakka54_snapshot_index = 0;
+#endif
 }}
 
 layer_state_t layer_state_set_user(layer_state_t state) {{
@@ -535,6 +719,9 @@ layer_state_t layer_state_set_user(layer_state_t state) {{
     if (layer != reported_layer) {{
         reported_layer = layer;
         silakka54_send_layer_report(layer);
+#ifdef MIDI_ENABLE
+        silakka54_midi_layer(layer);
+#endif
     }}
     return state;
 }}

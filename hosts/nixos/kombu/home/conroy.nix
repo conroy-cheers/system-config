@@ -45,7 +45,10 @@
       enable = true;
       theme = "catppuccin";
     };
-    silakka54.enable = true;
+    silakka54 = {
+      enable = true;
+      sound.enable = true;
+    };
     wm = {
       enable = true;
       hyprpaper.enable = true;

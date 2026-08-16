@@ -7,6 +7,8 @@
       "EE_HANDS": true,
       "FLOW_TAP_TERM": 150,
       "HOLD_ON_OTHER_KEY_PRESS": false,
+      "MIDI_BASIC": true,
+      "NO_MUSIC_MODE": true,
       "PERMISSIVE_HOLD": true,
       "QUICK_TAP_TERM": 120,
       "RETRO_TAPPING": false,
@@ -14,6 +16,7 @@
     },
     "rules": {
       "LAYER_LOCK_ENABLE": true,
+      "MIDI_ENABLE": true,
       "RAW_ENABLE": true,
       "VIA_ENABLE": true
     }
@@ -276,7 +279,7 @@
           "KC_9",
           "KC_0",
           "KC_BSPC",
-          "KC_TAB",
+          "KC_GRV",
           "KC_B",
           "KC_L",
           "KC_D",
@@ -288,7 +291,7 @@
           "KC_U",
           "KC_COMM",
           "KC_BSPC",
-          "KC_LCTL",
+          "KC_TAB",
           "KC_N",
           "KC_R",
           "KC_T",
@@ -313,9 +316,9 @@
           "KC_DOT",
           "KC_RSFT",
           "KC_LCTL",
-          "KC_GRV",
+          "KC_F1",
           "KC_SPC",
-          "KC_ENT",
+          "KC_LSFT",
           "KC_ENT",
           "TO(_BASE)"
         ],

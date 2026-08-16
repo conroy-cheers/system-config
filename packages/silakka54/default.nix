@@ -44,7 +44,7 @@ let
     }
   );
   runtimeMaterial = ''
-    silakka54-runtime-fingerprint:3
+    silakka54-runtime-fingerprint:4
     silakka-rev:${silakkaRev}
     qmk-rev:${qmkRev}
     eeprom-generation:${toString eepromGeneration}
@@ -115,6 +115,7 @@ rustPlatform.buildRustPackage {
       --output-metadata generated/layer-metadata.json \
       --output-dynamic-keymap generated/dynamic-keymap.json \
       --output-dynamic-keymap-tsv generated/dynamic-keymap.tsv \
+      --output-midi-protocol generated/midi-protocol.json \
       --firmware-abi-hash "${abiHash}" \
       --runtime-hash "${runtimeHash}" \
       --defaults-hash "${defaultsHash}"
@@ -161,6 +162,7 @@ rustPlatform.buildRustPackage {
     install -Dm0644 generated/layer-metadata.json "$out/share/silakka54/keymap/layer-metadata.json"
     install -Dm0644 generated/dynamic-keymap.json "$out/share/silakka54/keymap/dynamic-keymap.json"
     install -Dm0644 generated/dynamic-keymap.tsv "$out/share/silakka54/keymap/dynamic-keymap.tsv"
+    install -Dm0644 generated/midi-protocol.json "$out/share/silakka54/midi-protocol.json"
     install -Dm0644 generated/silakka54-keymap.svg "$out/share/silakka54/keymap/silakka54-keymap.svg"
     install -Dm0644 qmk/keyboards/silakka54/keymaps/system_config/keymap.c "$out/share/silakka54/keymap/keymap.c"
     install -Dm0644 qmk/keyboards/silakka54/keymaps/system_config/config.h "$out/share/silakka54/keymap/config.h"
@@ -195,6 +197,7 @@ rustPlatform.buildRustPackage {
       "firmware_abi_hash": "${abiHash}",
       "runtime_hash": "${runtimeHash}",
       "factory_defaults_hash": "${defaultsHash}",
+      "midi_protocol": "$out/share/silakka54/midi-protocol.json",
       "dynamic_keymap": "$out/share/silakka54/keymap/dynamic-keymap.json"
     }
     EOF
