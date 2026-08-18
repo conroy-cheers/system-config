@@ -1,4 +1,5 @@
 {
+  lib,
   ...
 }:
 {
@@ -11,6 +12,10 @@
   networking.useNetworkd = false;
 
   networking.networkmanager.enable = true;
+
+  age.secrets."corncheese.protonvpn.wireguard" = {
+    rekeyFile = lib.repoSecret "corncheese/protonvpn/wireguard.conf.age";
+  };
 
   # enable mDNS
   services.avahi = {
