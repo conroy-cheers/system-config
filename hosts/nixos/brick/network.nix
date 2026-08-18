@@ -13,6 +13,7 @@
   networking.useNetworkd = false;
 
   networking.networkmanager.enable = true;
+  services.resolved.enable = true;
 
   age.secrets."corncheese.protonvpn.wireguard" = {
     rekeyFile = lib.repoSecret "corncheese/protonvpn/wireguard.conf.age";
