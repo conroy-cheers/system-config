@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   ...
 }:
@@ -15,6 +16,11 @@
 
   age.secrets."corncheese.protonvpn.wireguard" = {
     rekeyFile = lib.repoSecret "corncheese/protonvpn/wireguard.conf.age";
+  };
+
+  networking.wg-quick.interfaces.protonvpn = {
+    configFile = config.age.secrets."corncheese.protonvpn.wireguard".path;
+    autostart = false;
   };
 
   # enable mDNS
