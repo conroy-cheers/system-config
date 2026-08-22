@@ -121,6 +121,11 @@ in
     owner = "wotbox";
     mode = "0400";
   };
+  age.secrets."corncheese.mail.icloud" = {
+    rekeyFile = lib.repoSecret "corncheese/mail/icloud.age";
+    owner = "root";
+    mode = "0400";
+  };
 
   corncheese-server = {
     topology = {
@@ -204,6 +209,24 @@ in
       client = "music";
       savePath = "/mnt/media/Downloads/torrent/complete/red";
       tag = "red";
+    };
+  };
+
+  services.icloud-mail-mcp = {
+    enable = true;
+    passwordFile = config.age.secrets."corncheese.mail.icloud".path;
+    aliases = [
+      "conroy@corncheese.org"
+      "conroy@conroycheers.me"
+    ];
+    listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "icloud-mail-mcp" "127.0.0.1";
+    port = 8781;
+    publicUrl = "https://mail.corncheese.org";
+    oauth = {
+      issuer = "https://auth.corncheese.org";
+      jwksUri = "https://auth.corncheese.org/jwks.json";
+      audience = "https://mail.corncheese.org/mcp";
+      requiredScopes = [ "mail.read" ];
     };
   };
 

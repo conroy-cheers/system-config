@@ -10,6 +10,43 @@ let
 in
 {
   corncheese-server._meta.services = {
+    icloud-mail-mcp = {
+      endpoint = endpointFor "icloud-mail-mcp" 8781;
+      route = {
+        host = "mail.corncheese.org";
+        auth.mode = "public";
+        rateLimit = {
+          average = 60;
+          burst = 30;
+        };
+      };
+      oidcClient = {
+        clientId = "chatgpt-icloud-mail";
+        clientName = "ChatGPT iCloud Mail MCP";
+        public = true;
+        authorizationPolicy = "two_factor";
+        requirePkce = true;
+        pkceChallengeMethod = "S256";
+        redirectUris = [ "https://chatgpt.com/connector_platform_oauth_redirect" ];
+        audience = [ "https://mail.corncheese.org/mcp" ];
+        scopes = [
+          "openid"
+          "profile"
+          "email"
+          "offline_access"
+          "mail.read"
+        ];
+        grantTypes = [
+          "authorization_code"
+          "refresh_token"
+        ];
+        responseTypes = [ "code" ];
+        accessTokenSignedResponseAlg = "RS256";
+        userinfoSignedResponseAlg = "none";
+        tokenEndpointAuthMethod = "none";
+        consentMode = "explicit";
+      };
+    };
     ultramoji = {
       endpoint = endpointFor "ultramoji" 8765;
       route = {
@@ -37,4 +74,6 @@ in
       };
     };
   };
+
+  corncheese-server.auth.authelia.oidcScopes."mail.read".claims = [ ];
 }
