@@ -382,8 +382,9 @@
     };
 
     colorshell = {
-      url = "github:conroy-cheers/colorshell/fix/gtk-launch";
+      url = "github:conroy-cheers/colorshell/feat/static-color-engine";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
     };
 
     walbridge = {

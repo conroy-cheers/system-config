@@ -13,6 +13,19 @@ let
   walbridgePackage = walbridgePackages.default;
   walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
+  walbridgeColors = builtins.fromJSON (
+    builtins.readFile (
+      pkgs.runCommand "walbridge-colors.json" { } ''
+        export HOME="$TMPDIR"
+        export XDG_CONFIG_HOME="$TMPDIR/config"
+        ${lib.getExe' walbridgeExtractPackage "walbridge-extract"} \
+          --image ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
+          --colors-out "$TMPDIR/colors.json" \
+          --palette-out "$TMPDIR/palette.json"
+        ${lib.getExe pkgs.jq} 'del(.wallpaper)' "$TMPDIR/colors.json" >"$out"
+      ''
+    )
+  );
   colorshellPackage = inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell;
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     source = ~/.cache/wal/colors-hyprland.conf
@@ -107,10 +120,27 @@ in
     programs.colorshell = {
       package = colorshellPackage;
       settings = {
-        wallpaper.default_path = toString themeDetails.wallpaper;
-        theming.apply_command =
-          "${config.corncheese.theming.walbridgeApplyCommand} "
-          + "${config.xdg.cacheHome}/colorshell/colorends/pywal16/colors.json";
+        color = {
+          engine = "static";
+          static =
+            let
+              bgPrimary = "oklch(from ${walbridgeColors.colors.color1} calc(l - .36) c h)";
+              bgSecondary = "oklch(from ${walbridgeColors.colors.color1} calc(l - .22) c h)";
+              bgTertiary = "oklch(from ${walbridgeColors.colors.color1} calc(l - .1) c h)";
+            in
+            {
+              bg_primary = bgPrimary;
+              bg_secondary = bgSecondary;
+              bg_tertiary = bgTertiary;
+              bg_translucent_primary = "oklch(from ${bgPrimary} l c h / .68)";
+              bg_translucent_secondary = "oklch(from ${bgSecondary} l c h / .68)";
+              bg_translucent_tertiary = "oklch(from ${bgTertiary} l c h / .68)";
+              fg_primary = walbridgeColors.special.foreground;
+              fg_disabled = "oklch(from ${walbridgeColors.special.foreground} calc(l - .10) c h)";
+            };
+        };
+
+        misc.match_window_border_color = false;
       };
     };
 

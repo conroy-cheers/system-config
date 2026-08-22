@@ -27,7 +27,7 @@ in
         authorizationPolicy = "two_factor";
         requirePkce = true;
         pkceChallengeMethod = "S256";
-        redirectUris = [ "https://chatgpt.com/connector_platform_oauth_redirect" ];
+        redirectUris = [ "https://chatgpt.com/connector/oauth/MpquINjZt3t1" ];
         audience = [ "https://mail.corncheese.org/mcp" ];
         scopes = [
           "openid"
@@ -35,6 +35,43 @@ in
           "email"
           "offline_access"
           "mail.read"
+        ];
+        grantTypes = [
+          "authorization_code"
+          "refresh_token"
+        ];
+        responseTypes = [ "code" ];
+        accessTokenSignedResponseAlg = "RS256";
+        userinfoSignedResponseAlg = "none";
+        tokenEndpointAuthMethod = "none";
+        consentMode = "explicit";
+      };
+    };
+    bunnings-powerpass-invoices = {
+      endpoint = endpointFor "bunnings-powerpass-invoices" 8782;
+      route = {
+        host = "powerpass.corncheese.org";
+        auth.mode = "public";
+        rateLimit = {
+          average = 30;
+          burst = 10;
+        };
+      };
+      oidcClient = {
+        clientId = "chatgpt-bunnings-powerpass";
+        clientName = "ChatGPT Bunnings PowerPass MCP";
+        public = true;
+        authorizationPolicy = "two_factor";
+        requirePkce = true;
+        pkceChallengeMethod = "S256";
+        redirectUris = [ "https://chatgpt.com/connector_platform_oauth_redirect" ];
+        audience = [ "https://powerpass.corncheese.org/mcp" ];
+        scopes = [
+          "openid"
+          "profile"
+          "email"
+          "offline_access"
+          "powerpass.invoices.read"
         ];
         grantTypes = [
           "authorization_code"
@@ -75,5 +112,8 @@ in
     };
   };
 
-  corncheese-server.auth.authelia.oidcScopes."mail.read".claims = [ ];
+  corncheese-server.auth.authelia.oidcScopes = {
+    "mail.read".claims = [ ];
+    "powerpass.invoices.read".claims = [ ];
+  };
 }

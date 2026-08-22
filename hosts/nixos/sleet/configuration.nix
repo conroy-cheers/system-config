@@ -230,6 +230,19 @@ in
     };
   };
 
+  services.bunnings-powerpass-invoices = {
+    enable = true;
+    listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "bunnings-powerpass-invoices" "127.0.0.1";
+    port = 8782;
+    publicUrl = "https://powerpass.corncheese.org";
+    oauth = {
+      issuer = "https://auth.corncheese.org";
+      jwksUri = "https://auth.corncheese.org/jwks.json";
+      audience = "https://powerpass.corncheese.org/mcp";
+      requiredScopes = [ "powerpass.invoices.read" ];
+    };
+  };
+
   services.hydra.extraConfig = ''
     evaluator_max_memory_size = 32768
   '';
