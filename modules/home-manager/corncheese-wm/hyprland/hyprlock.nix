@@ -94,7 +94,5 @@ in
         }
       '';
     };
-
-    services.hyprsunset.enable = false;
   };
 }

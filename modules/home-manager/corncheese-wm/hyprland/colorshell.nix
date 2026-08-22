@@ -13,49 +13,7 @@ let
   walbridgePackage = walbridgePackages.default;
   walbridgeExtractPackage = walbridgePackages.walbridge-extract;
   walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
-  colorshellAgsJsPackage =
-    inputs.colorshell.passthru.inputs.ags.packages.${pkgs.stdenv.hostPlatform.system}.ags.jsPackage;
-  colorshellPackage = (
-    inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs (
-      finalAttrs: oldAttrs: {
-        src = oldAttrs.src.overrideAttrs (oldSrcAttrs: {
-          postPatch = (oldSrcAttrs.postPatch or "") + ''
-            substituteInPlace pnpm-lock.yaml \
-              --replace-fail "../../../..${colorshellAgsJsPackage}" "./ags-js-lib" \
-              --replace-fail "${colorshellAgsJsPackage}" "./ags-js-lib"
-            substituteInPlace package.json \
-              --replace-fail "${colorshellAgsJsPackage}" "./ags-js-lib"
-            cp -r ${colorshellAgsJsPackage} ags-js-lib
-          '';
-        });
-
-        pnpmDeps = oldAttrs.pnpmDeps.overrideAttrs {
-          src = finalAttrs.src;
-        };
-        npmDeps = finalAttrs.pnpmDeps;
-
-        postInstall = (oldAttrs.postInstall or "") + ''
-          substituteInPlace resources/config/hyprland/runtime.lua \
-            --replace-fail '"$HOME/.config"' '"${config.xdg.configHome}"' \
-            --replace-fail '"$HOME/.cache"' '"${config.xdg.cacheHome}"' \
-            --replace-fail '"$HOME/.local/share"' '"${config.xdg.dataHome}"' \
-            --replace-fail '"$HOME/.local/state"' '"${config.xdg.stateHome}"'
-
-          substituteInPlace resources/config/hyprland/environment.conf \
-            --replace-fail '$HOME/.config' '${config.xdg.configHome}' \
-            --replace-fail '$HOME/.cache' '${config.xdg.cacheHome}' \
-            --replace-fail '$HOME/.local/share' '${config.xdg.dataHome}' \
-            --replace-fail '$HOME/.local/state' '${config.xdg.stateHome}'
-
-          printf '%s\n' 'nixos-xdg-home-2026-05-24' > resources/config/hyprland/.last-updated
-
-          glib-compile-resources resources.gresource.xml \
-            --sourcedir ./resources \
-            --target "$out/share/colorshell/resources.gresource"
-        '';
-      }
-    )
-  );
+  colorshellPackage = inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell;
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     source = ~/.cache/wal/colors-hyprland.conf
 
@@ -141,34 +99,21 @@ in
       QT_STYLE_OVERRIDE = "Fusion";
     };
 
+    stylix.targets = {
+      hyprland.hyprpaper.enable = false;
+      hyprpaper.enable = false;
+    };
+
     programs.colorshell = {
       package = colorshellPackage;
       settings = {
-        wallpaper = {
-          default_path = toString themeDetails.wallpaper;
-        };
-        theming = {
-          apply_command = "${config.corncheese.theming.walbridgeApplyCommand} ${config.home.homeDirectory}/.cache/wal/colors.json";
-        };
-        idle = {
-          lock_timeout = 900;
-          lock_cmd = "colorshell lock";
-          before_sleep_cmd = "colorshell lock";
-          after_sleep_cmd = "hyprctl dispatch dpms on";
-          ignore_dbus_inhibit = false;
-          ignore_systemd_inhibit = false;
-          ignore_wayland_inhibit = false;
-          inhibit_sleep = 2;
-          listeners = {
-            display_power = {
-              timeout = 7200;
-              on_timeout = "hyprctl dispatch dpms off";
-              on_resume = "hyprctl dispatch dpms on && systemctl --user restart colorshell.service";
-            };
-          };
-        };
+        wallpaper.default_path = toString themeDetails.wallpaper;
+        theming.apply_command =
+          "${config.corncheese.theming.walbridgeApplyCommand} "
+          + "${config.xdg.cacheHome}/colorshell/colorends/pywal16/colors.json";
       };
-      hyprlock.text = colorshellHyprlockTemplate;
     };
+
+    programs.hyprlock.extraConfig = colorshellHyprlockTemplate;
   };
 }
