@@ -847,7 +847,6 @@ in
           nix-output-monitor
 
           # Git
-          lazygit
           git-spice
           inputs.weave.packages.${meta.system}.default
 
@@ -945,6 +944,15 @@ in
     #     pycharm-professional
     #   ];
     # };
+
+    programs.lazygit = {
+      enable = true;
+      settings = {
+        git = {
+          overrideGpg = true;
+        };
+      };
+    };
 
     programs.git = {
       enable = true;
