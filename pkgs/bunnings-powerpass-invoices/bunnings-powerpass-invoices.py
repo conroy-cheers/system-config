@@ -132,6 +132,12 @@ def make_parser() -> argparse.ArgumentParser:
         help="1Password login item used for automatic reauthentication",
     )
     parser.add_argument(
+        "--credentials-file",
+        type=Path,
+        metavar="FILE",
+        help="read the username and password from the first two lines of FILE",
+    )
+    parser.add_argument(
         "--session-only",
         action="store_true",
         help="never load credentials; fail when the retained session cannot renew",
@@ -371,6 +377,18 @@ def credentials_from_terminal() -> tuple[str, str]:
     return username, password
 
 
+def credentials_from_file(path: Path) -> tuple[str, str]:
+    try:
+        values = path.read_text().splitlines()
+    except OSError as error:
+        raise UserError(f"could not read the credential file: {error}") from error
+    if len(values) != 2 or not values[0] or not values[1]:
+        raise UserError(
+            "the credential file must contain a username and password on two lines"
+        )
+    return values[0], values[1]
+
+
 def auth_stage(page: Page) -> str | None:
     if is_transactions_page(page):
         return "authenticated"
@@ -407,6 +425,16 @@ def finish_portal_authentication(page: Page, timeout_ms: int) -> bool:
     return is_transactions_page(page)
 
 
+def finish_post_login_interstitial(page: Page, timeout_ms: int) -> bool:
+    authentication_fields = (
+        "#username:visible, #password:visible, #securityCode:visible, "
+        "input[autocomplete='one-time-code']:visible"
+    )
+    if page.locator(authentication_fields).count() > 0:
+        return False
+    return finish_portal_authentication(page, timeout_ms)
+
+
 def interaction_summary(page: Page) -> str:
     title = page.title().strip() or "untitled page"
     input_names = []
@@ -441,13 +469,17 @@ def ensure_authenticated(
         return True
     if stage == "portal" and finish_portal_authentication(page, timeout_ms):
         return True
+    if finish_post_login_interstitial(page, timeout_ms):
+        return True
 
     if stage == "credentials":
         if args.session_only:
             raise AuthenticationRequired(
                 "the retained PowerPass session requires operator renewal"
             )
-        if interactive_credentials:
+        if args.credentials_file:
+            username, password = credentials_from_file(args.credentials_file)
+        elif interactive_credentials:
             username, password = credentials_from_terminal()
         else:
             username, password = credentials_from_onepassword(
@@ -473,6 +505,8 @@ def ensure_authenticated(
         if stage == "authenticated":
             return True
         if stage == "portal" and finish_portal_authentication(page, timeout_ms):
+            return True
+        if finish_post_login_interstitial(page, timeout_ms):
             return True
         if stage == "credentials":
             raise UserError("Bunnings rejected the stored credentials")
@@ -546,6 +580,9 @@ def login_cli(args: argparse.Namespace) -> None:
                 return
 
             if session.page.locator("#securityCode:visible").count() == 0:
+                if finish_post_login_interstitial(session.page, timeout_ms):
+                    print(f"Authenticated trusted session retained in {args.profile}.")
+                    return
                 raise UserError(
                     f"unsupported interactive challenge ({interaction_summary(session.page)})"
                 )
@@ -645,6 +682,8 @@ def submit_security_code(page: Page, code: str, timeout_ms: int) -> None:
         return
     if stage == "portal" and finish_portal_authentication(page, timeout_ms):
         return
+    if finish_post_login_interstitial(page, timeout_ms):
+        return
     if stage == "interaction-required" and security_code.count() > 0:
         raise UserError("Bunnings rejected or expired the SMS security code")
     raise UserError(f"authentication did not complete ({interaction_summary(page)})")
@@ -670,6 +709,9 @@ def auth_session(args: argparse.Namespace) -> None:
                 return
 
             if session.page.locator("#securityCode:visible").count() == 0:
+                if finish_post_login_interstitial(session.page, timeout_ms):
+                    print("AUTHENTICATED", flush=True)
+                    return
                 raise UserError(
                     f"unsupported interactive challenge ({interaction_summary(session.page)})"
                 )

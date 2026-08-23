@@ -79,15 +79,27 @@ Bootstrap or renew the service profile from an SSH terminal on `sleet`:
 
 ```console
 ssh sleet
+sudo bunnings-powerpass-invoices-cache-credentials
 sudo bunnings-powerpass-invoices-login
 ```
 
+The cache command prompts once for the username and password and encrypts them
+with `systemd-creds` using `sleet`'s host credential key. The encrypted cache is
+root-only, in a directory inaccessible to both Chromium and the MCP service.
+During renewal, the helper stops the MCP gateway, decrypts the credentials into
+a short-lived file readable only by a separate login user, and removes it before
+the gateway resumes. Remove the cache with
+`sudo bunnings-powerpass-invoices-cache-credentials --remove`.
+Sleet has no usable TPM device and its host credential key is not on encrypted
+storage, so this isolates the secret from the services and standalone cache-file
+disclosure, but not from root access or whole-disk compromise.
+
 The service keeps a dedicated headless Chromium process alive and exposes its
 DevTools endpoint on loopback only. The helper pauses MCP requests, attaches to
-that browser as the service account, and prompts for a password and SMS code
-only if Bunnings requires them. Both are read without terminal echo. It selects
-**Remember me** and **Trust this device**, then restarts the MCP gateway without
-closing Chromium. The retained profile lives in
+that browser as an isolated login account, and prompts for an SMS code only if
+Bunnings requires it. It selects **Remember me** and **Trust this device**, then
+restarts the MCP gateway without closing Chromium. Post-login promotional pages
+are bypassed by navigating directly to Transactions. The retained profile lives in
 `/var/lib/bunnings-powerpass-invoices/chromium` with mode `0700`.
 
 Trusted-device state is not permanent. If Bunnings expires or revokes it, MCP

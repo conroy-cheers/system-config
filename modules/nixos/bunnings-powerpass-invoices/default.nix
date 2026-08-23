@@ -10,7 +10,11 @@ let
   serviceName = "bunnings-powerpass-invoices";
   browserServiceName = "${serviceName}-browser";
   serviceUser = serviceName;
+  loginUser = "powerpass-login";
   stateRoot = "/var/lib/${cfg.stateDirectory}";
+  credentialDirectory = "/var/lib/${cfg.stateDirectory}-credentials";
+  credentialName = "${serviceName}-login";
+  credentialCache = "${credentialDirectory}/login.cred";
   profile = "${stateRoot}/chromium";
   cdpUrl = "http://127.0.0.1:${toString cfg.browserPort}";
 
@@ -41,19 +45,107 @@ let
       systemctl start ${browserServiceName}.service
       systemctl stop ${serviceName}.service
 
+      credential_args=()
+      credential_runtime=""
+
       resume_service() {
+        if [[ -n "$credential_runtime" ]]; then
+          if [[ -e "$credential_runtime/credentials" ]]; then
+            unlink "$credential_runtime/credentials"
+          fi
+          rmdir "$credential_runtime"
+        fi
         systemctl start ${serviceName}.service
       }
       trap resume_service EXIT
 
+      if [[ -f ${lib.escapeShellArg credentialCache} ]]; then
+        credential_runtime=$(mktemp -d --tmpdir=/run ${serviceName}-login.XXXXXX)
+        chown ${loginUser}:${loginUser} "$credential_runtime"
+        chmod 0700 "$credential_runtime"
+        systemd-creds decrypt \
+          --quiet \
+          --refuse-null \
+          --name=${lib.escapeShellArg credentialName} \
+          ${lib.escapeShellArg credentialCache} \
+          - >"$credential_runtime/credentials"
+        chown ${loginUser}:${loginUser} "$credential_runtime/credentials"
+        chmod 0400 "$credential_runtime/credentials"
+        credential_args=(--credentials-file "$credential_runtime/credentials")
+      fi
+
       install -d -m 0700 -o ${serviceUser} -g ${serviceUser} ${lib.escapeShellArg stateRoot}
       install -d -m 0700 -o ${serviceUser} -g ${serviceUser} ${lib.escapeShellArg profile}
-      runuser -u ${serviceUser} -- \
-        env HOME=${lib.escapeShellArg stateRoot} XDG_STATE_HOME=${lib.escapeShellArg stateRoot} \
+      runuser -u ${loginUser} -- \
+        env HOME=/var/empty XDG_STATE_HOME=/var/empty \
         ${lib.getExe cfg.package} \
           --profile ${lib.escapeShellArg profile} \
           --cdp-url ${lib.escapeShellArg cdpUrl} \
+          "''${credential_args[@]}" \
           login-cli
+    '';
+  };
+
+  cacheCredentials = pkgs.writeShellApplication {
+    name = "bunnings-powerpass-invoices-cache-credentials";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.systemd
+    ];
+    text = ''
+      if [[ $EUID -ne 0 ]]; then
+        echo "Run this command with sudo so the cache remains root-only." >&2
+        exit 1
+      fi
+
+      install -d -m 0700 -o root -g root ${lib.escapeShellArg credentialDirectory}
+
+      if [[ "''${1:-}" == "--remove" ]]; then
+        if [[ -e ${lib.escapeShellArg credentialCache} ]]; then
+          unlink ${lib.escapeShellArg credentialCache}
+          echo "Removed the cached PowerPass credentials."
+        else
+          echo "No cached PowerPass credentials were present."
+        fi
+        exit 0
+      elif [[ $# -ne 0 ]]; then
+        echo "Usage: bunnings-powerpass-invoices-cache-credentials [--remove]" >&2
+        exit 2
+      fi
+
+      if [[ ! -t 0 ]]; then
+        echo "Credential entry requires an interactive terminal." >&2
+        exit 1
+      fi
+
+      IFS= read -r -p "Bunnings username: " username
+      IFS= read -r -s -p "Bunnings password: " password
+      echo >&2
+      if [[ -z "$username" || -z "$password" ]]; then
+        echo "Both username and password are required." >&2
+        exit 1
+      fi
+
+      umask 0077
+      encrypted=$(mktemp ${lib.escapeShellArg "${credentialDirectory}/.login.cred.XXXXXX"})
+      cleanup() {
+        if [[ -e "$encrypted" ]]; then
+          unlink "$encrypted"
+        fi
+      }
+      trap cleanup EXIT
+
+      systemd-creds setup
+      printf '%s\n%s\n' "$username" "$password" | \
+        systemd-creds encrypt \
+          --quiet \
+          --with-key=host \
+          --name=${lib.escapeShellArg credentialName} \
+          - \
+          - >"$encrypted"
+      unset username password
+      install -m 0600 -o root -g root "$encrypted" ${lib.escapeShellArg credentialCache}
+      echo "Cached the PowerPass credentials using this host's systemd credential key."
     '';
   };
 
@@ -177,12 +269,27 @@ in
       description = "Read-only Bunnings PowerPass invoice MCP access";
     };
     users.groups.${serviceUser} = { };
+    users.users.${loginUser} = {
+      isSystemUser = true;
+      group = loginUser;
+      home = "/var/empty";
+      description = "Isolated interactive PowerPass login helper";
+    };
+    users.groups.${loginUser} = { };
 
-    environment.systemPackages = [ login ];
+    environment.systemPackages = [
+      cacheCredentials
+      login
+    ];
+
+    systemd.tmpfiles.rules = [
+      "d ${credentialDirectory} 0700 root root -"
+    ];
 
     systemd.services.${browserServiceName} = {
       description = "Long-lived Chromium session for Bunnings PowerPass";
       wantedBy = [ "multi-user.target" ];
+      restartIfChanged = false;
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
@@ -216,7 +323,10 @@ in
         Group = serviceUser;
         StateDirectory = cfg.stateDirectory;
         StateDirectoryMode = "0700";
-        InaccessiblePaths = [ "-/run/wrappers/bin/op" ];
+        InaccessiblePaths = [
+          "-/run/wrappers/bin/op"
+          "-${credentialDirectory}"
+        ];
         ReadWritePaths = [ stateRoot ];
         KillMode = "mixed";
         Restart = "always";
@@ -269,7 +379,10 @@ in
         StateDirectoryMode = "0700";
         RuntimeDirectory = serviceName;
         RuntimeDirectoryMode = "0700";
-        InaccessiblePaths = [ "-/run/wrappers/bin/op" ];
+        InaccessiblePaths = [
+          "-/run/wrappers/bin/op"
+          "-${credentialDirectory}"
+        ];
         ReadWritePaths = [ stateRoot ];
         Restart = "on-failure";
         RestartSec = "10s";
