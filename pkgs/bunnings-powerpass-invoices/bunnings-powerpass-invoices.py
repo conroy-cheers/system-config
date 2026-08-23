@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import fcntl
 import getpass
 import json
 import os
@@ -14,6 +15,8 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -944,9 +947,21 @@ class McpBackend:
         self.args = args
         self.args.session_only = True
         self.lock = threading.Lock()
+        self.browser_lock_path = args.profile.parent / "browser.lock"
+
+    @contextmanager
+    def browser_access(self) -> Iterator[None]:
+        with self.lock:
+            self.browser_lock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            with self.browser_lock_path.open("a") as lock_file:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def authentication_status(self) -> dict[str, str]:
-        with self.lock:
+        with self.browser_access():
             try:
                 authentication_ready(self.args)
             except AuthenticationRequired:
@@ -966,7 +981,7 @@ class McpBackend:
         if from_date and to_date and from_date > to_date:
             raise UserError("from_date must not be later than to_date")
 
-        with self.lock:
+        with self.browser_access():
             try:
                 transactions = queried_transactions(self.args, from_date, to_date)
             except AuthenticationRequired:
@@ -989,7 +1004,7 @@ class McpBackend:
         wanted_filename = invoice_id
         timeout_ms = self.args.timeout * 1000
 
-        with self.lock:
+        with self.browser_access():
             with sync_playwright() as playwright:
                 session = open_session(
                     playwright,
