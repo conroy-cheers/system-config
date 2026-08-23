@@ -8,15 +8,18 @@
 let
   cfg = config.services.bunnings-powerpass-invoices;
   serviceName = "bunnings-powerpass-invoices";
+  browserServiceName = "${serviceName}-browser";
   serviceUser = serviceName;
   stateRoot = "/var/lib/${cfg.stateDirectory}";
   profile = "${stateRoot}/chromium";
+  cdpUrl = "http://127.0.0.1:${toString cfg.browserPort}";
 
   backend = pkgs.writeShellApplication {
     name = "bunnings-powerpass-invoices-mcp-backend";
     text = ''
       exec ${lib.getExe cfg.package} \
         --profile ${lib.escapeShellArg profile} \
+        --cdp-url ${lib.escapeShellArg cdpUrl} \
         --session-only \
         mcp
     '';
@@ -35,6 +38,7 @@ let
         exit 1
       fi
 
+      systemctl start ${browserServiceName}.service
       systemctl stop ${serviceName}.service
 
       resume_service() {
@@ -48,6 +52,7 @@ let
         env HOME=${lib.escapeShellArg stateRoot} XDG_STATE_HOME=${lib.escapeShellArg stateRoot} \
         ${lib.getExe cfg.package} \
           --profile ${lib.escapeShellArg profile} \
+          --cdp-url ${lib.escapeShellArg cdpUrl} \
           login-cli
     '';
   };
@@ -90,6 +95,12 @@ in
       type = lib.types.str;
       default = serviceName;
       description = "Directory below /var/lib containing the trusted Chromium profile.";
+    };
+
+    browserPort = lib.mkOption {
+      type = lib.types.port;
+      default = 9223;
+      description = "Loopback Chromium DevTools port shared by the login helper and MCP backend.";
     };
 
     listenAddress = lib.mkOption {
@@ -153,6 +164,10 @@ in
         assertion = cfg.oauth.audience == "${cfg.publicUrl}${cfg.mcpPath}";
         message = "services.bunnings-powerpass-invoices.oauth.audience must exactly match publicUrl plus mcpPath.";
       }
+      {
+        assertion = cfg.browserPort != cfg.port;
+        message = "services.bunnings-powerpass-invoices.browserPort must differ from the MCP port.";
+      }
     ];
 
     users.users.${serviceUser} = {
@@ -165,10 +180,59 @@ in
 
     environment.systemPackages = [ login ];
 
+    systemd.services.${browserServiceName} = {
+      description = "Long-lived Chromium session for Bunnings PowerPass";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+
+      script = ''
+        exec ${lib.getExe cfg.package} \
+          --profile ${lib.escapeShellArg profile} \
+          browser-daemon \
+          --listen-address 127.0.0.1 \
+          --port ${toString cfg.browserPort}
+      '';
+
+      postStart = ''
+        for attempt in {1..60}; do
+          if ${lib.getExe pkgs.curl} --fail --silent --show-error \
+            ${lib.escapeShellArg "${cdpUrl}/json/version"} >/dev/null; then
+            exit 0
+          fi
+          sleep 0.25
+        done
+        echo "Chromium DevTools endpoint did not become ready" >&2
+        exit 1
+      '';
+
+      environment = {
+        HOME = stateRoot;
+        XDG_STATE_HOME = stateRoot;
+      };
+
+      serviceConfig = hardening // {
+        User = serviceUser;
+        Group = serviceUser;
+        StateDirectory = cfg.stateDirectory;
+        StateDirectoryMode = "0700";
+        InaccessiblePaths = [ "-/run/wrappers/bin/op" ];
+        ReadWritePaths = [ stateRoot ];
+        KillMode = "mixed";
+        Restart = "always";
+        RestartSec = "5s";
+        TimeoutStopSec = "30s";
+      };
+    };
+
     systemd.services.${serviceName} = {
       description = "OAuth-protected Bunnings PowerPass invoice MCP server";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ];
+      after = [
+        "network-online.target"
+        "${browserServiceName}.service"
+      ];
+      requires = [ "${browserServiceName}.service" ];
       wants = [ "network-online.target" ];
 
       script =

@@ -80,11 +80,12 @@ ssh sleet
 sudo bunnings-powerpass-invoices-login
 ```
 
-The helper stops the MCP service so Chromium has exclusive access to the
-profile, runs the browser as the service account, and prompts for a password and
-SMS code only if Bunnings requires them. Both are read without terminal echo.
-It selects **Remember me** and **Trust this device**, then restarts the service.
-The retained profile lives in
+The service keeps a dedicated headless Chromium process alive and exposes its
+DevTools endpoint on loopback only. The helper pauses MCP requests, attaches to
+that browser as the service account, and prompts for a password and SMS code
+only if Bunnings requires them. Both are read without terminal echo. It selects
+**Remember me** and **Trust this device**, then restarts the MCP gateway without
+closing Chromium. The retained profile lives in
 `/var/lib/bunnings-powerpass-invoices/chromium` with mode `0700`.
 
 Trusted-device state is not permanent. If Bunnings expires or revokes it, MCP
@@ -96,8 +97,8 @@ For local non-service debugging, `auth-session` still implements a
 single-process stdin exchange, while `login-cli` uses non-echoing terminal
 prompts throughout.
 
-To use an already-running automation-specific Chromium profile, start Chromium
-with a DevTools port and pass it with `--cdp-url`, for example:
+To use another already-running automation-specific Chromium profile, start
+Chromium with a DevTools port and pass it with `--cdp-url`, for example:
 
 ```console
 bunnings-powerpass-invoices --cdp-url http://127.0.0.1:9222 fetch -o ./invoices

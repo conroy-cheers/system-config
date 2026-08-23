@@ -64,7 +64,7 @@ in
         authorizationPolicy = "two_factor";
         requirePkce = true;
         pkceChallengeMethod = "S256";
-        redirectUris = [ "https://chatgpt.com/connector_platform_oauth_redirect" ];
+        redirectUris = [ "https://chatgpt.com/connector/oauth/ZY3idjoAiEQE" ];
         audience = [ "https://powerpass.corncheese.org/mcp" ];
         scopes = [
           "openid"

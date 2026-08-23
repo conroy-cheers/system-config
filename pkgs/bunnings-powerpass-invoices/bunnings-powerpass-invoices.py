@@ -8,6 +8,7 @@ import getpass
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
@@ -152,6 +153,21 @@ def make_parser() -> argparse.ArgumentParser:
         "auth-session",
         help="keep an authentication challenge open and read its SMS code from stdin",
     )
+    browser_daemon = commands.add_parser(
+        "browser-daemon",
+        help="keep the managed Chromium profile running for CDP clients",
+    )
+    browser_daemon.add_argument(
+        "--listen-address",
+        default="127.0.0.1",
+        help="DevTools address (default: %(default)s)",
+    )
+    browser_daemon.add_argument(
+        "--port",
+        type=int,
+        default=9223,
+        help="DevTools port (default: %(default)s)",
+    )
     commands.add_parser(
         "mcp",
         help="serve read-only invoice tools and resources over MCP stdio",
@@ -203,10 +219,15 @@ def make_parser() -> argparse.ArgumentParser:
 def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
-    if args.command in {"login", "login-cli"} and args.cdp_url:
+    if args.command == "login" and args.cdp_url:
         parser.error(
             f"{args.command} manages its own profile and cannot be combined with --cdp-url"
         )
+    if args.command == "browser-daemon":
+        if args.cdp_url:
+            parser.error("browser-daemon cannot be combined with --cdp-url")
+        if not 1 <= args.port <= 65535:
+            parser.error("browser-daemon --port must be between 1 and 65535")
     if args.command != "fetch":
         return
     if (args.from_date is None) != (args.to_date is None):
@@ -509,7 +530,7 @@ def login_cli(args: argparse.Namespace) -> None:
         session = open_session(
             playwright,
             profile=args.profile,
-            cdp_url=None,
+            cdp_url=args.cdp_url,
             headed=False,
         )
         try:
@@ -537,6 +558,49 @@ def login_cli(args: argparse.Namespace) -> None:
             print(f"Authenticated trusted session retained in {args.profile}.")
         finally:
             session.close()
+
+
+def browser_daemon(args: argparse.Namespace) -> None:
+    profile = args.profile.expanduser().resolve()
+    profile.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        profile.chmod(0o700)
+    except OSError:
+        pass
+
+    stopping = threading.Event()
+
+    def stop(_signum: int, _frame: object) -> None:
+        stopping.set()
+
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+
+    with sync_playwright() as playwright:
+        context = playwright.chromium.launch_persistent_context(
+            str(profile),
+            headless=True,
+            channel="chromium",
+            accept_downloads=False,
+            args=[
+                f"--remote-debugging-address={args.listen_address}",
+                f"--remote-debugging-port={args.port}",
+            ],
+        )
+        try:
+            print(
+                f"PowerPass Chromium is listening on "
+                f"http://{args.listen_address}:{args.port}.",
+                flush=True,
+            )
+            while not stopping.wait(60):
+                pass
+        finally:
+            try:
+                context.close()
+            except Exception:
+                if not stopping.is_set():
+                    raise
 
 
 def auth_check(args: argparse.Namespace) -> None:
@@ -1029,6 +1093,8 @@ def main() -> int:
             auth_check(args)
         elif args.command == "auth-session":
             auth_session(args)
+        elif args.command == "browser-daemon":
+            browser_daemon(args)
         elif args.command == "mcp":
             serve_mcp(args)
         else:
