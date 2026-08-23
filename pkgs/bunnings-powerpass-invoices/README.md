@@ -69,7 +69,9 @@ no 1Password access and does not expose password or MFA tools. Its tools are:
 - `authentication_status`, which reports whether the retained trusted session
   is usable;
 - `list_invoices`, which returns transaction metadata and a
-  `powerpass://invoice/...` URI for each matching invoice; and
+  `powerpass://invoice/...` URI plus an `invoice_id` for each matching invoice;
+- `download_invoice`, which accepts that `invoice_id` and returns the selected
+  tax invoice as a downloadable PDF file; and
 - the `powerpass://invoice/{invoice_id}` resource template, which returns the
   selected invoice as an `application/pdf` binary resource.
 

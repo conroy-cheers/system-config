@@ -21,6 +21,7 @@ from urllib.parse import urljoin, urlsplit
 
 from fastmcp import FastMCP
 from fastmcp.resources import ResourceContent, ResourceResult
+from fastmcp.utilities.types import File
 from playwright.sync_api import (
     Browser,
     BrowserContext,
@@ -881,6 +882,7 @@ def transaction_record(transaction: Transaction) -> dict[str, str]:
         "invoice_number": transaction.invoice_number,
         "transaction_date": transaction.transaction_date,
         "transaction_type": transaction.transaction_type,
+        "invoice_id": transaction.filename,
         "filename": transaction.filename,
         "resource_uri": invoice_resource_uri(transaction),
     }
@@ -999,7 +1001,8 @@ def serve_mcp(args: argparse.Namespace) -> None:
         description=(
             "List PowerPass tax invoices for the current month, or an inclusive date "
             "range when both dates are supplied. Dates use DD/MM/YYYY. Each result "
-            "includes a powerpass:// PDF resource URI."
+            "includes an invoice_id for download_invoice and a powerpass:// PDF "
+            "resource URI."
         ),
         annotations={
             "readOnlyHint": True,
@@ -1012,6 +1015,23 @@ def serve_mcp(args: argparse.Namespace) -> None:
         from_date: str | None = None, to_date: str | None = None
     ) -> dict[str, object]:
         return backend.list_invoices(from_date, to_date)
+
+    @server.tool(
+        name="download_invoice",
+        description=(
+            "Download one PowerPass tax invoice as a PDF file. Use the invoice_id "
+            "returned by list_invoices."
+        ),
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )
+    async def download_invoice(invoice_id: str) -> File:
+        data = await asyncio.to_thread(backend.read_invoice, invoice_id)
+        return File(data=data, format="pdf", name=Path(invoice_id).stem)
 
     @server.resource(
         "powerpass://invoice/{invoice_id}",
