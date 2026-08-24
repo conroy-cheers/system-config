@@ -115,6 +115,7 @@ in
     stylix.targets = {
       hyprland.hyprpaper.enable = false;
       hyprpaper.enable = false;
+      hyprlock.enable = false;
     };
 
     programs.colorshell = {

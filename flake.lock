@@ -435,16 +435,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1787415375,
-        "narHash": "sha256-Ta0VHRfVGApQA83txgOUPsMxrvaPgBghsRbvkZD4tSA=",
-        "owner": "conroy-cheers",
+        "lastModified": 1787490169,
+        "narHash": "sha256-iwp5aRngdcta5FEusdVTfYUuVos439xvSlqn9yi7PIU=",
+        "owner": "retrozinndev",
         "repo": "colorshell",
-        "rev": "27bf573e7ac463dee6bb45d9181cc3dd7c5c3122",
+        "rev": "96973c3db75e892e143c833bc11e1cecb4d25bd4",
         "type": "github"
       },
       "original": {
-        "owner": "conroy-cheers",
-        "ref": "feat/static-color-engine",
+        "owner": "retrozinndev",
         "repo": "colorshell",
         "type": "github"
       }

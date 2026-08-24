@@ -382,7 +382,7 @@
     };
 
     colorshell = {
-      url = "github:conroy-cheers/colorshell/feat/static-color-engine";
+      url = "github:retrozinndev/colorshell";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
     };

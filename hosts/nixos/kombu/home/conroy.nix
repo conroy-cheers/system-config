@@ -84,6 +84,8 @@
   };
 
   programs.colorshell.enable = true;
+  xdg.configFile."colorshell/config.json".force = true;
+  home.file."${config.xdg.configHome}/lazygit/config.yml".force = true;
 
   wayland.windowManager.hyprland.settings = {
     monitor = [
