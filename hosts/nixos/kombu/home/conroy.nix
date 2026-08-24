@@ -6,6 +6,9 @@
   ...
 }:
 
+let
+  sigmaStudioPackage = inputs.sigma-studio.packages.${pkgs.stdenv.hostPlatform.system}.sigma-studio;
+in
 {
   imports = [ inputs.wired.homeManagerModules.default ];
 
@@ -114,6 +117,7 @@
   home.packages = with pkgs; [
     gparted
     audacity
+    sigmaStudioPackage
     # libreoffice-qt6-fresh  # https://github.com/NixOS/nixpkgs/issues/514113
 
     pciutils # lspci

@@ -335,6 +335,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    sigma-studio = {
+      url = "github:conroy-cheers/sigma-studio";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
