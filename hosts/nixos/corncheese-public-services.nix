@@ -35,6 +35,7 @@ in
           "email"
           "offline_access"
           "mail.read"
+          "mail.send"
         ];
         grantTypes = [
           "authorization_code"
@@ -114,6 +115,7 @@ in
 
   corncheese-server.auth.authelia.oidcScopes = {
     "mail.read".claims = [ ];
+    "mail.send".claims = [ ];
     "powerpass.invoices.read".claims = [ ];
   };
 }

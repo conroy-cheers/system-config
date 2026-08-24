@@ -123,7 +123,7 @@ let
 in
 {
   options.services.icloud-mail-mcp = {
-    enable = lib.mkEnableOption "a pull-only iCloud Maildir/notmuch mirror for MCP access";
+    enable = lib.mkEnableOption "an iCloud Maildir/notmuch mirror with MCP access";
 
     package = lib.mkPackageOption pkgs "mcp-server-notmuch" { };
 
@@ -155,6 +155,116 @@ in
       type = lib.types.str;
       default = "imap.mail.me.com";
       description = "iCloud IMAP server.";
+    };
+
+    smtp = {
+      enable = lib.mkEnableOption "sending mail through iCloud SMTP";
+
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "smtp.mail.me.com";
+        description = "iCloud SMTP submission server.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 587;
+        description = "iCloud SMTP submission port using STARTTLS.";
+      };
+
+      userName = lib.mkOption {
+        type = lib.types.str;
+        default = "conroy.cheers@icloud.com";
+        description = "Full iCloud address used for SMTP authentication.";
+      };
+
+      sendScope = lib.mkOption {
+        type = lib.types.str;
+        default = "mail.send";
+        description = "OAuth scope required specifically by the send_email tool.";
+      };
+
+      maxRecipients = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 20;
+        description = "Maximum number of unique recipients per message.";
+      };
+
+      maxSubjectChars = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 998;
+        description = "Maximum subject length accepted by the send_email tool.";
+      };
+
+      maxBodyChars = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 200000;
+        description = "Maximum plain-text body length accepted by the send_email tool.";
+      };
+
+      maxMessagesPerHour = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 20;
+        description = "Process-local hourly limit for successfully submitted messages.";
+      };
+
+      attachments = {
+        enable = lib.mkEnableOption "ChatGPT-managed file attachments";
+
+        allowedHostSuffixes = lib.mkOption {
+          type = lib.types.nonEmptyListOf lib.types.str;
+          default = [ "files.oaiusercontent.com" ];
+          description = "DNS suffixes from which the gateway may download ChatGPT-managed files.";
+        };
+
+        maxCount = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 5;
+          description = "Maximum number of attachments per message.";
+        };
+
+        maxFileBytes = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 8 * 1024 * 1024;
+          description = "Maximum raw size of one attachment.";
+        };
+
+        maxTotalBytes = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 10 * 1024 * 1024;
+          description = "Maximum total raw attachment size per message.";
+        };
+
+        maxEncodedMessageBytes = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 15 * 1024 * 1024;
+          description = "Maximum serialized MIME message size after transfer encoding.";
+        };
+
+        maxRedirects = lib.mkOption {
+          type = lib.types.ints.unsigned;
+          default = 3;
+          description = "Maximum number of validated redirects for one attachment download.";
+        };
+
+        connectTimeoutSeconds = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 5;
+          description = "Attachment download connection timeout.";
+        };
+
+        readTimeoutSeconds = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 20;
+          description = "Attachment download socket read timeout.";
+        };
+
+        overallTimeoutSeconds = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 45;
+          description = "Combined attachment download deadline for one send_email invocation.";
+        };
+      };
     };
 
     passwordFile = lib.mkOption {
@@ -238,6 +348,12 @@ in
         default = [ "mail.read" ];
         description = "OAuth scopes required on every MCP request.";
       };
+
+      supportedScopes = lib.mkOption {
+        type = lib.types.nonEmptyListOf lib.types.str;
+        default = [ "mail.read" ];
+        description = "OAuth scopes advertised by the protected resource.";
+      };
     };
   };
 
@@ -254,6 +370,30 @@ in
       {
         assertion = cfg.oauth.audience == "${cfg.publicUrl}${cfg.mcpPath}";
         message = "services.icloud-mail-mcp.oauth.audience must exactly match publicUrl plus mcpPath.";
+      }
+      {
+        assertion = lib.all (scope: lib.elem scope cfg.oauth.supportedScopes) cfg.oauth.requiredScopes;
+        message = "services.icloud-mail-mcp.oauth.requiredScopes must be included in supportedScopes.";
+      }
+      {
+        assertion = !cfg.smtp.enable || lib.elem cfg.smtp.sendScope cfg.oauth.supportedScopes;
+        message = "services.icloud-mail-mcp.smtp.sendScope must be included in oauth.supportedScopes.";
+      }
+      {
+        assertion = !cfg.smtp.attachments.enable || cfg.smtp.enable;
+        message = "services.icloud-mail-mcp.smtp.attachments requires SMTP sending to be enabled.";
+      }
+      {
+        assertion =
+          !cfg.smtp.attachments.enable
+          || cfg.smtp.attachments.maxFileBytes <= cfg.smtp.attachments.maxTotalBytes;
+        message = "services.icloud-mail-mcp.smtp.attachments.maxFileBytes must not exceed maxTotalBytes.";
+      }
+      {
+        assertion =
+          !cfg.smtp.attachments.enable
+          || cfg.smtp.attachments.maxTotalBytes < cfg.smtp.attachments.maxEncodedMessageBytes;
+        message = "services.icloud-mail-mcp.smtp.attachments.maxEncodedMessageBytes must exceed maxTotalBytes.";
       }
     ];
 
@@ -324,28 +464,91 @@ in
     };
 
     systemd.services.icloud-mail-mcp = {
-      description = "OAuth-protected read-only iCloud mail MCP server";
+      description = "OAuth-protected iCloud mail MCP server";
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
       script =
         let
-          scopeArgs = lib.concatMapStringsSep " " (
-            scope: "--required-scope ${lib.escapeShellArg scope}"
-          ) cfg.oauth.requiredScopes;
+          gatewayArgs = [
+            "--backend-command"
+            (lib.getExe mcpCommand)
+            "--listen-address"
+            cfg.listenAddress
+            "--port"
+            (toString cfg.port)
+            "--path"
+            cfg.mcpPath
+            "--public-url"
+            cfg.publicUrl
+            "--issuer"
+            cfg.oauth.issuer
+            "--jwks-uri"
+            cfg.oauth.jwksUri
+            "--audience"
+            cfg.oauth.audience
+          ]
+          ++ lib.concatMap (scope: [
+            "--required-scope"
+            scope
+          ]) cfg.oauth.requiredScopes
+          ++ lib.concatMap (scope: [
+            "--supported-scope"
+            scope
+          ]) cfg.oauth.supportedScopes
+          ++ lib.optionals cfg.smtp.enable (
+            [
+              "--smtp-host"
+              cfg.smtp.host
+              "--smtp-port"
+              (toString cfg.smtp.port)
+              "--smtp-username"
+              cfg.smtp.userName
+              "--smtp-sender-address"
+              cfg.address
+              "--smtp-sender-name"
+              cfg.realName
+              "--smtp-send-scope"
+              cfg.smtp.sendScope
+              "--smtp-max-recipients"
+              (toString cfg.smtp.maxRecipients)
+              "--smtp-max-subject-chars"
+              (toString cfg.smtp.maxSubjectChars)
+              "--smtp-max-body-chars"
+              (toString cfg.smtp.maxBodyChars)
+              "--smtp-max-messages-per-hour"
+              (toString cfg.smtp.maxMessagesPerHour)
+            ]
+            ++ lib.optionals cfg.smtp.attachments.enable (
+              [
+                "--smtp-attachments-enabled"
+                "--smtp-max-attachments"
+                (toString cfg.smtp.attachments.maxCount)
+                "--smtp-max-attachment-bytes"
+                (toString cfg.smtp.attachments.maxFileBytes)
+                "--smtp-max-total-attachment-bytes"
+                (toString cfg.smtp.attachments.maxTotalBytes)
+                "--smtp-max-encoded-message-bytes"
+                (toString cfg.smtp.attachments.maxEncodedMessageBytes)
+                "--smtp-attachment-max-redirects"
+                (toString cfg.smtp.attachments.maxRedirects)
+                "--smtp-attachment-connect-timeout-seconds"
+                (toString cfg.smtp.attachments.connectTimeoutSeconds)
+                "--smtp-attachment-read-timeout-seconds"
+                (toString cfg.smtp.attachments.readTimeoutSeconds)
+                "--smtp-attachment-overall-timeout-seconds"
+                (toString cfg.smtp.attachments.overallTimeoutSeconds)
+              ]
+              ++ lib.concatMap (host: [
+                "--smtp-attachment-allowed-host"
+                host
+              ]) cfg.smtp.attachments.allowedHostSuffixes
+            )
+          );
         in
         ''
-          exec ${lib.getExe cfg.gatewayPackage} \
-            --backend-command ${lib.escapeShellArg (lib.getExe mcpCommand)} \
-            --listen-address ${lib.escapeShellArg cfg.listenAddress} \
-            --port ${toString cfg.port} \
-            --path ${lib.escapeShellArg cfg.mcpPath} \
-            --public-url ${lib.escapeShellArg cfg.publicUrl} \
-            --issuer ${lib.escapeShellArg cfg.oauth.issuer} \
-            --jwks-uri ${lib.escapeShellArg cfg.oauth.jwksUri} \
-            --audience ${lib.escapeShellArg cfg.oauth.audience} \
-            ${scopeArgs}
+          exec ${lib.getExe cfg.gatewayPackage} ${lib.escapeShellArgs gatewayArgs} ${lib.optionalString cfg.smtp.enable ''--smtp-password-file "$CREDENTIALS_DIRECTORY/icloud-password"''}
         '';
 
       environment = {
@@ -358,6 +561,8 @@ in
         Group = mailGroup;
         RuntimeDirectory = "icloud-mail-mcp";
         RuntimeDirectoryMode = "0700";
+        LoadCredential = lib.mkIf cfg.smtp.enable "icloud-password:${cfg.passwordFile}";
+        MemoryMax = lib.mkIf cfg.smtp.attachments.enable "256M";
         ReadOnlyPaths = [ mailRoot ];
         Restart = "on-failure";
         RestartSec = "10s";

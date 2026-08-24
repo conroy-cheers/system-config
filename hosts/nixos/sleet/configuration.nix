@@ -215,6 +215,10 @@ in
   services.icloud-mail-mcp = {
     enable = true;
     passwordFile = config.age.secrets."corncheese.mail.icloud".path;
+    smtp = {
+      enable = true;
+      attachments.enable = true;
+    };
     aliases = [
       "conroy@corncheese.org"
       "conroy@conroycheers.me"
@@ -226,8 +230,23 @@ in
       issuer = "https://auth.corncheese.org";
       jwksUri = "https://auth.corncheese.org/jwks.json";
       audience = "https://mail.corncheese.org/mcp";
-      requiredScopes = [ "mail.read" ];
+      requiredScopes = [
+        "mail.read"
+        "mail.send"
+      ];
+      supportedScopes = [
+        "mail.read"
+        "mail.send"
+      ];
     };
+  };
+
+  corncheese-server.auth.authelia.notifier.smtp = {
+    enable = true;
+    username = "conroy.cheers@icloud.com";
+    passwordFile = config.age.secrets."corncheese.mail.icloud".path;
+    sender = "Authelia <conroy.cheers@icloud.com>";
+    startupCheckAddress = "conroy@corncheese.org";
   };
 
   services.bunnings-powerpass-invoices = {
