@@ -872,6 +872,7 @@ in
           [
             kicad
             stm32cubemx
+            stm32cubemx2
           ]
           ++ (lib.optionals (builtins.hasAttr "waveforms" pkgs) [ pkgs.waveforms ])
           ++ (lib.optionals (builtins.hasAttr "j-link" pkgs) [ pkgs.j-link ])

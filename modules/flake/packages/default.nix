@@ -81,7 +81,13 @@
       let
         # NOTE: evaluate packages in isolation, which allows
         #       merging them back into the global `pkgs` later
-        pkgsPure = import inputs.nixpkgs { inherit system; };
+        pkgsPure = import inputs.nixpkgs {
+          inherit system;
+          # Auto-discovered packages are evaluated before being overlaid into
+          # the configured package set, so they cannot inherit its unfree
+          # policy. Keep this isolated package set consistent with pkgs.default.
+          config.allowUnfree = true;
+        };
         packages = lib.pipe config.auto.packages.result [
           (lib.filterAttrs (
             name:
