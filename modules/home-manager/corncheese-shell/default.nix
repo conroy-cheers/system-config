@@ -8,7 +8,8 @@
 
 let
   cfg = config.corncheese.shell;
-  colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
+  useStylixTheme =
+    pkgs.stdenv.hostPlatform.isLinux && config.corncheese.wm.enable && config.corncheese.theming.enable;
   rebuildScript =
     let
       inherit (pkgs.stdenv.hostPlatform)
@@ -199,6 +200,23 @@ in
 
       xdg = {
         enable = true;
+        configFile."atuin/themes/stylix.toml" = lib.mkIf (cfg.atuin.enable && useStylixTheme) {
+          text = with config.lib.stylix.colors.withHashtag; ''
+            [theme]
+            name = "stylix"
+            parent = "default"
+
+            [colors]
+            AlertInfo = "${base0B}"
+            AlertWarn = "${base0A}"
+            AlertError = "${base08}"
+            Annotation = "${base03}"
+            Guidance = "${base0C}"
+            Important = "${base0E}"
+            Title = "${base0D}"
+            Muted = "${base04}"
+          '';
+        };
       };
 
       # Direnv
@@ -255,9 +273,9 @@ in
             inline_height = 20;
             dialect = "uk";
           }
-          (mkIf colorshellEnabled {
+          (mkIf useStylixTheme {
             theme = {
-              name = "walbridge";
+              name = "stylix";
             };
           })
           (mkIf cfg.atuin.sync {
@@ -312,9 +330,6 @@ in
             shellPackage = builtins.getAttr (builtins.head cfg.shells) pkgs;
           in
           "${shellPackage}/${shellPackage.shellPath}";
-      }
-      // lib.optionalAttrs (cfg.starship && colorshellEnabled) {
-        STARSHIP_CONFIG = lib.mkForce "${config.xdg.configHome}/starship-walbridge.toml";
       };
 
       # Nushell
@@ -343,21 +358,11 @@ in
       programs.fish = mkIf (builtins.elem "fish" cfg.shells) {
         enable = true;
         package = pkgs.fish;
-        interactiveShellInit = lib.mkMerge [
-          (mkIf cfg.direnv ''
-            # Erase direnv's vendor fish hooks — direnv-instant replaces them.
-            # The vendor_conf.d/direnv.fish registers these before config.fish runs.
-            functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
-          '')
-          (mkIf colorshellEnabled (
-            lib.mkAfter ''
-              set -gx STARSHIP_CONFIG ${config.xdg.configHome}/starship-walbridge.toml
-              if test -f ${config.xdg.configHome}/fish/conf.d/walbridge.fish
-                  source ${config.xdg.configHome}/fish/conf.d/walbridge.fish
-              end
-            ''
-          ))
-        ];
+        interactiveShellInit = mkIf cfg.direnv ''
+          # Erase direnv's vendor fish hooks — direnv-instant replaces them.
+          # The vendor_conf.d/direnv.fish registers these before config.fish runs.
+          functions -e __direnv_export_eval __direnv_export_eval_2 __direnv_cd_hook
+        '';
 
         shellAliases = shellAliases // {
           ls = "${pkgs.lsd}/bin/lsd";

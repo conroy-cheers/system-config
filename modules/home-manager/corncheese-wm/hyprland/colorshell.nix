@@ -9,31 +9,12 @@ let
   cfg = config.corncheese.wm;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   themeDetails = config.corncheese.theming.themeDetails;
-  walbridgePackages = inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system};
-  walbridgePackage = walbridgePackages.default;
-  walbridgeExtractPackage = walbridgePackages.walbridge-extract;
-  walbridgeVisualizePackage = walbridgePackages.walbridge-visualize;
-  walbridgeColors = builtins.fromJSON (
-    builtins.readFile (
-      pkgs.runCommand "walbridge-colors.json" { } ''
-        export HOME="$TMPDIR"
-        export XDG_CONFIG_HOME="$TMPDIR/config"
-        ${lib.getExe' walbridgeExtractPackage "walbridge-extract"} \
-          --image ${lib.escapeShellArg (toString themeDetails.wallpaper)} \
-          --colors-out "$TMPDIR/colors.json" \
-          --palette-out "$TMPDIR/palette.json"
-        ${lib.getExe pkgs.jq} 'del(.wallpaper)' "$TMPDIR/colors.json" >"$out"
-      ''
-    )
-  );
   colorshellPackage = inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell;
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
-    source = ~/.cache/wal/colors-hyprland.conf
-
     background {
       monitor =
       color = rgb(${base00})
-      path = $wallpaper
+      path = ${themeDetails.wallpaper}
     }
 
     general {
@@ -98,20 +79,6 @@ let
 in
 {
   config = lib.mkIf (cfg.enable && colorshellEnabled) {
-    home.packages = [
-      walbridgePackage
-      walbridgeExtractPackage
-      walbridgeVisualizePackage
-      pkgs.hyprlock
-      pkgs.libsForQt5.qt5ct
-      pkgs.qt6Packages.qt6ct
-    ];
-
-    home.sessionVariables = {
-      QT_QPA_PLATFORMTHEME = "qt5ct";
-      QT_STYLE_OVERRIDE = "Fusion";
-    };
-
     stylix.targets = {
       hyprland.hyprpaper.enable = false;
       hyprpaper.enable = false;
@@ -123,22 +90,16 @@ in
       settings = {
         color = {
           engine = "static";
-          static =
-            let
-              bgPrimary = "oklch(from ${walbridgeColors.colors.color1} calc(l - .36) c h)";
-              bgSecondary = "oklch(from ${walbridgeColors.colors.color1} calc(l - .22) c h)";
-              bgTertiary = "oklch(from ${walbridgeColors.colors.color1} calc(l - .1) c h)";
-            in
-            {
-              bg_primary = bgPrimary;
-              bg_secondary = bgSecondary;
-              bg_tertiary = bgTertiary;
-              bg_translucent_primary = "oklch(from ${bgPrimary} l c h / .68)";
-              bg_translucent_secondary = "oklch(from ${bgSecondary} l c h / .68)";
-              bg_translucent_tertiary = "oklch(from ${bgTertiary} l c h / .68)";
-              fg_primary = walbridgeColors.special.foreground;
-              fg_disabled = "oklch(from ${walbridgeColors.special.foreground} calc(l - .10) c h)";
-            };
+          static = with config.lib.stylix.colors.withHashtag; {
+            bg_primary = base00;
+            bg_secondary = base01;
+            bg_tertiary = base02;
+            bg_translucent_primary = "oklch(from ${base00} l c h / .68)";
+            bg_translucent_secondary = "oklch(from ${base01} l c h / .68)";
+            bg_translucent_tertiary = "oklch(from ${base02} l c h / .68)";
+            fg_primary = base05;
+            fg_disabled = base04;
+          };
         };
 
         misc.match_window_border_color = false;

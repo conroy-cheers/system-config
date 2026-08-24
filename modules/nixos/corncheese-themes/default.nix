@@ -10,6 +10,7 @@ let
   themeDetails = lib.recursiveUpdate (import (../../common + "/themes/${cfg.theme}.nix") {
     inherit pkgs;
   }) cfg.themeOverrides;
+  useWalbridgePalette = pkgs.stdenv.hostPlatform.isLinux && config.corncheese.wm.enable;
 in
 {
   options = {
@@ -34,51 +35,41 @@ in
 
   imports = [ inputs.stylix.nixosModules.stylix ];
 
-  config = lib.mkIf cfg.enable (
-    let
-      formatBase =
-        name:
-        let
-          getComponent = comp: config.lib.stylix.colors."${name}-rgb-${comp}";
-        in
-        "${getComponent "r"},${getComponent "g"},${getComponent "b"}";
-    in
-    {
-      corncheese.theming.themeDetails = themeDetails;
+  config = lib.mkIf cfg.enable {
+    corncheese.theming.themeDetails = themeDetails;
 
-      fonts = {
-        fontconfig.enable = true;
-        packages = [ config.stylix.fonts.monospace.package ];
+    fonts = {
+      fontconfig.enable = true;
+      packages = [ config.stylix.fonts.monospace.package ];
+    };
+
+    stylix = {
+      enable = true;
+      polarity = "dark";
+      image = themeDetails.wallpaper;
+      paletteGenerator =
+        lib.mkIf useWalbridgePalette
+          inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.stylix-palette-generator;
+      base16Scheme = lib.mkIf (
+        !useWalbridgePalette
+      ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
+      override = lib.mkIf (
+        !useWalbridgePalette && themeDetails.stylixOverride != null
+      ) themeDetails.stylixOverride;
+      opacity = {
+        terminal = cfg.themeDetails.opacity;
+        applications = cfg.themeDetails.opacity;
+        desktop = cfg.themeDetails.opacity;
+        popups = cfg.themeDetails.opacity;
+      };
+      fonts.sizes.terminal = themeDetails.fontSize;
+      cursor = lib.mkIf useWalbridgePalette {
+        package = pkgs.catppuccin-cursors.mochaLavender;
+        name = "catppuccin-mocha-lavender-cursors";
+        size = 24;
       };
 
-      stylix = {
-        enable = true;
-        polarity = "dark";
-        image = themeDetails.wallpaper;
-        base16Scheme = lib.mkIf (
-          cfg.theme != null
-        ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
-        override = lib.mkIf (cfg.themeDetails.stylixOverride != null) cfg.themeDetails.stylixOverride;
-        opacity = {
-          terminal = cfg.themeDetails.opacity;
-          applications = cfg.themeDetails.opacity;
-          desktop = cfg.themeDetails.opacity;
-          popups = cfg.themeDetails.opacity;
-        };
-        fonts = {
-          sizes = {
-            terminal = 11;
-          };
-        };
-
-        targets.nvf.enable = lib.mkIf (cfg.theme != null) false;
-
-        # targets.btop.enable =
-        #   lib.mkIf (settings.themecfg.themeDetails.btopTheme != null) false;
-      };
-    }
-  );
-
-  meta = {
+      targets.nvf.enable = false;
+    };
   };
 }

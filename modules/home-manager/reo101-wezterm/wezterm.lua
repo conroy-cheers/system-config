@@ -40,7 +40,6 @@ M.freetype_render_target = "Light"
 --------------------
 -- Window options --
 --------------------
-M.window_background_opacity = __WALBRIDGE_WINDOW_BACKGROUND_OPACITY__
 M.text_background_opacity = 1.0
 -- M.window_background_image = ""
 M.window_decorations = "RESIZE"
@@ -136,13 +135,5 @@ M.hyperlink_rules = {
         format = "$0",
     },
 }
-
-local walbridge_path = os.getenv("HOME") .. "/.config/wezterm/walbridge.lua"
-local walbridge_loaded, walbridge = pcall(dofile, walbridge_path)
-if walbridge_loaded and type(walbridge) == "table" then
-    for key, value in pairs(walbridge) do
-        M[key] = value
-    end
-end
 
 return M

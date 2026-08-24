@@ -4145,15 +4145,16 @@
         "tinted-zed": "tinted-zed"
       },
       "locked": {
-        "lastModified": 1781018772,
-        "narHash": "sha256-C+cGIUaC6dqfwTbI+BwCd572PbESGA3WYxR1sLTqxkY=",
-        "owner": "danth",
+        "lastModified": 1787583943,
+        "narHash": "sha256-E/gRwb9yQg9bdEYCl6nw0u87DVj7QqT/pLnCplkBaKg=",
+        "owner": "conroy-cheers",
         "repo": "stylix",
-        "rev": "a378e4c09031fb15a4d65da88aa628f71fc52f6b",
+        "rev": "089b1bd77bfe3a8c059f6e653577039392a12ecd",
         "type": "github"
       },
       "original": {
-        "owner": "danth",
+        "owner": "conroy-cheers",
+        "ref": "allow-custom-palette-generator",
         "repo": "stylix",
         "type": "github"
       }
@@ -4736,16 +4737,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1779422473,
-        "narHash": "sha256-Ue1NeZK6G79DYM9MafhCRnbUWYnMAsSl8H/weTtBEgo=",
+        "lastModified": 1787583917,
+        "narHash": "sha256-Ss5ur3+r3CK8hV4gS5AAVAhJV91nTbtNOPkl1ciCzzU=",
         "owner": "conroy-cheers",
         "repo": "walbridge",
-        "rev": "081084aabfb3b6d1d56fe67e866a17328a2baf96",
+        "rev": "dd034ce64ed43c8b710afd07d581de1da685063a",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
-        "ref": "feat/extract-crate",
         "repo": "walbridge",
         "type": "github"
       }

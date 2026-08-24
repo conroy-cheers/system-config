@@ -10,9 +10,6 @@ let
   cfg = config.corncheese.development;
   themeDetails =
     if config.corncheese.theming.enable then config.corncheese.theming.themeDetails else { };
-  colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
-  walbridgeRuntimeThemeEnabled = pkgs.stdenv.hostPlatform.isLinux && colorshellEnabled;
-
   codexHome = "${config.home.homeDirectory}/.codex";
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexConfigFile = "${codexHome}/config.toml";
@@ -464,9 +461,6 @@ in
               "editor.formatOnSave" = true;
               "editor.defaultFormatter" = "tamasfe.even-better-toml";
             };
-          }
-          // lib.optionalAttrs walbridgeRuntimeThemeEnabled {
-            "workbench.colorTheme" = lib.mkForce "Walbridge";
           };
         };
     };

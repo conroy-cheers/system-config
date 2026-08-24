@@ -543,20 +543,17 @@ in
               check_guest "test -z \"\$(systemctl --user --failed --no-legend --plain)\""
               check_guest "test -L ~/.wayland-session"
               check_guest "test -L ~/.config/hypr/hyprland.lua"
-              check_guest "test -f ~/.config/colorshell/config.overrides.json"
+              check_guest "test -f ~/.config/colorshell/config.json"
               check_guest "test -f ~/.config/colorshell/hyprlock.conf"
               check_guest "test -f ~/.config/xdg-desktop-portal/hyprland-portals.conf"
               check_guest "pgrep -f '[H]yprland' >/dev/null"
               check_guest "export \$(systemctl --user show-environment | grep -E '^(HYPRLAND_INSTANCE_SIGNATURE|XDG_RUNTIME_DIR|WAYLAND_DISPLAY|DISPLAY)='); hyprctl version >/dev/null"
               check_guest "export \$(systemctl --user show-environment | grep -E '^(HYPRLAND_INSTANCE_SIGNATURE|XDG_RUNTIME_DIR|WAYLAND_DISPLAY|DISPLAY)='); test -z \"\$(hyprctl configerrors)\""
 
-              for _ in $(seq 1 60); do
-                if guest "test -f ~/.cache/wal/colors.json"; then
-                  break
-                fi
-                sleep 1
-              done
-              check_guest "test -f ~/.cache/wal/colors.json"
+              check_guest "${pkgsPure.jq}/bin/jq -e '.color.engine == \"static\"' ~/.config/colorshell/config.json >/dev/null"
+              check_guest "! test -e ~/.cache/wal/colors.json"
+              check_guest "! command -v walbridge >/dev/null"
+              check_guest "command -v walbridge-visualize >/dev/null"
 
               # shellcheck disable=SC2016
               hypr_env='export $(systemctl --user show-environment | grep -E '"'"'^(HYPRLAND_INSTANCE_SIGNATURE|XDG_RUNTIME_DIR|WAYLAND_DISPLAY|DISPLAY)='"'"')'

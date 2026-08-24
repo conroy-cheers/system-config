@@ -198,17 +198,8 @@ in
 
     home.pointerCursor = {
       enable = true;
-      package = pkgs.catppuccin-cursors.mochaLavender;
-      name = "catppuccin-mocha-lavender-cursors";
-      size = 24;
-      gtk.enable = true;
-      hyprcursor = {
-        enable = true;
-        # size = 24;
-      };
+      hyprcursor.enable = true;
     };
-
-    gtk.gtk4.theme = config.gtk.theme;
 
     xdg.portal = {
       enable = true;
