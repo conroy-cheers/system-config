@@ -20,6 +20,7 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 from fastmcp.client.transports import StdioTransport
+from fastmcp.exceptions import ToolError
 from fastmcp.server import create_proxy
 from fastmcp.server.auth import RemoteAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
@@ -620,11 +621,14 @@ def register_send_tool(server, args):
                 f"Body must be at most {args.smtp_max_body_chars} characters."
             )
 
-        attachments = (
-            download_attachments(attachment_sources, attachment_policy)
-            if attachment_policy is not None
-            else []
-        )
+        try:
+            attachments = (
+                download_attachments(attachment_sources, attachment_policy)
+                if attachment_policy is not None
+                else []
+            )
+        except AttachmentError as error:
+            raise ToolError(str(error)) from None
         message, message_id = build_message(
             sender_address=sender_address,
             sender_name=args.smtp_sender_name,
@@ -710,9 +714,12 @@ def register_send_tool(server, args):
 
             This immediately performs an external side effect. Before calling,
             show the user the final recipients, subject, complete body, and
-            attachment filenames and obtain confirmation. A temporary local file
-            must first be materialized by ChatGPT as a managed file; never pass a
-            local filesystem path. HTML and inline images are unsupported.
+            attachment filenames and obtain confirmation. Each attachment must
+            first be registered as a ChatGPT-managed file. In ChatGPT's exposed
+            string-array parameter, pass the resulting `file_...` identifier;
+            ChatGPT resolves it to a download descriptor before invoking this
+            server. Do not pass structured objects, `sandbox:` or `file:` URIs,
+            or local filesystem paths. HTML and inline images are unsupported.
 
             Args:
                 to: Primary recipient email addresses, without display names.
@@ -722,7 +729,7 @@ def register_send_tool(server, args):
                 bcc: Optional blind-carbon-copy recipient addresses.
                 in_reply_to: Optional Message-ID of the message being answered.
                 references: Optional space-separated Message-ID reply chain.
-                attachments: Optional ChatGPT-managed files to attach.
+                attachments: Registered ChatGPT-managed `file_...` identifiers.
             """
             return send_email_impl(
                 to=to,

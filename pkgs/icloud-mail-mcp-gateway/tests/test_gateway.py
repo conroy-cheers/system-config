@@ -109,6 +109,9 @@ class FileSchemaTests(unittest.TestCase):
             smtp_attachment_connect_timeout_seconds=5,
             smtp_attachment_read_timeout_seconds=20,
             smtp_attachment_overall_timeout_seconds=45,
+            smtp_max_recipients=20,
+            smtp_max_subject_chars=998,
+            smtp_max_body_chars=200000,
             smtp_max_messages_per_hour=20,
             smtp_send_scope="mail.send",
         )
@@ -126,6 +129,28 @@ class FileSchemaTests(unittest.TestCase):
         )
         self.assertEqual(
             tool.parameters["properties"]["attachments"]["type"], "array"
+        )
+        self.assertIn("pass the resulting `file_...` identifier", tool.description)
+        self.assertIn("Do not pass structured objects", tool.description)
+
+        with self.assertRaises(gateway.ToolError) as raised:
+            asyncio.run(
+                tool.run(
+                    {
+                        "to": ["recipient@example.com"],
+                        "subject": "Subject",
+                        "body": "Body",
+                        "attachments": [
+                            {
+                                "download_url": "https://evil.example/file",
+                                "file_id": "file-test",
+                            }
+                        ],
+                    }
+                )
+            )
+        self.assertEqual(
+            str(raised.exception), "An attachment download host is not allowed."
         )
 
 
