@@ -42,6 +42,7 @@ in
           "refresh_token"
         ];
         responseTypes = [ "code" ];
+        lifespan = "chatgpt-mcp";
         accessTokenSignedResponseAlg = "RS256";
         userinfoSignedResponseAlg = "none";
         tokenEndpointAuthMethod = "none";
@@ -79,7 +80,7 @@ in
           "refresh_token"
         ];
         responseTypes = [ "code" ];
-        lifespan = "chatgpt-bunnings-powerpass";
+        lifespan = "chatgpt-mcp";
         accessTokenSignedResponseAlg = "RS256";
         userinfoSignedResponseAlg = "none";
         tokenEndpointAuthMethod = "none";

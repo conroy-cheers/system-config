@@ -263,7 +263,7 @@ in
     };
   };
 
-  services.authelia.instances.main.settings.identity_providers.oidc.lifespans.custom.chatgpt-bunnings-powerpass.refresh_token =
+  services.authelia.instances.main.settings.identity_providers.oidc.lifespans.custom.chatgpt-mcp.refresh_token =
     "180d";
 
   services.hydra.extraConfig = ''
