@@ -37,6 +37,9 @@ REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
 MAX_DOWNLOAD_URL_CHARS = 16384
 MAX_ATTACHMENT_FILENAME_BYTES = 180
 DOWNLOAD_CHUNK_BYTES = 65536
+AZURE_BLOB_HOST_SUFFIX = ".blob.core.windows.net"
+AZURE_STORAGE_ACCOUNT_RE = re.compile(r"^[a-z0-9]{3,24}$")
+MIN_AZURE_STORAGE_ACCOUNT_PREFIX_CHARS = 8
 
 
 class ChatGPTFile(BaseModel):
@@ -53,6 +56,7 @@ class ChatGPTFile(BaseModel):
 @dataclass(frozen=True)
 class AttachmentPolicy:
     allowed_host_suffixes: tuple[str, ...]
+    allowed_azure_blob_account_prefixes: tuple[str, ...]
     max_count: int
     max_file_bytes: int
     max_total_bytes: int
@@ -118,6 +122,11 @@ def parse_args(argv=None):
     smtp.add_argument("--smtp-max-messages-per-hour", type=int, default=20)
     smtp.add_argument("--smtp-attachments-enabled", action="store_true")
     smtp.add_argument("--smtp-attachment-allowed-host", action="append", default=[])
+    smtp.add_argument(
+        "--smtp-attachment-allowed-azure-blob-account-prefix",
+        action="append",
+        default=[],
+    )
     smtp.add_argument("--smtp-max-attachments", type=int, default=5)
     smtp.add_argument("--smtp-max-attachment-bytes", type=int, default=8 * 1024 * 1024)
     smtp.add_argument(
@@ -167,9 +176,15 @@ def parse_args(argv=None):
             parser.error("SMTP attachment size, count, and timeout limits must be positive")
         if args.smtp_attachment_max_redirects < 0:
             parser.error("--smtp-attachment-max-redirects must not be negative")
-        if not args.smtp_attachment_allowed_host:
+        if not any(
+            (
+                args.smtp_attachment_allowed_host,
+                args.smtp_attachment_allowed_azure_blob_account_prefix,
+            )
+        ):
             parser.error(
-                "SMTP attachments require at least one --smtp-attachment-allowed-host"
+                "SMTP attachments require at least one allowed download host or "
+                "Azure Blob account prefix"
             )
         if args.smtp_max_attachment_bytes > args.smtp_max_total_attachment_bytes:
             parser.error(
@@ -237,6 +252,28 @@ def host_matches_suffix(host, suffix):
     return host == suffix or host.endswith(f".{suffix}")
 
 
+def normalize_allowed_azure_blob_account_prefix(value):
+    value = value.strip().lower()
+    if len(value) < MIN_AZURE_STORAGE_ACCOUNT_PREFIX_CHARS:
+        raise ValueError(
+            "Azure Blob account prefixes must be at least 8 lowercase letters or digits."
+        )
+    if not AZURE_STORAGE_ACCOUNT_RE.fullmatch(value):
+        raise ValueError(
+            "Azure Blob account prefixes must be at least 8 lowercase letters or digits."
+        )
+    return value
+
+
+def host_matches_azure_blob_account_prefix(host, prefixes):
+    if not host.endswith(AZURE_BLOB_HOST_SUFFIX):
+        return False
+    account = host[: -len(AZURE_BLOB_HOST_SUFFIX)]
+    return bool(AZURE_STORAGE_ACCOUNT_RE.fullmatch(account)) and any(
+        account.startswith(prefix) for prefix in prefixes
+    )
+
+
 def resolve_host_addresses(host):
     try:
         results = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
@@ -248,7 +285,13 @@ def resolve_host_addresses(host):
     return addresses
 
 
-def validate_download_url(url, allowed_host_suffixes, resolver=resolve_host_addresses):
+def validate_download_url(
+    url,
+    allowed_host_suffixes,
+    resolver=resolve_host_addresses,
+    *,
+    allowed_azure_blob_account_prefixes=(),
+):
     if len(url) > MAX_DOWNLOAD_URL_CHARS:
         raise AttachmentError("An attachment download URL is too long.")
     try:
@@ -276,7 +319,13 @@ def validate_download_url(url, allowed_host_suffixes, resolver=resolve_host_addr
         pass
     else:
         raise AttachmentError("Attachment download URLs must use an allowed DNS host.")
-    if not any(host_matches_suffix(host, suffix) for suffix in allowed_host_suffixes):
+    allowed_by_suffix = any(
+        host_matches_suffix(host, suffix) for suffix in allowed_host_suffixes
+    )
+    allowed_by_azure_prefix = host_matches_azure_blob_account_prefix(
+        host, allowed_azure_blob_account_prefixes
+    )
+    if not allowed_by_suffix and not allowed_by_azure_prefix:
         raise AttachmentError("An attachment download host is not allowed.")
     addresses = resolver(host)
     for address in addresses:
@@ -364,7 +413,12 @@ def download_one_attachment(
     while True:
         if time.monotonic() >= deadline:
             raise AttachmentError("The attachment download deadline was exceeded.")
-        validate_download_url(current_url, policy.allowed_host_suffixes, resolver)
+        validate_download_url(
+            current_url,
+            policy.allowed_host_suffixes,
+            resolver,
+            allowed_azure_blob_account_prefixes=policy.allowed_azure_blob_account_prefixes,
+        )
         try:
             with client.stream("GET", current_url, headers={"Accept": "*/*"}) as response:
                 if response.status_code in REDIRECT_STATUS_CODES:
@@ -556,6 +610,10 @@ def attachment_policy_from_args(args):
         allowed_host_suffixes=tuple(
             normalize_allowed_host(host)
             for host in args.smtp_attachment_allowed_host
+        ),
+        allowed_azure_blob_account_prefixes=tuple(
+            normalize_allowed_azure_blob_account_prefix(prefix)
+            for prefix in args.smtp_attachment_allowed_azure_blob_account_prefix
         ),
         max_count=args.smtp_max_attachments,
         max_file_bytes=args.smtp_max_attachment_bytes,

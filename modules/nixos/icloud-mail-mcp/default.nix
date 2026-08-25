@@ -217,6 +217,12 @@ in
           description = "DNS suffixes from which the gateway may download ChatGPT-managed files.";
         };
 
+        allowedAzureBlobAccountPrefixes = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          description = "Azure Blob storage-account prefixes from which the gateway may download ChatGPT-managed files.";
+        };
+
         maxCount = lib.mkOption {
           type = lib.types.ints.positive;
           default = 5;
@@ -544,6 +550,10 @@ in
                 "--smtp-attachment-allowed-host"
                 host
               ]) cfg.smtp.attachments.allowedHostSuffixes
+              ++ lib.concatMap (prefix: [
+                "--smtp-attachment-allowed-azure-blob-account-prefix"
+                prefix
+              ]) cfg.smtp.attachments.allowedAzureBlobAccountPrefixes
             )
           );
         in

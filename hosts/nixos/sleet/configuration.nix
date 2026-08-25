@@ -219,10 +219,7 @@ in
       enable = true;
       attachments = {
         enable = true;
-        allowedHostSuffixes = [
-          "oaiusercontent.com"
-          "oaisdmntpraustraliaeast.blob.core.windows.net"
-        ];
+        allowedAzureBlobAccountPrefixes = [ "oaisdmntpr" ];
       };
     };
     aliases = [

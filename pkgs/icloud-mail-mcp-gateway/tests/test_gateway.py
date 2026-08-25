@@ -21,6 +21,7 @@ PUBLIC_ADDRESSES = lambda _host: {"8.8.8.8", "2606:4700:4700::1111"}
 def policy(**overrides):
     values = {
         "allowed_host_suffixes": ("oaiusercontent.com",),
+        "allowed_azure_blob_account_prefixes": (),
         "max_count": 5,
         "max_file_bytes": 1024,
         "max_total_bytes": 2048,
@@ -101,6 +102,7 @@ class FileSchemaTests(unittest.TestCase):
             smtp_sender_address="sender@example.com",
             smtp_attachments_enabled=True,
             smtp_attachment_allowed_host=["oaiusercontent.com"],
+            smtp_attachment_allowed_azure_blob_account_prefix=[],
             smtp_max_attachments=5,
             smtp_max_attachment_bytes=8 * 1024 * 1024,
             smtp_max_total_attachment_bytes=10 * 1024 * 1024,
@@ -173,19 +175,38 @@ class URLValidationTests(unittest.TestCase):
                 url,
             )
 
-    def test_accepts_only_configured_azure_storage_account(self):
-        allowed_host = "oaisdmntpraustraliaeast.blob.core.windows.net"
-        url = f"https://{allowed_host}/file"
-        self.assertEqual(
-            gateway.validate_download_url(url, (allowed_host,), PUBLIC_ADDRESSES),
-            url,
-        )
-        with self.assertRaises(gateway.AttachmentError):
-            gateway.validate_download_url(
-                "https://another-account.blob.core.windows.net/file",
-                (allowed_host,),
-                PUBLIC_ADDRESSES,
+    def test_accepts_only_configured_openai_azure_storage_accounts(self):
+        for host in (
+            "oaisdmntpraustraliaeast.blob.core.windows.net",
+            "oaisdmntprindiasocentral.blob.core.windows.net",
+        ):
+            url = f"https://{host}/file"
+            self.assertEqual(
+                gateway.validate_download_url(
+                    url,
+                    ("oaiusercontent.com",),
+                    PUBLIC_ADDRESSES,
+                    allowed_azure_blob_account_prefixes=("oaisdmntpr",),
+                ),
+                url,
             )
+        for url in (
+            "https://another-account.blob.core.windows.net/file",
+            "https://evil.oaisdmntpraustraliaeast.blob.core.windows.net/file",
+            "https://oaisdmntpraustraliaeast.blob.core.windows.net.evil.example/file",
+        ):
+            with self.subTest(url=url), self.assertRaises(gateway.AttachmentError):
+                gateway.validate_download_url(
+                    url,
+                    ("oaiusercontent.com",),
+                    PUBLIC_ADDRESSES,
+                    allowed_azure_blob_account_prefixes=("oaisdmntpr",),
+                )
+
+    def test_rejects_overly_broad_azure_storage_account_prefix(self):
+        for prefix in ("", "oai", "not-valid", "a" * 25):
+            with self.subTest(prefix=prefix), self.assertRaises(ValueError):
+                gateway.normalize_allowed_azure_blob_account_prefix(prefix)
 
     def test_rejects_suffix_confusion_and_unsafe_url_parts(self):
         urls = (
