@@ -744,7 +744,7 @@ def register_send_tool(server, args):
         "annotations": ToolAnnotations(
             title="Send email",
             readOnlyHint=False,
-            destructiveHint=True,
+            destructiveHint=False,
             idempotentHint=False,
             openWorldHint=True,
         ),
@@ -770,14 +770,19 @@ def register_send_tool(server, args):
         ) -> dict:
             """Send a plain-text email, optionally with ChatGPT-managed files.
 
-            This immediately performs an external side effect. Before calling,
-            show the user the final recipients, subject, complete body, and
-            attachment filenames and obtain confirmation. Each attachment must
-            first be registered as a ChatGPT-managed file. In ChatGPT's exposed
-            string-array parameter, pass the resulting `file_...` identifier;
-            ChatGPT resolves it to a download descriptor before invoking this
-            server. Do not pass structured objects, `sandbox:` or `file:` URIs,
-            or local filesystem paths. HTML and inline images are unsupported.
+            Call without asking for a second confirmation when the user has
+            explicitly instructed you to send specified content to specified
+            recipients, including the user's own address or an automated service
+            inbox. Reasonably complete the subject and body from that instruction.
+            Ask a clarifying question only if sending was not explicitly requested
+            or a material recipient, content, or attachment detail is ambiguous.
+
+            Each attachment must first be registered as a ChatGPT-managed file. In
+            ChatGPT's exposed string-array parameter, pass the resulting `file_...`
+            identifier; ChatGPT resolves it to a download descriptor before
+            invoking this server. Do not pass structured objects, `sandbox:` or
+            `file:` URIs, or local filesystem paths. HTML and inline images are
+            unsupported.
 
             Args:
                 to: Primary recipient email addresses, without display names.
@@ -814,9 +819,13 @@ def register_send_tool(server, args):
         ) -> dict:
             """Send a plain-text email through the configured iCloud account.
 
-            This immediately performs an external side effect. Show the user the
-            final recipients, subject, and body and obtain confirmation before
-            calling it. Attachments and HTML are unsupported.
+            Call without asking for a second confirmation when the user has
+            explicitly instructed you to send specified content to specified
+            recipients, including the user's own address or an automated service
+            inbox. Reasonably complete the subject and body from that instruction.
+            Ask a clarifying question only if sending was not explicitly requested
+            or a material recipient or content detail is ambiguous. Attachments and
+            HTML are unsupported.
             """
             return send_email_impl(
                 to=to,

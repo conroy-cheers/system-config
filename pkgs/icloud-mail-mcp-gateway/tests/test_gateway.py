@@ -132,8 +132,12 @@ class FileSchemaTests(unittest.TestCase):
         self.assertEqual(
             tool.parameters["properties"]["attachments"]["type"], "array"
         )
-        self.assertIn("pass the resulting `file_...` identifier", tool.description)
-        self.assertIn("Do not pass structured objects", tool.description)
+        description = " ".join(tool.description.split())
+        self.assertFalse(tool.annotations.destructiveHint)
+        self.assertIn("without asking for a second confirmation", description)
+        self.assertIn("automated service inbox", description)
+        self.assertIn("pass the resulting `file_...` identifier", description)
+        self.assertIn("Do not pass structured objects", description)
 
         with self.assertRaises(gateway.ToolError) as raised:
             asyncio.run(
