@@ -213,7 +213,7 @@ in
 
         allowedHostSuffixes = lib.mkOption {
           type = lib.types.nonEmptyListOf lib.types.str;
-          default = [ "files.oaiusercontent.com" ];
+          default = [ "oaiusercontent.com" ];
           description = "DNS suffixes from which the gateway may download ChatGPT-managed files.";
         };
 

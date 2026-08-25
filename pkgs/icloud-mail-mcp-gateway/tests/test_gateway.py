@@ -20,7 +20,7 @@ PUBLIC_ADDRESSES = lambda _host: {"8.8.8.8", "2606:4700:4700::1111"}
 
 def policy(**overrides):
     values = {
-        "allowed_host_suffixes": ("files.oaiusercontent.com",),
+        "allowed_host_suffixes": ("oaiusercontent.com",),
         "max_count": 5,
         "max_file_bytes": 1024,
         "max_total_bytes": 2048,
@@ -100,7 +100,7 @@ class FileSchemaTests(unittest.TestCase):
         args = SimpleNamespace(
             smtp_sender_address="sender@example.com",
             smtp_attachments_enabled=True,
-            smtp_attachment_allowed_host=["files.oaiusercontent.com"],
+            smtp_attachment_allowed_host=["oaiusercontent.com"],
             smtp_max_attachments=5,
             smtp_max_attachment_bytes=8 * 1024 * 1024,
             smtp_max_total_attachment_bytes=10 * 1024 * 1024,
@@ -138,12 +138,12 @@ class URLValidationTests(unittest.TestCase):
     def test_accepts_allowed_host_and_subdomain(self):
         for host in (
             "files.oaiusercontent.com",
-            "download.files.oaiusercontent.com",
+            "sdmntpraustraliaeast.oaiusercontent.com",
         ):
             url = f"https://{host}/file"
             self.assertEqual(
                 gateway.validate_download_url(
-                    url, ("files.oaiusercontent.com",), PUBLIC_ADDRESSES
+                    url, ("oaiusercontent.com",), PUBLIC_ADDRESSES
                 ),
                 url,
             )
@@ -160,7 +160,7 @@ class URLValidationTests(unittest.TestCase):
         for url in urls:
             with self.subTest(url=url), self.assertRaises(gateway.AttachmentError):
                 gateway.validate_download_url(
-                    url, ("files.oaiusercontent.com",), PUBLIC_ADDRESSES
+                    url, ("oaiusercontent.com",), PUBLIC_ADDRESSES
                 )
 
     def test_rejects_non_public_dns_results(self):
@@ -170,7 +170,7 @@ class URLValidationTests(unittest.TestCase):
             ):
                 gateway.validate_download_url(
                     "https://files.oaiusercontent.com/file",
-                    ("files.oaiusercontent.com",),
+                    ("oaiusercontent.com",),
                     lambda _host, address=address: {address},
                 )
 
