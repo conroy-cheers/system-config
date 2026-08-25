@@ -967,7 +967,10 @@ class McpBackend:
             except AuthenticationRequired:
                 return {
                     "status": "authentication_required",
-                    "message": "An operator must renew the trusted session over SSH.",
+                    "message": (
+                        "The trusted session needs renewal. The host may renew it "
+                        "automatically; use the operator recovery command if this persists."
+                    ),
                 }
             return {"status": "ready", "message": "PowerPass authentication is ready."}
 
@@ -987,7 +990,10 @@ class McpBackend:
             except AuthenticationRequired:
                 return {
                     "status": "authentication_required",
-                    "message": "An operator must renew the trusted session over SSH.",
+                    "message": (
+                        "The trusted session needs renewal. The host may renew it "
+                        "automatically; use the operator recovery command if this persists."
+                    ),
                     "invoices": [],
                 }
         return {
@@ -1176,6 +1182,9 @@ def main() -> int:
             serve_mcp(args)
         else:
             fetch(args)
+    except AuthenticationRequired as error:
+        print(f"bunnings-powerpass-invoices: {error}", file=sys.stderr)
+        return 2
     except (UserError, PlaywrightTimeoutError) as error:
         print(f"bunnings-powerpass-invoices: {error}", file=sys.stderr)
         return 1

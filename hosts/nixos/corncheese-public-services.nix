@@ -79,6 +79,7 @@ in
           "refresh_token"
         ];
         responseTypes = [ "code" ];
+        lifespan = "chatgpt-bunnings-powerpass";
         accessTokenSignedResponseAlg = "RS256";
         userinfoSignedResponseAlg = "none";
         tokenEndpointAuthMethod = "none";

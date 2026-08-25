@@ -103,9 +103,13 @@ are bypassed by navigating directly to Transactions. The retained profile lives 
 `/var/lib/bunnings-powerpass-invoices/chromium` with mode `0700`.
 
 Trusted-device state is not permanent. If Bunnings expires or revokes it, MCP
-calls return `authentication_required`; repeat the SSH command. Passwords and
-SMS codes never pass through MCP, its HTTP gateway, its process environment, or
-its logs.
+calls return `authentication_required`. On `sleet`, a systemd timer checks the
+session every 15 minutes and automatically runs the same isolated renewal path
+when cached credentials are sufficient. The check uses the shared browser lock,
+does not submit credentials after unrelated browser or network failures, and
+keeps the manual SSH command as the fail-closed recovery path if Bunnings asks
+for MFA, CAPTCHA, or another interactive challenge. Passwords and SMS codes
+never pass through MCP, its HTTP gateway, its process environment, or its logs.
 
 For local non-service debugging, `auth-session` still implements a
 single-process stdin exchange, while `login-cli` uses non-echoing terminal

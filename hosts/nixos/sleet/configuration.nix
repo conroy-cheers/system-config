@@ -251,6 +251,7 @@ in
 
   services.bunnings-powerpass-invoices = {
     enable = true;
+    automaticRenewal.enable = true;
     listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "bunnings-powerpass-invoices" "127.0.0.1";
     port = 8782;
     publicUrl = "https://powerpass.corncheese.org";
@@ -261,6 +262,9 @@ in
       requiredScopes = [ "powerpass.invoices.read" ];
     };
   };
+
+  services.authelia.instances.main.settings.identity_providers.oidc.lifespans.custom.chatgpt-bunnings-powerpass.refresh_token =
+    "180d";
 
   services.hydra.extraConfig = ''
     evaluator_max_memory_size = 32768

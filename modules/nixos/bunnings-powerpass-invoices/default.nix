@@ -9,6 +9,7 @@ let
   cfg = config.services.bunnings-powerpass-invoices;
   serviceName = "bunnings-powerpass-invoices";
   browserServiceName = "${serviceName}-browser";
+  renewalServiceName = "${serviceName}-renew";
   serviceUser = serviceName;
   loginUser = "powerpass-login";
   stateRoot = "/var/lib/${cfg.stateDirectory}";
@@ -29,8 +30,8 @@ let
     '';
   };
 
-  login = pkgs.writeShellApplication {
-    name = "bunnings-powerpass-invoices-login";
+  renewSession = pkgs.writeShellApplication {
+    name = "bunnings-powerpass-invoices-renew-session";
     runtimeInputs = [
       pkgs.coreutils
       pkgs.systemd
@@ -83,6 +84,77 @@ let
           --cdp-url ${lib.escapeShellArg cdpUrl} \
           "''${credential_args[@]}" \
           login-cli
+    '';
+  };
+
+  login = pkgs.writeShellApplication {
+    name = "bunnings-powerpass-invoices-login";
+    runtimeInputs = [ pkgs.util-linux ];
+    text = ''
+      if [[ $EUID -ne 0 ]]; then
+        echo "Run this command with sudo so it can pause the MCP service." >&2
+        exit 1
+      fi
+
+      exec {renewal_lock_fd}>${lib.escapeShellArg "/run/${renewalServiceName}.lock"}
+      flock --exclusive "$renewal_lock_fd"
+      exec ${lib.getExe renewSession}
+    '';
+  };
+
+  automaticRenew = pkgs.writeShellApplication {
+    name = "bunnings-powerpass-invoices-automatic-renew";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.systemd
+      pkgs.util-linux
+    ];
+    text = ''
+      if [[ $EUID -ne 0 ]]; then
+        echo "Automatic PowerPass renewal must run as root." >&2
+        exit 1
+      fi
+
+      exec {renewal_lock_fd}>${lib.escapeShellArg "/run/${renewalServiceName}.lock"}
+      flock --exclusive "$renewal_lock_fd"
+
+      systemctl start ${browserServiceName}.service
+      install -d -m 0700 -o ${serviceUser} -g ${serviceUser} ${lib.escapeShellArg stateRoot}
+      if [[ ! -e ${lib.escapeShellArg "${stateRoot}/browser.lock"} ]]; then
+        install -m 0600 -o ${serviceUser} -g ${serviceUser} /dev/null \
+          ${lib.escapeShellArg "${stateRoot}/browser.lock"}
+      fi
+
+      set +e
+      flock --exclusive ${lib.escapeShellArg "${stateRoot}/browser.lock"} \
+        runuser -u ${serviceUser} -- \
+          env HOME=${lib.escapeShellArg stateRoot} XDG_STATE_HOME=${lib.escapeShellArg stateRoot} \
+          ${lib.getExe cfg.package} \
+            --profile ${lib.escapeShellArg profile} \
+            --cdp-url ${lib.escapeShellArg cdpUrl} \
+            --session-only \
+            auth-check
+      check_status=$?
+      set -e
+
+      case "$check_status" in
+        0)
+          exit 0
+          ;;
+        2)
+          if [[ ! -f ${lib.escapeShellArg credentialCache} ]]; then
+            echo "PowerPass needs renewal, but no encrypted credential cache is available." >&2
+            echo "Run sudo bunnings-powerpass-invoices-cache-credentials, then sudo bunnings-powerpass-invoices-login." >&2
+            exit 1
+          fi
+          echo "PowerPass session expired; attempting automatic renewal."
+          exec ${lib.getExe renewSession}
+          ;;
+        *)
+          echo "PowerPass session check failed with status $check_status; refusing to submit credentials." >&2
+          exit "$check_status"
+          ;;
+      esac
     '';
   };
 
@@ -240,6 +312,16 @@ in
         description = "OAuth scopes required on every MCP request.";
       };
     };
+
+    automaticRenewal = {
+      enable = lib.mkEnableOption "automatic renewal of expired PowerPass sessions";
+
+      interval = lib.mkOption {
+        type = lib.types.str;
+        default = "15m";
+        description = "Interval between non-interactive PowerPass session checks.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -386,6 +468,36 @@ in
         ReadWritePaths = [ stateRoot ];
         Restart = "on-failure";
         RestartSec = "10s";
+      };
+    };
+
+    systemd.services.${renewalServiceName} = lib.mkIf cfg.automaticRenewal.enable {
+      description = "Check and automatically renew the PowerPass browser session";
+      after = [ "${browserServiceName}.service" ];
+      wants = [ "${browserServiceName}.service" ];
+      script = ''
+        exec ${lib.getExe automaticRenew}
+      '';
+      serviceConfig = {
+        Type = "oneshot";
+        PrivateTmp = true;
+        ProtectHome = true;
+        ProtectSystem = "strict";
+        ReadWritePaths = [
+          stateRoot
+          "/run"
+        ];
+        UMask = "0077";
+      };
+    };
+
+    systemd.timers.${renewalServiceName} = lib.mkIf cfg.automaticRenewal.enable {
+      description = "Periodically check the PowerPass browser session";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "5m";
+        OnUnitInactiveSec = cfg.automaticRenewal.interval;
+        RandomizedDelaySec = "1m";
       };
     };
   };
