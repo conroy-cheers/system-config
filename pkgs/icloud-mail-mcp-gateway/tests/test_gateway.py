@@ -173,6 +173,20 @@ class URLValidationTests(unittest.TestCase):
                 url,
             )
 
+    def test_accepts_only_configured_azure_storage_account(self):
+        allowed_host = "oaisdmntpraustraliaeast.blob.core.windows.net"
+        url = f"https://{allowed_host}/file"
+        self.assertEqual(
+            gateway.validate_download_url(url, (allowed_host,), PUBLIC_ADDRESSES),
+            url,
+        )
+        with self.assertRaises(gateway.AttachmentError):
+            gateway.validate_download_url(
+                "https://another-account.blob.core.windows.net/file",
+                (allowed_host,),
+                PUBLIC_ADDRESSES,
+            )
+
     def test_rejects_suffix_confusion_and_unsafe_url_parts(self):
         urls = (
             "https://files.oaiusercontent.com.evil.example/file",

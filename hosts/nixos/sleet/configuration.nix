@@ -217,7 +217,13 @@ in
     passwordFile = config.age.secrets."corncheese.mail.icloud".path;
     smtp = {
       enable = true;
-      attachments.enable = true;
+      attachments = {
+        enable = true;
+        allowedHostSuffixes = [
+          "oaiusercontent.com"
+          "oaisdmntpraustraliaeast.blob.core.windows.net"
+        ];
+      };
     };
     aliases = [
       "conroy@corncheese.org"
