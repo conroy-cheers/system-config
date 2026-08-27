@@ -21,11 +21,11 @@ in
 
       # Set content type "game" for games
       {
-        match.class = "^(steam_app_[0-9]+)$";
+        match.class = "^(steam_app_[0-9]+|haloce[.]exe)$";
         content = "game";
       }
       {
-        match.class = "^(steam_app_[0-9]+)$";
+        match.class = "^(steam_app_[0-9]+|haloce[.]exe)$";
         tag = "+game";
       }
       {
