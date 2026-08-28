@@ -96,9 +96,20 @@
       enable = true;
       tailscale.enable = true;
       remoteBuilders.enable = true;
-      tftpServer = {
-        enable = false;
-        rootDirectory = "/tmp/tftp-server";
+      netbootServer = {
+        enable = true;
+        connectionName = "KR260 netboot";
+        profileName = "kr260-netboot";
+        interface = "enp16s0f3u2u4";
+        interfaceMacAddress = "c0:25:a5:df:dc:41";
+        serverAddress = "192.168.30.1";
+        clientAddress = "192.168.30.2";
+        tftpRootDirectory = "/persist/kr260-netboot/current";
+        stateDirectory = "/persist/kr260-netboot";
+        stateDirectoryOwner = "conroy";
+        stateDirectoryGroup = "users";
+        nfsRootDirectory = "/srv/kr260-netboot";
+        requiredBootFile = "kr260/boot.scr";
       };
       nixDaemonSecrets.enable = true;
     };

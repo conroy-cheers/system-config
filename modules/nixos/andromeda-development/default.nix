@@ -36,10 +36,63 @@ in
           };
         };
       };
-      tftpServer = {
-        enable = lib.mkEnableOption "andromeda tftp development server";
-        rootDirectory = lib.mkOption {
+      netbootServer = {
+        enable = lib.mkEnableOption "andromeda direct-link netboot server";
+        connectionName = lib.mkOption {
+          description = "Name of the NetworkManager connection used for netbooting";
+          type = types.str;
+          default = "Andromeda netboot";
+        };
+        profileName = lib.mkOption {
+          description = "Declarative NetworkManager profile name";
+          type = types.str;
+          default = "andromeda-netboot";
+        };
+        interface = lib.mkOption {
+          description = "Network interface connected to the netboot client";
+          type = types.str;
+        };
+        interfaceMacAddress = lib.mkOption {
+          description = "Permanent MAC address of the netboot interface";
+          type = types.str;
+        };
+        serverAddress = lib.mkOption {
+          description = "IPv4 address of the netboot server";
+          type = types.str;
+        };
+        prefixLength = lib.mkOption {
+          description = "IPv4 prefix length of the direct netboot network";
+          type = types.ints.between 0 32;
+          default = 24;
+        };
+        clientAddress = lib.mkOption {
+          description = "IPv4 address permitted to mount the netboot NFS root";
+          type = types.str;
+        };
+        tftpRootDirectory = lib.mkOption {
           description = "Root directory to serve over TFTP";
+          type = types.str;
+        };
+        stateDirectory = lib.mkOption {
+          description = "Persistent directory containing netboot state";
+          type = types.str;
+        };
+        stateDirectoryOwner = lib.mkOption {
+          description = "Owner of the persistent netboot state directory";
+          type = types.str;
+          default = "root";
+        };
+        stateDirectoryGroup = lib.mkOption {
+          description = "Group of the persistent netboot state directory";
+          type = types.str;
+          default = "root";
+        };
+        nfsRootDirectory = lib.mkOption {
+          description = "Root directory to export to the netboot client over NFS";
+          type = types.str;
+        };
+        requiredBootFile = lib.mkOption {
+          description = "File below the TFTP root that must exist before the server starts";
           type = types.str;
         };
       };
@@ -152,35 +205,74 @@ in
         }:${cfg.nixDaemonSecrets.nixSandboxKeys.target}"
       ];
     })
-    (mkIf cfg.tftpServer.enable {
-      environment.etc."NetworkManager/dnsmasq-shared.d/tftp.conf".text = ''
-        pxe-service=0,"Raspberry Pi Boot"
-        enable-tftp
-        tftp-root=${cfg.tftpServer.rootDirectory}
-      '';
-
-      fileSystems = {
-        "/export/pi/nix/store" = {
-          device = "/nix/store";
-          options = [ "bind" ];
+    (mkIf cfg.netbootServer.enable {
+      networking.networkmanager.ensureProfiles.profiles.${cfg.netbootServer.profileName} = {
+        connection = {
+          id = cfg.netbootServer.connectionName;
+          type = "ethernet";
+          interface-name = cfg.netbootServer.interface;
+          autoconnect = true;
+          autoconnect-priority = 100;
         };
+        ethernet.mac-address = cfg.netbootServer.interfaceMacAddress;
+        ipv4 = {
+          method = "manual";
+          addresses = "${cfg.netbootServer.serverAddress}/${toString cfg.netbootServer.prefixLength}";
+          never-default = true;
+        };
+        ipv6.method = "disabled";
+      };
+
+      services.atftpd = {
+        enable = true;
+        root = cfg.netbootServer.tftpRootDirectory;
+        extraOptions = [ "--bind-address ${cfg.netbootServer.serverAddress}" ];
+      };
+
+      fileSystems."${cfg.netbootServer.nfsRootDirectory}/nix-store" = {
+        device = "/nix/store";
+        fsType = "none";
+        options = [ "bind" ];
       };
 
       services.nfs.server = {
         enable = true;
         exports = ''
-          /export/pi *(crossmnt,ro,insecure,all_squash)
+          ${cfg.netbootServer.nfsRootDirectory} ${cfg.netbootServer.clientAddress}(ro,fsid=0,no_subtree_check,insecure,all_squash,crossmnt)
+          ${cfg.netbootServer.nfsRootDirectory}/nix-store ${cfg.netbootServer.clientAddress}(ro,no_subtree_check,insecure,all_squash)
         '';
       };
 
-      networking.firewall.allowedTCPPorts = [
-        111
-        2049
+      systemd.services.atftpd = {
+        after = [
+          "NetworkManager.service"
+          "NetworkManager-ensure-profiles.service"
+          "network-online.target"
+        ];
+        wants = [
+          "NetworkManager.service"
+          "NetworkManager-ensure-profiles.service"
+          "network-online.target"
+        ];
+        unitConfig.ConditionPathExists = "${cfg.netbootServer.tftpRootDirectory}/${cfg.netbootServer.requiredBootFile}";
+        serviceConfig = {
+          Restart = "on-failure";
+          RestartSec = "1s";
+        };
+      };
+
+      networking.firewall.interfaces.${cfg.netbootServer.interface} = {
+        allowedTCPPorts = [ 2049 ];
+        allowedUDPPorts = [ 69 ];
+      };
+
+      systemd.tmpfiles.rules = [
+        "d ${cfg.netbootServer.stateDirectory} 0775 ${cfg.netbootServer.stateDirectoryOwner} ${cfg.netbootServer.stateDirectoryGroup} -"
+        "d ${cfg.netbootServer.nfsRootDirectory} 0755 root root -"
+        "d ${cfg.netbootServer.nfsRootDirectory}/nix-store 0755 root root -"
       ];
-      networking.firewall.allowedUDPPorts = [
-        111
-        2049
-      ];
+
+      environment.systemPackages = [ pkgs.atftp ];
     })
   ];
 

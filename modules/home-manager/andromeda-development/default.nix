@@ -354,7 +354,6 @@ in
         default = codex-andromeda-wrapped;
         description = "The wrapped Codex CLI package owned by the Andromeda profile";
       };
-      tftpServer.enable = lib.mkEnableOption "andromeda tftp dev server";
     };
   };
 
