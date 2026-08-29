@@ -4821,11 +4821,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788010986,
-        "narHash": "sha256-zv6LGqcCUFwYxMyetMfyRkUjPOGIS7HfEuRX4Qeaark=",
+        "lastModified": 1788013465,
+        "narHash": "sha256-dTE1t9yNIB7jNgp4fBD9YlNsZclQh7Q5NK5xNdcNuzs=",
         "owner": "conroy-cheers",
         "repo": "wotbox",
-        "rev": "d997ed5db9657462016a8e5d02bce8fea984bb7f",
+        "rev": "045f9681ef97572d9e66efb6682fdc9a3d372770",
         "type": "github"
       },
       "original": {
