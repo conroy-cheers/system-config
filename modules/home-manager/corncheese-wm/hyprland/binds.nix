@@ -65,11 +65,10 @@ in
       # Special workspace
       (bind (mod "0") (lua "hl.dsp.workspace.toggle_special()"))
       (bind (mod "CTRL + 0") (lua "hl.dsp.workspace.toggle_special()"))
-      (bind (mod "SHIFT + S") (lua ''hl.dsp.window.move({ workspace = "special", follow = false })''))
 
       # Screenshot
-      (bindExec (mod "SHIFT + PRINT") "grimblast copy area")
-      (bindExec (mod "PRINT") "grimblast copysave screen")
+      (bindExec "SHIFT + PRINT" "grimblast copy area")
+      (bindExec "PRINT" "grimblast copysave screen")
 
       # Move window focus with vim keys.
       (bind (mod "left") (lua ''hl.dsp.focus({ direction = "left" })''))
@@ -115,7 +114,7 @@ in
       (bind (mod "SHIFT + 7") (lua "hl.dsp.window.move({ workspace = 7 })"))
       (bind (mod "SHIFT + 8") (lua "hl.dsp.window.move({ workspace = 8 })"))
       (bind (mod "SHIFT + 9") (lua "hl.dsp.window.move({ workspace = 9 })"))
-      (bind (mod "SHIFT + 0") (lua "hl.dsp.window.move({ workspace = 10 })"))
+      (bind (mod "SHIFT + 0") (lua ''hl.dsp.window.move({ workspace = "special" })''))
       (bind (mod "CTRL + SHIFT + l") (lua ''hl.dsp.window.move({ workspace = "r+1" })''))
       (bind (mod "CTRL + SHIFT + h") (lua ''hl.dsp.window.move({ workspace = "r-1" })''))
 
