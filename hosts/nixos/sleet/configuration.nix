@@ -16,6 +16,29 @@ let
   pandaTurnPort = 3478;
   pandaTurnUser = "panda-webrtc";
   pandaTurnCredential = "vnrGVsjHTMEsJlmYvoLXCUeq";
+  wotboxStateMigration = pkgs.writeShellScript "wotbox-state-subvolume" ''
+    set -eu
+    state_path=/var/lib/wotbox
+    rollback_path=/var/lib/.wotbox-pre-subvolume
+
+    if ${pkgs.btrfs-progs}/bin/btrfs subvolume show "$state_path" >/dev/null 2>&1; then
+      exit 0
+    fi
+    if [ -e "$rollback_path" ]; then
+      echo "Refusing Wotbox state migration because $rollback_path already exists" >&2
+      exit 1
+    fi
+    if [ -e "$state_path" ]; then
+      ${pkgs.coreutils}/bin/mv "$state_path" "$rollback_path"
+    else
+      ${pkgs.coreutils}/bin/mkdir -p "$rollback_path"
+    fi
+    ${pkgs.btrfs-progs}/bin/btrfs subvolume create "$state_path"
+    ${pkgs.coreutils}/bin/cp -a --reflink=always "$rollback_path"/. "$state_path"/
+    ${pkgs.coreutils}/bin/chown -R wotbox:wotbox "$state_path"
+    ${pkgs.coreutils}/bin/chmod 0700 "$state_path"
+    ${pkgs.btrfs-progs}/bin/btrfs subvolume show "$state_path" >/dev/null
+  '';
 in
 {
   imports = [
@@ -211,6 +234,31 @@ in
       tag = "red";
     };
   };
+
+  # Keep Wotbox's database and immutable Library closure in one snapshot unit.
+  # The migration preserves the original directory as a reflinked rollback copy
+  # and is deliberately non-destructive on subsequent activations.
+  # ExecStartPre runs only after systemd has stopped the previous Wotbox
+  # process, so the one-time directory-to-subvolume migration is offline.
+  systemd.services.wotbox.serviceConfig.ExecStartPre = [ "+${wotboxStateMigration}" ];
+
+  services.btrbk.instances.wotbox = {
+    onCalendar = "hourly";
+    snapshotOnly = true;
+    settings = {
+      timestamp_format = "long";
+      snapshot_preserve_min = "48h";
+      snapshot_preserve = "14d 8w 6m";
+      volume."/var/lib" = {
+        snapshot_dir = ".wotbox-snapshots";
+        subvolume.wotbox = { };
+      };
+    };
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /var/lib/.wotbox-snapshots 0700 root root - -"
+  ];
 
   services.icloud-mail-mcp = {
     enable = true;
