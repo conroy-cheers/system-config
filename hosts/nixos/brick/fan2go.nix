@@ -34,6 +34,29 @@ let
     ${getClcData} "Liquid temperature" "1000"
   '';
 
+  getGpuFanPwm = pkgs.writeShellScript "get-gpu-fan-pwm" ''
+    for device in /sys/bus/pci/devices/*; do
+      [[ -r "$device/vendor" && -r "$device/device" ]] || continue
+      [[ "$(< "$device/vendor")" == "0x1002" ]] || continue
+      [[ "$(< "$device/device")" == "0x7550" ]] || continue
+
+      for hwmon in "$device"/hwmon/hwmon*; do
+        [[ -r "$hwmon/name" && -r "$hwmon/pwm1" ]] || continue
+        [[ "$(< "$hwmon/name")" == "amdgpu" ]] || continue
+
+        pwm="$(< "$hwmon/pwm1")"
+        if [[ "$pwm" =~ ^[0-9]+$ ]] && ((pwm >= 0 && pwm <= 255)); then
+          # fan2go command sensors use milli-units.
+          printf '%d\n' "$((pwm * 1000))"
+          exit 0
+        fi
+      done
+    done
+
+    echo "Unable to read Navi 48 GPU fan PWM" >&2
+    exit 1
+  '';
+
   liquidcfgInit = pkgs.writeShellScript "liquidcfg-init" ''
     set -o pipefail
 
@@ -142,6 +165,12 @@ in
           };
         }
         {
+          id = "gpu_fan_pwm";
+          cmd = {
+            exec = "${getGpuFanPwm}";
+          };
+        }
+        {
           id = "cpu_package_temp";
           hwmon = {
             platform = "k10temp-pci-*";
@@ -179,12 +208,22 @@ in
           };
         }
         {
+          id = "gpu_fan_pwm_curve";
+          linear = {
+            sensor = "gpu_fan_pwm";
+            steps = [
+              { "0" = 0; }
+              { "255" = 255; }
+            ];
+          };
+        }
+        {
           id = "exhaust_top_curve";
           function = {
             type = "sum";
             curves = [
               "clc_curve"
-              "intake_bottom_curve"
+              "gpu_fan_pwm_curve"
             ];
           };
         }
