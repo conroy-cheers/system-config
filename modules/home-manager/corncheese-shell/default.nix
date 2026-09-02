@@ -23,17 +23,17 @@ let
         if isx86_64 && isLinux then
           ''
             if [ "$(id -u)" -eq 0 ]; then
-              nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              nixos-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
               return
             fi
 
             if sudo -n true 2>/dev/null; then
-              sudo -n nixos-rebuild --flake "$flake_ref" "$action" "$@"
+              sudo -n nixos-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
               return
             fi
 
-            if [[ -t 0 && -t 1 ]]; then
-              sudo nixos-rebuild --flake "$flake_ref" "$action" "$@"
+            if [[ -t 0 ]]; then
+              sudo nixos-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
               return
             fi
 
@@ -43,17 +43,17 @@ let
         else if isDarwin then
           ''
             if [ "$(id -u)" -eq 0 ]; then
-              darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              darwin-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
               return
             fi
 
             if sudo -n true 2>/dev/null; then
-              sudo -n darwin-rebuild --flake "$flake_ref" "$action" "$@"
+              sudo -n darwin-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
               return
             fi
 
-            if [[ -t 0 && -t 1 ]]; then
-              sudo darwin-rebuild --flake "$flake_ref" "$action" "$@"
+            if [[ -t 0 ]]; then
+              sudo darwin-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
               return
             fi
 
@@ -66,7 +66,7 @@ let
           ''
         else
           ''
-            home-manager --flake "$flake_ref" "$action" "$@"
+            home-manager --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
           '';
     in
     pkgs.writeShellScriptBin "rebuild" ''
@@ -82,7 +82,9 @@ let
         ${rebuildCommand}
       }
 
-      run_rebuild "$@"
+      run_rebuild "$@" |& ${lib.getExe pkgs.nix-output-monitor} ${
+        lib.optionalString (!isAarch64) "--json"
+      }
     '';
 
   nixDirenvPackage = pkgs.nix-direnv.overrideAttrs (oldAttrs: {
