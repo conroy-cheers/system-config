@@ -19,15 +19,7 @@ let
     system = pkgs.stdenv.hostPlatform.system;
   };
 
-  hyprlandPackage =
-    inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
-      (old: {
-        env = (old.env or { }) // {
-          NIX_CFLAGS_COMPILE =
-            lib.optionalString (old.env ? NIX_CFLAGS_COMPILE) "${old.env.NIX_CFLAGS_COMPILE} "
-            + "-fno-var-tracking-assignments";
-        };
-      });
+  hyprlandPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.default;
 in
 {
   imports = [
@@ -67,10 +59,6 @@ in
   config = mkIf cfg.enable (
     lib.mkMerge [
       {
-        warnings =
-          lib.optional ((inputs.hyprland.rev or null) != "04435fb857d4e3c5845bc43b077568d28e048c54")
-            "hyprland input changed; re-check whether the -fno-var-tracking-assignments GCC ICE workaround in modules/nixos/corncheese-wm/default.nix is still required.";
-
         environment.systemPackages = with pkgs; [
           brightnessctl
           seahorse
@@ -97,10 +85,7 @@ in
             withUWSM = true;
             package = hyprlandPackage;
             portalPackage =
-              inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland.override
-                {
-                  hyprland = hyprlandPackage;
-                };
+              inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
           };
 
           # thunar file manager
@@ -143,20 +128,6 @@ in
         services.gnome.gnome-keyring.enable = true;
         security.pam.services.greetd.enableGnomeKeyring = true;
 
-        # https://github.com/systemd/systemd/issues/37590
-        systemd.services = builtins.listToAttrs (
-          map
-            (service: {
-              name = service;
-              value.environment.SYSTEMD_SLEEP_FREEZE_USER_SESSIONS = "false";
-            })
-            [
-              "systemd-suspend"
-              "systemd-hibernate"
-              "systemd-hybrid-sleep"
-              "systemd-suspend-then-hibernate-sleep"
-            ]
-        );
       }
       (lib.mkIf cfg.gaming.enable {
         programs.steam = {

@@ -118,7 +118,7 @@ in
     gparted
     audacity
     sigmaStudioPackage
-    # libreoffice-qt6-fresh  # https://github.com/NixOS/nixpkgs/issues/514113
+    libreoffice-qt-stable
 
     pciutils # lspci
     usbutils # lsusb

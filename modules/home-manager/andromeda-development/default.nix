@@ -110,39 +110,6 @@ let
       exec bw "$@"
     '';
   };
-  codexAzureWorkaroundLastCheckedVersion = "0.147.0";
-  # Codex 0.147.0 wraps Responses Lite tools in a `functions` namespace with an
-  # empty description, which Azure rejects. Remove this override after
-  # openai/codex#37380 is fixed in the packaged Codex release.
-  codexAzureModelCatalog = pkgs.runCommand "codex-andromeda-azure-model-catalog.json" { } ''
-    source=${codexPackage.src}/codex-rs/models-manager/models.json
-
-    matched="$(${pkgs.jq}/bin/jq \
-      '[.models[] | select(.slug | test("^gpt-5\\.6-(sol|terra|luna)$"))] | length' \
-      "$source")"
-    if [ "$matched" -ne 3 ]; then
-      echo "expected three GPT-5.6 models in the bundled Codex catalog, found $matched" >&2
-      exit 1
-    fi
-
-    ${pkgs.jq}/bin/jq \
-      '(.models[] | select(.slug | test("^gpt-5\\.6-(sol|terra|luna)$")) | .use_responses_lite) = false' \
-      "$source" > "$out"
-  '';
-  # A live GitHub fetch cannot be part of pure flake evaluation, so check on activation instead.
-  checkCodexAzureWorkaround = pkgs.writeShellScript "check-codex-azure-workaround" ''
-    issue="$(${pkgs.curl}/bin/curl \
-      --fail \
-      --location \
-      --max-time 5 \
-      --silent \
-      https://api.github.com/repos/openai/codex/issues/37380 || true)"
-
-    if [ "$(${pkgs.jq}/bin/jq -r '.state // empty' <<< "$issue")" = "closed" ]; then
-      echo "warning: openai/codex#37380 is closed; re-check and remove the codex-andromeda Azure workaround" >&2
-    fi
-  '';
-
   slackMcpReadOnlyTools = [
     "channels_list"
     "channels_me"
@@ -160,7 +127,6 @@ let
       }
     ];
     model = "gpt-5.6-sol";
-    model_catalog_json = "${codexAzureModelCatalog}";
     model_provider = "azure";
     model_reasoning_effort = "high";
     personality = "pragmatic";
@@ -358,12 +324,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    warnings = lib.optional (lib.versionOlder codexAzureWorkaroundLastCheckedVersion codexPackage.version) ''
-      codex-andromeda uses the Azure Responses Lite workaround for openai/codex#37380,
-      but Codex ${codexPackage.version} is newer than the last checked version
-      ${codexAzureWorkaroundLastCheckedVersion}. Re-check whether the workaround is still needed.
-    '';
-
     age.secrets."andromeda.aws-home-config.credentials" = {
       rekeyFile = lib.repoSecret "andromeda/aws-home-config/credentials.age";
     };
@@ -427,15 +387,6 @@ in
       lib.hm.dag.entryAfter [ "mergeCodexAndromedaConfig" ]
         ''
           ${installHerdrCodexAndromedaIntegration}
-        '';
-
-    home.activation.checkCodexAzureWorkaround =
-      lib.hm.dag.entryAfter
-        [
-          "mergeCodexAndromedaConfig"
-        ]
-        ''
-          ${checkCodexAzureWorkaround}
         '';
 
     systemd.user.services.codex-andromeda-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {

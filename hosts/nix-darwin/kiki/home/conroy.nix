@@ -162,7 +162,7 @@ in
       desktop = {
         enable = true;
         firefox.enable = true;
-        element.enable = false; # TODO https://github.com/NixOS/nixpkgs/pull/486275
+        element.enable = true;
       };
       shell = {
         enable = true;

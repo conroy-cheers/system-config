@@ -655,7 +655,6 @@ in
 
           minimap = {
             minimap-vim.enable = true;
-            codewindow.enable = false; # https://github.com/NotAShelf/nvf/issues/1426
           };
 
           dashboard = {
@@ -880,7 +879,7 @@ in
         ])
         (lib.optionals cfg.mechanical.enable [
           prusa-slicer
-          # freecad-wayland  # https://github.com/NixOS/nixpkgs/issues/475536
+          freecad-wayland
         ])
         (lib.optionals cfg.audio.enable [ ardour ])
         (lib.optionals cfg.jetbrains.enable [

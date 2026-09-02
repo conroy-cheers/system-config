@@ -139,10 +139,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    mac-app-util = {
-      url = "github:hraban/mac-app-util";
-      inputs.cl-nix-lite.url = "github:r4v3n6101/cl-nix-lite/url-fix";
-    };
+    mac-app-util.url = "github:hraban/mac-app-util";
 
     # Home Manager
     home-manager = {
@@ -194,8 +191,7 @@
     };
 
     deploy-rs = {
-      # url = "github:serokell/deploy-rs";
-      url = "github:szlend/deploy-rs/fix-show-derivation-parsing";
+      url = "github:serokell/deploy-rs";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -302,7 +298,7 @@
 
     nix-vscode-extensions = {
       url = "github:nix-community/nix-vscode-extensions";
-      # inputs.nixpkgs.follows = "nixpkgs";  # appears to be broken as of 24/10/25
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     waveforms = {

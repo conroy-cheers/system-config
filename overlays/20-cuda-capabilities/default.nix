@@ -104,19 +104,14 @@ lib.optionalAttrs hasCustomCudaCapabilities {
           python-prev.torchcodec.override {
             torch = python-final.torch;
             torchvision = python-final.torchvision;
-            cudaPackages = final.cudaPackages;
           }
         );
 
         torchaudio = withTorchArchEnv (
-          (python-prev.torchaudio.override {
+          python-prev.torchaudio.override {
             torch = python-final.torch;
             torchcodec = python-final.torchcodec;
-            cudaPackages = final.cudaPackages;
-          }).overridePythonAttrs
-            (_oldAttrs: {
-              doCheck = false;
-            })
+          }
         );
       }
     )

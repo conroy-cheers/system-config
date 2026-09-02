@@ -64,7 +64,7 @@ in
     binfmt = {
       emulatedSystems = [
         "aarch64-linux"
-        "wasm32-wasi"
+        "wasm32-wasip1"
         "x86_64-windows"
       ];
     };
@@ -163,28 +163,6 @@ in
   #   keyMap = "us";
   #   useXkbConfig = true; # use xkbOptions in tty.
   # };
-
-  # Use nixpkgs Nix on brick while other hosts keep the shared Determinate module.
-  determinate.enable = false;
-
-  # Arrow 24 replaced arrow::util::span with std::span, but the Ceph 20
-  # compatibility patch in this nixpkgs revision still uses the old name.
-  nixpkgs.overlays = [
-    (_final: prev: {
-      ceph = prev.ceph.overrideAttrs (oldAttrs: {
-        postPatch = (oldAttrs.postPatch or "") + ''
-          substituteInPlace src/s3select/include/encryption_internal_20.h \
-            --replace-fail '#include "arrow/util/span.h"' '#include <span>'
-          sed -i '/#include <mutex>/a #include <span>' \
-            src/s3select/include/internal_file_decryptor_20.h
-          substituteInPlace \
-            src/s3select/include/encryption_internal_20.h \
-            src/s3select/include/internal_file_decryptor_20.h \
-            --replace-fail '::arrow::util::span' 'std::span'
-        '';
-      });
-    })
-  ];
 
   nix = {
     settings = {
