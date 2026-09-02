@@ -353,6 +353,7 @@
 
     weave = {
       url = "github:ataraxy-labs/weave";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     nvf = {
