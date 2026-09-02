@@ -62,6 +62,7 @@ in
           ;
         isRelay = mesh.isLighthouse;
         listen.port = mesh.listenPort;
+        tun.device = "nebula.ccheese";
 
         settings = {
           static_map.cadence = "30s";
