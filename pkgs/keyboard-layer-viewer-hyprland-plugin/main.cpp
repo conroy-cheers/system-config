@@ -2,7 +2,12 @@
 
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/SharedDefs.hpp>
+#include <hyprland/src/desktop/state/WindowState.hpp>
+#if __has_include(<hyprland/src/desktop/view/window/Window.hpp>)
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#else
 #include <hyprland/src/desktop/view/Window.hpp>
+#endif
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/helpers/signal/Signal.hpp>
@@ -104,7 +109,7 @@ void watchWindow(PHLWINDOW window) {
 }
 
 void watchExistingWindows() {
-    for (const auto& window : g_pCompositor->m_windows)
+    for (const auto& window : Desktop::windowState()->windows())
         watchWindow(window);
 }
 
