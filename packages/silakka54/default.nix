@@ -49,7 +49,6 @@ let
     qmk-rev:${qmkRev}
     eeprom-generation:${toString eepromGeneration}
     qmk-config:${builtins.toJSON configuration.qmk}
-    qmk-system-control-descriptor.patch:${builtins.hashFile "sha256" ./qmk-system-control-descriptor.patch}
     generate-keymap.py:${builtins.hashFile "sha256" ./generate-keymap.py}
     info.json:${builtins.hashFile "sha256" ./info.json}
   '';
@@ -83,7 +82,6 @@ rustPlatform.buildRustPackage {
     cp -r "${qmkSource}" qmk
     chmod -R u+w qmk
     patchShebangs qmk/util qmk/lib/python
-    patch -d qmk -p1 < ${./qmk-system-control-descriptor.patch}
     cp -r "${silakkaSource}/firmware" qmk/keyboards/silakka54
     install -m 0644 ${./info.json} qmk/keyboards/silakka54/keyboard.json
 
