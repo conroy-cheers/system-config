@@ -482,11 +482,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787657780,
-        "narHash": "sha256-WtSF+439cS8ZGIWP1kOQH51H9zFAmwvHHB4UXl+2Q+k=",
+        "lastModified": 1788493235,
+        "narHash": "sha256-WdlnN3Rocg2zeWoeVyhYTLK1dBW1vH96ygDtzm47PmM=",
         "owner": "conroy-cheers",
         "repo": "corncheese-server-config",
-        "rev": "1d0ee728e50dfab0bcdb5cbef8e9f14b033303ff",
+        "rev": "480bc8d4ae4be6adda8096735302ef387bf95966",
         "type": "github"
       },
       "original": {

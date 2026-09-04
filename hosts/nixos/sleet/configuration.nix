@@ -57,7 +57,10 @@ in
   boot = {
     # Use the systemd-boot boot loader.
     loader = {
-      systemd-boot.enable = true;
+      systemd-boot = {
+        enable = true;
+        configurationLimit = 10;
+      };
       efi.canTouchEfiVariables = true;
     };
 
@@ -302,7 +305,11 @@ in
 
   services.bunnings-powerpass-invoices = {
     enable = true;
-    automaticRenewal.enable = true;
+    # PowerPass changed its sign-in entrypoint, so auth-check currently exits
+    # before it can distinguish an expired session. Do not retry every 15
+    # minutes or submit cached credentials until the browser selector is
+    # updated and validated manually.
+    automaticRenewal.enable = false;
     listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "bunnings-powerpass-invoices" "127.0.0.1";
     port = 8782;
     publicUrl = "https://powerpass.corncheese.org";
@@ -407,7 +414,11 @@ in
   nix = {
     gc = {
       automatic = true;
+      # Sleet is rebuilt frequently and its system profile accumulated hundreds
+      # of generations inside a few days. Independent VM backups cover longer
+      # recovery windows.
       dates = "04:00";
+      options = lib.mkForce "--delete-older-than 3d";
     };
     settings = {
       trusted-users = [ "conroy" ];

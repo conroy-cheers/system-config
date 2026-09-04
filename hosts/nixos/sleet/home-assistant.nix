@@ -12,7 +12,6 @@ in
 {
   services.home-assistant = {
     enable = true;
-    openFirewall = true;
     extraComponents = [
       "apple_tv"
       "backup"
@@ -100,6 +99,10 @@ in
       ];
     };
   };
+
+  # Home Assistant's module no longer opens the port implicitly for this
+  # configuration.  Keep the migrated HAOS address and LAN clients working.
+  networking.firewall.allowedTCPPorts = [ 8123 ];
 
   # The HAOS migration imported Zigbee2MQTT's runtime data here, including the
   # existing coordinator, MQTT, device, and group configuration. Run Z2M against
