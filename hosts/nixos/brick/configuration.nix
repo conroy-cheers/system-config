@@ -51,12 +51,6 @@ in
 
       limine = {
         enable = true;
-        efiInstallAsRemovable = true;
-        extraEntries = ''
-          /Windows
-            protocol: efi
-            path: uuid(89a1eedd-3c95-47bf-80c6-bd131131ee54):/EFI/Microsoft/Boot/bootmgfw.efi
-        '';
       };
     };
 
