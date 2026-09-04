@@ -3974,11 +3974,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787547476,
-        "narHash": "sha256-JcXNiz6n6kMbpstKk3QF5RzN8nBILIQlEz6ZBdEhRr8=",
+        "lastModified": 1788480220,
+        "narHash": "sha256-coPd05di7eqs+1J9uNgVH27CzhlISGvgdmjby99YzUU=",
         "owner": "conroy-cheers",
         "repo": "sigma-studio",
-        "rev": "40744eedf49fe940deae512c670ef7d63cbecf43",
+        "rev": "c5d02da533a8156466ed1c49cb11e0888e4f96ca",
         "type": "github"
       },
       "original": {
