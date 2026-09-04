@@ -76,6 +76,9 @@
 
   services = {
     qemuGuest.enable = true;
+    # Technitium owns port 53. Keep resolved for networkd's upstream DNS, but
+    # prevent its local stub from blocking Technitium's IPv4 TCP listener.
+    resolved.settings.Resolve.DNSStubListener = "no";
     technitium-dns-server.enable = true;
     openssh = {
       enable = true;
