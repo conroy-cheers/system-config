@@ -1,7 +1,6 @@
 {
   lib,
   hostName,
-  lighthouseEndpoints,
 }:
 
 let
@@ -9,28 +8,35 @@ let
   inherit (inventory) hosts;
   hostAddresses = lib.mapAttrs (_: host: host.address) hosts;
   pkiDir = ./nebula-pki;
-  lighthouseAddress = hostAddresses.snow;
-  isLighthouse = hostName == "snow";
+  host = hosts.${hostName} or null;
+  ownAddress = if host == null then null else host.address;
+  lighthouseHosts = lib.filterAttrs (_: candidate: candidate.lighthouse != null) hosts;
+  lighthouseAddresses = lib.mapAttrsToList (_: candidate: candidate.address) lighthouseHosts;
+  lighthouseEndpointMap = lib.mapAttrs' (
+    _: candidate: lib.nameValuePair candidate.address candidate.lighthouse.endpoints
+  ) lighthouseHosts;
+  isLighthouse = host != null && host.lighthouse != null;
+  otherLighthouseAddresses = builtins.filter (address: address != ownAddress) lighthouseAddresses;
 in
 {
   inherit
     hosts
     hostAddresses
     inventory
-    lighthouseAddress
+    lighthouseAddresses
     isLighthouse
     ;
 
   caCertificate = pkiDir + "/ca.crt";
   hostCertificate = pkiDir + "/${hostName}.crt";
-  host = hosts.${hostName} or null;
+  inherit host;
   managedHost = builtins.hasAttr hostName hosts;
   hasHostCertificate = builtins.pathExists (pkiDir + "/${hostName}.crt");
-  lighthouses = lib.optional (!isLighthouse) lighthouseAddress;
-  relays = lib.optional (!isLighthouse) lighthouseAddress;
-  staticHostMap = lib.optionalAttrs (!isLighthouse) {
-    ${lighthouseAddress} = lighthouseEndpoints;
-  };
+  lighthouses = otherLighthouseAddresses;
+  relays = otherLighthouseAddresses;
+  staticHostMap = builtins.removeAttrs lighthouseEndpointMap (
+    lib.optional (ownAddress != null) ownAddress
+  );
   listenPort = if isLighthouse then 4242 else 0;
   firewall = {
     outbound = [

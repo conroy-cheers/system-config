@@ -1062,10 +1062,29 @@ in
           IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
           IdentitiesOnly = true;
         };
+        # Hail is installed and serving secondary DNS, but its Nebula identity
+        # is deliberately not enabled until the hardware-backed CA can sign
+        # it. Keep the normal alias useful through Snow in the meantime.
+        "hail" = {
+          HostName = "10.1.1.121";
+          User = "conroy";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          IdentitiesOnly = true;
+          ProxyJump = "snow";
+        };
         "pve" = {
           HostName = "10.1.1.3";
           User = "root";
           IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+        };
+        # Recovery-only alias. Normal LAN administration enters through Snow's
+        # Nebula address so Beluga is no longer in the management path.
+        "pve-via-beluga" = {
+          HostName = "10.1.1.3";
+          User = "root";
+          IdentityFile = "${config.home.homeDirectory}/.ssh/conroy_home.id_ed25519.pub";
+          IdentitiesOnly = true;
+          ProxyJump = "beluga";
         };
         "bigbrain" = {
           HostName = "bigbrain.lan";
@@ -1085,7 +1104,7 @@ in
         };
         home = {
           header = "Host ${lib.concatStringsSep " " homeJumpHosts}";
-          ProxyJump = "beluga";
+          ProxyJump = "snow";
           IdentitiesOnly = true;
         };
         "*" = {

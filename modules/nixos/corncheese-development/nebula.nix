@@ -10,7 +10,6 @@ let
   hostName = config.networking.hostName;
   mesh = import ../../common/corncheese-development/nebula-mesh.nix {
     inherit lib hostName;
-    inherit (cfg) lighthouseEndpoints;
   };
   ssh = if mesh.host == null then null else mesh.host.ssh;
   sshIdentity = if ssh == null then null else mesh.inventory.identities.${ssh.identity};

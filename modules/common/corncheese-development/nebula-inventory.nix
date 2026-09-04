@@ -106,6 +106,22 @@ let
                       type = nebulaAddressType;
                     };
 
+                    lighthouse = mkOption {
+                      description = ''
+                        Optional static endpoints for a host that acts as a
+                        Nebula lighthouse and relay.
+                      '';
+                      default = null;
+                      type = types.nullOr (
+                        types.submodule {
+                          options.endpoints = mkOption {
+                            description = "LAN and public UDP endpoints for this lighthouse";
+                            type = types.nonEmptyListOf types.str;
+                          };
+                        }
+                      );
+                    };
+
                     ssh = mkOption {
                       description = ''
                         SSH destination policy for `${name}`. A null value means
@@ -157,9 +173,13 @@ let
   hostAddresses = lib.mapAttrsToList (_: host: host.address) inventory.hosts;
   identityFileNames = lib.mapAttrsToList (_: identity: identity.fileName) inventory.identities;
   identityPublicKeys = lib.mapAttrsToList (_: identity: identity.publicKey) inventory.identities;
+  lighthouseHosts = lib.filterAttrs (_: host: host.lighthouse != null) inventory.hosts;
   valuesAreUnique = values: builtins.length values == builtins.length (lib.unique values);
 in
 assert lib.assertMsg (valuesAreUnique hostAddresses) "Nebula host addresses must be unique";
 assert lib.assertMsg (valuesAreUnique identityFileNames) "SSH identity filenames must be unique";
 assert lib.assertMsg (valuesAreUnique identityPublicKeys) "SSH identity public keys must be unique";
+assert lib.assertMsg (
+  lighthouseHosts != { }
+) "The Nebula inventory must define at least one lighthouse";
 inventory

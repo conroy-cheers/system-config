@@ -3,6 +3,21 @@
   # Each non-null SSH entry also drives the client alias and the user's authorized_keys.
   snow = {
     address = "10.42.42.1";
+    lighthouse.endpoints = [
+      "10.1.1.120:4242"
+      "home.conroycheers.me:4242"
+    ];
+    ssh = {
+      user = "conroy";
+      identity = "conroy-home";
+    };
+  };
+  hail = {
+    address = "10.42.42.10";
+    lighthouse.endpoints = [
+      "10.1.1.121:4242"
+      "home.conroycheers.me:4243"
+    ];
     ssh = {
       user = "conroy";
       identity = "conroy-home";

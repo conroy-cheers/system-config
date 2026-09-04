@@ -11,7 +11,6 @@ let
   hostName = config.networking.hostName;
   mesh = import ./nebula-mesh.nix {
     inherit lib hostName;
-    inherit (cfg) lighthouseEndpoints;
   };
   hasHostIdentity = meta.pubkey != null;
   keyProvisioned = cfg.enable && mesh.managedHost && hasHostIdentity;
@@ -31,14 +30,6 @@ in
       description = "This host's stable address on the corncheese Nebula mesh";
     };
 
-    lighthouseEndpoints = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [
-        "10.1.1.120:4242"
-        "home.conroycheers.me:4242"
-      ];
-      description = "LAN and public UDP endpoints for the snow lighthouse";
-    };
   };
 
   config = lib.mkMerge [
