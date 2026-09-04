@@ -226,7 +226,6 @@ in
       services.atftpd = {
         enable = true;
         root = cfg.netbootServer.tftpRootDirectory;
-        extraOptions = [ "--bind-address ${cfg.netbootServer.serverAddress}" ];
       };
 
       fileSystems."${cfg.netbootServer.nfsRootDirectory}/nix-store" = {
@@ -251,7 +250,6 @@ in
         ];
         wants = [
           "NetworkManager.service"
-          "NetworkManager-ensure-profiles.service"
           "network-online.target"
         ];
         unitConfig.ConditionPathExists = "${cfg.netbootServer.tftpRootDirectory}/${cfg.netbootServer.requiredBootFile}";
