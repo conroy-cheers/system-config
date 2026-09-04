@@ -9,7 +9,18 @@ let
   cfg = config.corncheese.wm;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   themeDetails = config.corncheese.theming.themeDetails;
-  colorshellPackage = inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell;
+  colorshellPackage =
+    inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs
+      (oldAttrs: {
+        # The bundled launcher base64-encodes the generated GJS program, which
+        # hides its interpreter store path from Nix's runtime reference scan.
+        # Keep GJS in the package closure so garbage collection cannot leave
+        # the launcher with a dangling shebang.
+        postFixup = (oldAttrs.postFixup or "") + ''
+          mkdir -p $out/libexec
+          ln -s ${pkgs.gjs} $out/libexec/gjs
+        '';
+      });
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     background {
       monitor =
