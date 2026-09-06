@@ -42,8 +42,8 @@ gui_voice = held(220.000, gui_gate);
 
 layer_frequency =
     (layer == 0) * 293.665
-  + (layer == 1) * 587.330
-  + (layer == 2) * 698.456
+  + (layer == 1) * 698.456
+  + (layer == 2) * 587.330
   + (layer == 3) * 880.000
   + (layer == 4) * 1046.502;
 layer_trigger = changed(layer) * (layer >= 0) * (layer <= 4);

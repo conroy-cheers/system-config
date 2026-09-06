@@ -299,6 +299,7 @@ in
                 "playback.props" = {
                   "node.name" = "effect_output.base";
                   "node.description" = "MOTU M2";
+                  "node.dont-fallback" = true;
                   "node.passive" = true;
                   "stream.dont-remix" = true;
                 };
@@ -330,6 +331,7 @@ in
                 "playback.props" = {
                   "node.name" = "effect_output.eq";
                   "node.description" = "MOTU M2 EQ";
+                  "node.dont-fallback" = true;
                   "node.passive" = true;
                   "stream.dont-remix" = true;
                 };

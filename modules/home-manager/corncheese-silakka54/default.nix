@@ -147,7 +147,8 @@ let
 
         while kill -0 "$child_pid" 2>/dev/null \
           && [[ "$(desired_state)" == on ]] \
-          && [[ -n "$(midi_source || true)" ]]; do
+          && [[ -n "$(midi_source || true)" ]] \
+          && pw-link -i 2>/dev/null | grep -Fxq 'silakka54_sound:midi_in'; do
           connect_graph
           apply_volume
           sleep 1
@@ -195,6 +196,12 @@ let
         fi
         printf '%s\n' "$sink"
       }
+      motu_hardware_sink() {
+        pw-link -i 2>/dev/null \
+          | sed -n 's/:playback_FL$//p' \
+          | grep '^alsa_output\.usb-MOTU_M2_.*\.HiFi__Line__sink$' \
+          | head -n 1
+      }
       actual_quantum() {
         pw-metadata -n settings 0 2>/dev/null | sed -n "s/.*key:'clock.quantum' value:'\([^']*\)'.*/\1/p" | tail -n 1
       }
@@ -217,6 +224,13 @@ let
           found && $0 !~ /^  \|-> / { exit }
           END { exit !linked }
         '
+      }
+      motu_path_linked() {
+        local hardware
+        hardware="$(motu_hardware_sink || true)"
+        [[ -n "$hardware" ]] \
+          && output_linked 'effect_output.eq:output_FL' "$hardware:playback_FL" \
+          && output_linked 'effect_output.eq:output_FR' "$hardware:playback_FR"
       }
       usage() { printf 'Usage: silakka54-sound on|off|toggle|status|volume [DB]|test|design\n'; }
 
@@ -253,7 +267,8 @@ let
           target="$(target_prefix || true)"
           if input_linked 'silakka54_sound:midi_in' "$midi"; then midi_link=connected; else midi_link=disconnected; fi
           if output_linked 'silakka54_sound:out_left' "''${target:+$target:playback_FL}" \
-            && output_linked 'silakka54_sound:out_right' "''${target:+$target:playback_FR}"; then
+            && output_linked 'silakka54_sound:out_right' "''${target:+$target:playback_FR}" \
+            && { [[ "$target" != effect_input.eq ]] || motu_path_linked; }; then
             audio_link=connected
           else
             audio_link=disconnected
