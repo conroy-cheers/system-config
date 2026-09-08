@@ -462,12 +462,22 @@ def ensure_authenticated(
         return True
 
     page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=timeout_ms)
-    sign_in = page.get_by_role("button", name="Sign in to PowerPass", exact=True)
-    if sign_in.count() == 0:
-        raise UserError("could not find the PowerPass sign-in entrypoint")
-    sign_in.click(timeout=timeout_ms)
-
-    stage = wait_for_auth_stage(page, timeout_ms)
+    stage = auth_stage(page)
+    if stage is None:
+        # The portal has changed the button's accessible name before, while the
+        # underlying APEX LOGIN action remained stable. Prefer that action and
+        # retain a text fallback for non-APEX variants of the page.
+        sign_in = page.locator(
+            "button[onclick*=\"apex.submit('LOGIN')\"]:visible"
+        )
+        if sign_in.count() == 0:
+            sign_in = page.get_by_role(
+                "button",
+                name=re.compile(r"sign\s+in(?:\s+to\s+powerpass)?", re.IGNORECASE),
+            )
+        if sign_in.count() > 0:
+            sign_in.first.click(timeout=timeout_ms)
+        stage = wait_for_auth_stage(page, timeout_ms)
     if stage == "authenticated":
         return True
     if stage == "portal" and finish_portal_authentication(page, timeout_ms):

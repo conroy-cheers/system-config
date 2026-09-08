@@ -305,11 +305,7 @@ in
 
   services.bunnings-powerpass-invoices = {
     enable = true;
-    # PowerPass changed its sign-in entrypoint, so auth-check currently exits
-    # before it can distinguish an expired session. Do not retry every 15
-    # minutes or submit cached credentials until the browser selector is
-    # updated and validated manually.
-    automaticRenewal.enable = false;
+    automaticRenewal.enable = true;
     listenAddress = config.corncheese-server._meta.topology.serviceListenAddress "bunnings-powerpass-invoices" "127.0.0.1";
     port = 8782;
     publicUrl = "https://powerpass.corncheese.org";
