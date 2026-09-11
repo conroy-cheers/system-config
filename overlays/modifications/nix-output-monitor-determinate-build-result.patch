@@ -1,0 +1,69 @@
+Determinate Nix emits resBuildResult (110) with an object payload rather
+than a fields array. Recognize this supplementary metadata without using
+it to update progress: the existing activity events already track builds,
+and AlreadyValid results must not be counted as newly completed builds.
+
+diff --git a/lib/NOM/NixMessage/JSON.hs b/lib/NOM/NixMessage/JSON.hs
+--- a/lib/NOM/NixMessage/JSON.hs
++++ b/lib/NOM/NixMessage/JSON.hs
+@@ -71,6 +71,8 @@ data ActivityResult where
+   SetExpected :: ActivityType -> Int -> ActivityResult
+   PostBuildLogLine :: Text -> ActivityResult
+   FetchStatus :: Text -> ActivityResult
++  -- Determinate Nix metadata; progress is tracked through activity events.
++  BuildResult :: ActivityResult
+   deriving stock (Show, Eq)
+
+ data ActivityProgress = MkActivityProgress
+diff --git a/lib/NOM/Parser/JSON.hs b/lib/NOM/Parser/JSON.hs
+--- a/lib/NOM/Parser/JSON.hs
++++ b/lib/NOM/Parser/JSON.hs
+@@ -121,6 +121,9 @@ parseResultAction = do
+       pure $ SetExpected activityType number
+     107 -> PostBuildLogLine <$> one txt
+     108 -> FetchStatus <$> one txt
++    -- resBuildResult has a payload object, not fields. It is supplementary
++    -- metadata and is handled by processJsonMessage's noChange fallback.
++    110 -> pure BuildResult
+     other -> fail ("invalid activity result type: " <> show other)
+   pure MkResultAction{id = idField, result}
+
+diff --git a/test/UnitTests.hs b/test/UnitTests.hs
+--- a/test/UnitTests.hs
++++ b/test/UnitTests.hs
+@@ -1,8 +1,11 @@
+ import Data.ByteString.Char8 qualified as ByteString
++import Data.Hermes qualified as JSON
+ import Data.Set (singleton)
+ import NOM.Builds
++import NOM.NixMessage.JSON qualified as JSONMessage
+ import NOM.NixMessage.OldStyle (NixOldStyleMessage (..))
+ import NOM.Parser
++import NOM.Parser.JSON (parseJSONLine)
+ import NOM.Util (parseOne)
+ import Relude
+ import Relude.Unsafe qualified as Unsafe
+@@ -21,7 +24,22 @@ main = do
+   counts <-
+     runTestTT
+       $ test
+-        [ "Parse Plan" ~: do
++        [ "Parse Determinate build result without fields" ~: JSON.withHermesEnv_ \env -> do
++            let input = "@nix {\"action\":\"result\",\"id\":0,\"payload\":{\"builtOutputs\":{\"out\":{\"outPath\":\"jdwsfbzqn3027q7my9v2b3vnymq5x30h-minecraft-lib-dir\",\"signatures\":[]}},\"path\":{\"drvPath\":\"nv1cfy12npfa47d01yd3i2dbq252q5nq-minecraft-lib-dir.drv\",\"outputs\":[\"*\"]},\"startTime\":0,\"status\":\"AlreadyValid\",\"stopTime\":0,\"success\":true,\"timesBuilt\":0},\"sid\":\"01a09087-8f97-7286-8047-9917ea09fc0f\",\"type\":110}"
++            assertEqual
++              "AlreadyValid metadata is accepted"
++              (JSONMessage.Result (JSONMessage.MkResultAction (JSONMessage.MkId 0) JSONMessage.BuildResult))
++              (parseJSONLine env input)
++        , "Parse ordinary progress" ~: JSON.withHermesEnv_ \env -> do
++            assertEqual
++              "normal progress is preserved"
++              (JSONMessage.Result (JSONMessage.MkResultAction (JSONMessage.MkId 1) (JSONMessage.Progress (JSONMessage.MkActivityProgress 1 2 0 0))))
++              (parseJSONLine env "@nix {\"action\":\"result\",\"id\":1,\"type\":105,\"fields\":[1,2,0,0]}")
++        , "Unknown result types still fail" ~: JSON.withHermesEnv_ \env ->
++            case parseJSONLine env "@nix {\"action\":\"result\",\"id\":0,\"type\":999}" of
++              JSONMessage.ParseError _ -> pure ()
++              other -> assertFailure ("Expected parse error, got " <> show other)
++        , "Parse Plan" ~: do
+             (rest, result) <-
+               assertOldStyleParse
+                 "these derivations will be built:\n  /nix/store/7n05q79qhrgvnfmvv2v3cnj3yqf4d1hf-haskell-language-server-0.4.0.0.drv\nthese paths will be fetched (134.19 MiB download, 1863.82 MiB unpacked):\n  /nix/store/60zb5dndaw1fzir3s69sy3xhy19gll1p-ghc-8.8.2\ngarbage"

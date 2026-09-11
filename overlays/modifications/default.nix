@@ -17,6 +17,10 @@ final: prev: {
     };
   };
 
+  nix-output-monitor = prev.nix-output-monitor.overrideAttrs (oldAttrs: {
+    patches = (oldAttrs.patches or [ ]) ++ [ ./nix-output-monitor-determinate-build-result.patch ];
+  });
+
   nix-monitored = inputs.nix-monitored.packages.${prev.stdenv.hostPlatform.system}.default.override {
     nix = final.nix;
     nix-output-monitor = final.nix-output-monitor;
@@ -90,7 +94,7 @@ final: prev: {
           "${version}" = final.lib.getBin (
             inputs.nix-monitored.packages.${final.stdenv.hostPlatform.system}.default.override {
               nix = eval.value;
-              nix-output-monitor = prev.nix-output-monitor;
+              nix-output-monitor = final.nix-output-monitor;
             }
           );
         }
