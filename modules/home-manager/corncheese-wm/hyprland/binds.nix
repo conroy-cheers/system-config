@@ -70,11 +70,11 @@ in
       (bindExec "SHIFT + PRINT" "grimblast copy area")
       (bindExec "PRINT" "grimblast copysave screen")
 
-      # Move window focus with vim keys.
-      (bind (mod "left") (lua ''hl.dsp.focus({ direction = "left" })''))
-      (bind (mod "right") (lua ''hl.dsp.focus({ direction = "right" })''))
-      (bind (mod "up") (lua ''hl.dsp.focus({ direction = "up" })''))
-      (bind (mod "down") (lua ''hl.dsp.focus({ direction = "down" })''))
+      # Move window focus with GUI (Super) + arrow keys.
+      (bind "SUPER + left" (lua ''hl.dsp.focus({ direction = "left" })''))
+      (bind "SUPER + right" (lua ''hl.dsp.focus({ direction = "right" })''))
+      (bind "SUPER + up" (lua ''hl.dsp.focus({ direction = "up" })''))
+      (bind "SUPER + down" (lua ''hl.dsp.focus({ direction = "down" })''))
 
       # Swap windows with vim keys
       (bind (mod "SHIFT + h") (lua ''hl.dsp.window.swap({ direction = "left" })''))
