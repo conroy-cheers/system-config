@@ -574,6 +574,14 @@ in
           output = "json";
         };
 
+        "profile ssm" = {
+          sso_session = "Andromeda";
+          sso_account_id = "719629165727";
+          sso_role_name = "SsmUsersPermSet";
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
         "profile iot-creds-au-dev" = {
           sso_session = "Andromeda";
           sso_account_id = "235494781452";
