@@ -272,8 +272,6 @@ let
         }
     '';
   };
-  codexDesktopPackage =
-    inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.default;
   codexAndromedaDesktopAppId = "codex-desktop-andromeda";
   codexAndromedaDesktop =
     pkgs.runCommand "codex-desktop-andromeda"
@@ -282,7 +280,10 @@ let
       }
       ''
         mkdir -p "$out/bin"
-        makeWrapper ${lib.getExe' codexDesktopPackage "codex-desktop"} "$out/bin/codex-desktop-andromeda" \
+        makeWrapper ${
+          lib.getExe' inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.default
+            "codex-desktop"
+        } "$out/bin/codex-desktop-andromeda" \
           --set CODEX_CLI_PATH "${lib.getExe' config.andromeda.development.codexPackage "codex-andromeda"}" \
           --set CODEX_HOME "${codexAndromedaHome}" \
           --set CODEX_APP_ID "${codexAndromedaDesktopAppId}" \
