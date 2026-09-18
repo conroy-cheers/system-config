@@ -13,6 +13,27 @@ let
   codexHome = "${config.home.homeDirectory}/.codex";
   codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
   codexConfigFile = "${codexHome}/config.toml";
+  codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
+  deepseekCatalogFile = "${config.xdg.cacheHome}/codex/deepseek/models.json";
+  deepseekRefresh = pkgs.writeShellApplication {
+    name = "codex-deepseek-refresh";
+    text = ''
+      exec ${pkgs.python3}/bin/python3 ${./codex-deepseek-refresh.py} \
+        --cache-file ${lib.escapeShellArg deepseekCatalogFile} \
+        --bundled-catalog ${./deepseek-models.json} \
+        --instructions ${./deepseek-instructions.txt} \
+        --client-version ${lib.escapeShellArg codexPackage.version} \
+        --curl ${lib.getExe pkgs.curl} "$@"
+    '';
+  };
+  deepseekProfile = (pkgs.formats.toml { }).generate "codex-deepseek.config.toml" {
+    model_provider = "deepseek";
+    model = "deepseek-flash";
+    model_reasoning_effort = "high";
+    model_reasoning_summary = "none";
+    web_search = "disabled";
+    model_catalog_json = deepseekCatalogFile;
+  };
   ccusagePackage = inputs.llm-agents.packages.${meta.system}.ccusage;
   ccusageCodexHomes = [
     codexHome
@@ -26,6 +47,17 @@ let
     '';
   };
   codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
+    model_providers.deepseek = {
+      name = "DeepSeek Platform";
+      base_url = "https://api.deepseek.com/";
+      wire_api = "responses";
+      supports_websockets = false;
+      auth = {
+        command = "${pkgs.coreutils}/bin/cat";
+        args = [ config.age.secrets."corncheese.deepseek.key".path ];
+        refresh_interval_ms = 0;
+      };
+    };
     skills.config = [
       {
         name = "github:yeet";
@@ -102,6 +134,7 @@ let
       ${codexConfig} \
       "${codexConfigFile}" \
       ${lib.escapeShellArgs codexRemovedNixMcpServers}
+    ${lib.getExe deepseekRefresh} --seed-only
   '';
   herdrPackage = inputs.llm-agents.packages.${meta.system}.herdr;
   installHerdrIntegrations = pkgs.writeShellScript "install-herdr-integrations" ''
@@ -151,11 +184,12 @@ let
 
   codex-wrapped = pkgs.symlinkJoin {
     name = "codex-wrapped";
-    paths = [ inputs.codex-flake.packages.${meta.system}.codex ];
+    paths = [ codexPackage ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
 
     postBuild = ''
       wrapProgram $out/bin/codex \
+        --run '${lib.getExe deepseekRefresh} --for-codex "$@" || exit $?' \
         --prefix PATH : ${
           lib.makeBinPath (
             with pkgs;
@@ -308,6 +342,10 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    age.secrets."corncheese.deepseek.key" = {
+      rekeyFile = lib.repoSecret "corncheese/deepseek/key.age";
+    };
+
     services.vscode-server.enable = true;
 
     programs.herdr = {
@@ -768,6 +806,9 @@ in
     };
 
     home.file = lib.mkMerge [
+      {
+        ".codex/deepseek.config.toml".source = deepseekProfile;
+      }
       (lib.mkIf cfg.ssh.enable (
         lib.mapAttrs' (
           _name: identity:
@@ -852,6 +893,7 @@ in
           tmux
           claude-code-wrapped
           codex-wrapped
+          deepseekRefresh
           ccusage
 
           ghidra
