@@ -12,6 +12,19 @@ let
   colorshellPackage =
     inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs
       (oldAttrs: {
+        src = oldAttrs.src.overrideAttrs {
+          # The launcher now sets LD_PRELOAD on the command instead of exporting
+          # it. Patch the library path independently of that shell syntax.
+          postPatch = ''
+            substituteInPlace scripts/build.sh \
+              --replace-fail '#!/usr/bin/env bash' '#!${lib.getExe pkgs.bash}' \
+              --replace-fail '#!/usr/bin/env -S gjs -m' '#!${lib.getExe pkgs.gjs} -m' \
+              --replace-fail '/usr/lib/libgtk4-layer-shell.so' '${pkgs.gtk4-layer-shell}/lib/libgtk4-layer-shell.so'
+            substituteInPlace src/modules/wallpaper.ts \
+              --replace-fail '/usr/share/hypr/wall2.png' '${pkgs.hyprland}/share/hypr/wall2.png'
+          '';
+        };
+
         # The bundled launcher base64-encodes the generated GJS program, which
         # hides its interpreter store path from Nix's runtime reference scan.
         # Keep GJS in the package closure so garbage collection cannot leave
