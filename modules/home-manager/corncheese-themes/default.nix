@@ -38,39 +38,45 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    corncheese.theming.themeDetails = themeDetails;
+  config = lib.mkMerge [
+    {
+      # Stylix's NVF target still writes a renamed lualine option. NVF is
+      # configured directly by corncheese-development instead.
+      stylix.targets.nvf.enable = false;
+    }
+    (lib.mkIf cfg.enable {
+      corncheese.theming.themeDetails = themeDetails;
 
-    stylix =
-      lib.optionalAttrs (!hasSystemStylix) {
-        enable = true;
-        polarity = "dark";
-        image = themeDetails.wallpaper;
-        paletteGenerator =
-          lib.mkIf useWalbridgePalette
-            inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.stylix-palette-generator;
-        base16Scheme = lib.mkIf (
-          !useWalbridgePalette
-        ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
-        override = lib.mkIf (
-          !useWalbridgePalette && themeDetails.stylixOverride != null
-        ) themeDetails.stylixOverride;
-        opacity = {
-          terminal = themeDetails.opacity;
-          applications = themeDetails.opacity;
-          desktop = themeDetails.opacity;
-          popups = themeDetails.opacity;
+      stylix =
+        lib.optionalAttrs (!hasSystemStylix) {
+          enable = true;
+          polarity = "dark";
+          image = themeDetails.wallpaper;
+          paletteGenerator =
+            lib.mkIf useWalbridgePalette
+              inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.stylix-palette-generator;
+          base16Scheme = lib.mkIf (
+            !useWalbridgePalette
+          ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
+          override = lib.mkIf (
+            !useWalbridgePalette && themeDetails.stylixOverride != null
+          ) themeDetails.stylixOverride;
+          opacity = {
+            terminal = themeDetails.opacity;
+            applications = themeDetails.opacity;
+            desktop = themeDetails.opacity;
+            popups = themeDetails.opacity;
+          };
+          fonts.sizes.terminal = themeDetails.fontSize;
+        }
+        // {
+          targets = {
+            vscode.profileNames = [ "default" ];
+            firefox.profileNames = [ "default" ];
+          };
         };
-        fonts.sizes.terminal = themeDetails.fontSize;
-      }
-      // {
-        targets = {
-          nvf.enable = false;
-          vscode.profileNames = [ "default" ];
-          firefox.profileNames = [ "default" ];
-        };
-      };
 
-    home.packages = lib.optionals useWalbridgePalette [ walbridgeVisualize ];
-  };
+      home.packages = lib.optionals useWalbridgePalette [ walbridgeVisualize ];
+    })
+  ];
 }

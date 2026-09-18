@@ -22,6 +22,9 @@
       {
         doCheck = false;
       };
+  # Stylix's Home Manager module defines package overlays, so it needs its own
+  # package set rather than Home Manager's global NixOS package set.
+  home-manager.useGlobalPkgs = lib.mkForce false;
 
   console.enable = true;
 
@@ -33,9 +36,11 @@
 
   boot.kernelPackages =
     let
+      # Keep the 6.12 vendor recipe matched to this source; nixos-hardware's
+      # kernel recipe now targets 6.18 and cannot use this source unchanged.
       # GitHub serves multiple archive variants for this commit, so fetch the
       # Git tree directly to keep the source deterministic.
-      kernel = pkgs.linuxPackages_rpi4.kernel.override {
+      kernel = pkgs.linuxKernel.kernels.linux_rpi4.override {
         argsOverride.src = pkgs.fetchFromGitHub {
           owner = "raspberrypi";
           repo = "linux";

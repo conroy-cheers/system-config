@@ -1,7 +1,7 @@
 {
+  config,
   lib,
   modulesPath,
-  pkgs,
   ...
 }:
 
@@ -27,7 +27,7 @@
     EOF
 
     install -D -m 0644 \
-      ${pkgs.linuxPackages_rpi4.kernel}/dtbs/overlays/imx708.dtbo \
+      ${config.boot.kernelPackages.kernel}/dtbs/overlays/imx708.dtbo \
       firmware/overlays/imx708.dtbo
   '';
 }

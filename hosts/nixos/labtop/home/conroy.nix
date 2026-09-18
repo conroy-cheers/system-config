@@ -178,6 +178,8 @@
   programs.neovim = {
     enable = true;
     defaultEditor = true;
+    withPython3 = true;
+    withRuby = true;
   };
   xdg.configFile."nvim/init.lua".enable = lib.mkForce false;
 

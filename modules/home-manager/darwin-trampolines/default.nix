@@ -2,7 +2,6 @@
 {
   lib,
   pkgs,
-  config,
   ...
 }:
 
@@ -12,16 +11,18 @@
   options = { };
 
   config = {
-    home.activation = lib.mkIf (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isx86_64) {
-      trampolineApps =
-        let
-          mac-app-util = inputs.mac-app-util.packages.${pkgs.stdenv.hostPlatform.system}.default;
-        in
-        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          fromDir="$HOME/Applications/Home Manager Apps"
-          toDir="$HOME/Applications/Home Manager Trampolines"
-          ${mac-app-util}/bin/mac-app-util sync-trampolines "$fromDir" "$toDir"
-        '';
-    };
+    home.activation =
+      lib.mkIf (pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isx86_64)
+        {
+          trampolineApps =
+            let
+              mac-app-util = inputs.mac-app-util.packages.${pkgs.stdenv.hostPlatform.system}.default;
+            in
+            lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+              fromDir="$HOME/Applications/Home Manager Apps"
+              toDir="$HOME/Applications/Home Manager Trampolines"
+              ${mac-app-util}/bin/mac-app-util sync-trampolines "$fromDir" "$toDir"
+            '';
+        };
   };
 }

@@ -13,11 +13,18 @@
     ./secrets.nix
   ];
 
-  perSystem = {
-    agenix-rekey = {
-      nixosConfigurations = self.nixosConfigurations // self.darwinConfigurations;
+  perSystem =
+    let
+      # Image-only hosts have no recipient and do not import agenix-rekey.
+      rekeyHosts = lib.filterAttrs (_: host: host.config ? age.rekey);
+    in
+    {
+      agenix-rekey = {
+        nixosConfigurations = rekeyHosts self.nixosConfigurations;
+        darwinConfigurations = rekeyHosts self.darwinConfigurations;
+        homeConfigurations = rekeyHosts self.homeConfigurations;
+      };
     };
-  };
 
   flake = {
     # The identities that are used to rekey all agenix secrets:

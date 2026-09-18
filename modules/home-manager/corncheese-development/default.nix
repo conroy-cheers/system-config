@@ -137,6 +137,13 @@ let
     ${lib.getExe deepseekRefresh} --seed-only
   '';
   herdrPackage = inputs.llm-agents.packages.${meta.system}.herdr;
+  pklPackage = inputs.pkl-flake.packages.${meta.system}.default.overrideAttrs {
+    nativeBuildInputs = lib.optionals (!pkgs.stdenv.hostPlatform.isDarwin) [ pkgs.autoPatchelfHook ];
+    buildInputs = lib.optionals (!pkgs.stdenv.hostPlatform.isDarwin) [
+      pkgs.stdenv.cc.cc.lib
+      pkgs.zlib
+    ];
+  };
   installHerdrIntegrations = pkgs.writeShellScript "install-herdr-integrations" ''
     export HOME=${lib.escapeShellArg config.home.homeDirectory}
 
@@ -265,7 +272,8 @@ let
         }
     '';
   };
-  codexDesktopPackage = inputs.codex-desktop-linux.packages.${pkgs.system}.default;
+  codexDesktopPackage =
+    inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.default;
   codexAndromedaDesktopAppId = "codex-desktop-andromeda";
   codexAndromedaDesktop =
     pkgs.runCommand "codex-desktop-andromeda"
@@ -453,7 +461,7 @@ in
             "remote.SSH.useLocalServer" = false;
 
             # Pkl
-            "pkl.cli.path" = "${inputs.pkl-flake.packages.${meta.system}.default}/bin/pkl";
+            "pkl.cli.path" = "${pklPackage}/bin/pkl";
 
             # Nix
             "nix.enableLanguageServer" = true;
@@ -641,7 +649,11 @@ in
           statusline = {
             lualine = {
               enable = true;
-              theme = lib.mkForce "catppuccin";
+              setupOpts.options.theme = lib.mkForce "catppuccin";
+              integrations.breadcrumbs = {
+                nvim-navic.enable = true;
+                navbuddy.enable = true;
+              };
             };
           };
 
@@ -756,10 +768,6 @@ in
             };
             modes-nvim.enable = false; # the theme looks terrible with catppuccin
             illuminate.enable = true;
-            breadcrumbs = {
-              enable = true;
-              navbuddy.enable = true;
-            };
             smartcolumn = {
               enable = true;
               setupOpts.custom_colorcolumn = {
@@ -885,7 +893,7 @@ in
           inputs.weave.packages.${meta.system}.default
 
           meld # Visual diff tool
-          inputs.pkl-flake.packages.${meta.system}.default # pkl-cli
+          pklPackage
           pyright
 
           nerd-fonts.meslo-lg

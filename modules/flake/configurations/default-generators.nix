@@ -48,10 +48,12 @@ let
     {
       imports = [
         inputs.ragenix."${config.lib.kebabToCamel host-type}Modules".default
+      ]
+      ++ lib.optionals (meta.pubkey != null) [
         (import "${inputs.agenix-rekey}/modules/agenix-rekey.nix" inputs.nixpkgs)
-        (lib.optionalAttrs (meta.pubkey != null) {
+        {
           age.rekey.hostPubkey = meta.pubkey;
-        })
+        }
         (if host-type == "homeManager" then ./agenix-rekey/home.nix else ./agenix-rekey)
       ];
     };
@@ -78,6 +80,9 @@ let
             { lib, ... }:
             {
               _module.args.lib = lib.extend inputs.nix-lib-net.overlays.raw;
+              # Home Manager's generated manpage currently drops the string
+              # context from Nixpkgs module declaration paths.
+              manual.manpages.enable = false;
             }
           )
         ];
@@ -244,6 +249,11 @@ let
 
       modules = [
         configuration
+        {
+          # Home Manager's generated manpage currently drops the string
+          # context from Nixpkgs module declaration paths.
+          manual.manpages.enable = false;
+        }
       ]
       ++ extraModules;
 

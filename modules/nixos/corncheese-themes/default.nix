@@ -69,7 +69,10 @@ in
         size = 24;
       };
 
-      targets.nvf.enable = false;
+      targets = {
+        nvf.enable = false;
+        regreet.enable = false;
+      };
     };
   };
 }
