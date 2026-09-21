@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   modulesPath,
@@ -27,6 +28,11 @@
       "it87"
     ];
     extraModulePackages = [ pkgs.linuxPackages_zen.it87 ];
+    # The in-kernel it87 module lacks IT8613E support, but has the same name as
+    # the out-of-tree module. Load the latter explicitly for fan2go.
+    extraModprobeConfig = ''
+      install it87 ${pkgs.kmod}/bin/modprobe hwmon-vid && ${pkgs.kmod}/bin/insmod ${config.boot.kernelPackages.it87}/lib/modules/${config.boot.kernelPackages.kernel.modDirVersion}/kernel/drivers/hwmon/it87.ko
+    '';
     kernelParams = [ "preempt=full" ];
   };
 
