@@ -2288,11 +2288,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789462459,
-        "narHash": "sha256-TagaX04/hQbH3k6WE2n8p5UaT/ML4rrbRgE3NxDD97o=",
+        "lastModified": 1789635110,
+        "narHash": "sha256-2MKdp617ACwHEbw89jGL5wbsS7e7hdmiUVDU2HVdvjk=",
         "owner": "liff",
         "repo": "j-link-flake",
-        "rev": "8f6781c4d037d360a51a8308216fc5aa239c47bc",
+        "rev": "42500847dce992de4c38be902daeeb7bf7319188",
         "type": "github"
       },
       "original": {
