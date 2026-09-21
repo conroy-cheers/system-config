@@ -286,11 +286,15 @@ def open_session(
         profile.chmod(0o700)
     except OSError:
         pass
+    launch_options = {
+        "headless": not headed,
+        "accept_downloads": False,
+    }
+    if chromium := os.environ.get("POWERPASS_CHROMIUM"):
+        launch_options["executable_path"] = chromium
     context = playwright.chromium.launch_persistent_context(
         str(profile),
-        headless=not headed,
-        channel="chromium",
-        accept_downloads=False,
+        **launch_options,
     )
     page = find_powerpass_page(context)
     if page is None:
@@ -307,6 +311,17 @@ def is_portal_unavailable(page: Page) -> bool:
     return current.hostname == PORTAL_HOST and bool(
         re.search(r"(?:under maintenance|temporarily unavailable)", page.title(), re.I)
     )
+
+
+def clear_portal_browser_state(page: Page) -> None:
+    page.context.clear_cookies(
+        domain=re.compile(r".*bunningspowerpass\.com\.au$")
+    )
+    session = page.context.new_cdp_session(page)
+    try:
+        session.send("Network.clearBrowserCache")
+    finally:
+        session.detach()
 
 
 def goto_transactions(page: Page, timeout_ms: int) -> None:
@@ -437,7 +452,12 @@ def wait_for_auth_stage(page: Page, timeout_ms: int) -> str:
 def finish_portal_authentication(page: Page, timeout_ms: int) -> bool:
     goto_transactions(page, timeout_ms)
     if is_portal_unavailable(page):
-        raise PortalUnavailable("the PowerPass Transactions portal is under maintenance")
+        clear_portal_browser_state(page)
+        goto_transactions(page, timeout_ms)
+        if is_portal_unavailable(page):
+            raise PortalUnavailable(
+                "the PowerPass Transactions portal is under maintenance"
+            )
     return is_transactions_page(page)
 
 
@@ -474,7 +494,14 @@ def ensure_authenticated(
     if is_transactions_page(page):
         return True
     if is_portal_unavailable(page):
-        raise PortalUnavailable("the PowerPass Transactions portal is under maintenance")
+        clear_portal_browser_state(page)
+        goto_transactions(page, timeout_ms)
+        if is_transactions_page(page):
+            return True
+        if is_portal_unavailable(page):
+            raise PortalUnavailable(
+                "the PowerPass Transactions portal is under maintenance"
+            )
 
     page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=timeout_ms)
     stage = auth_stage(page)
@@ -645,29 +672,36 @@ def browser_daemon(args: argparse.Namespace) -> None:
     signal.signal(signal.SIGTERM, stop)
 
     with sync_playwright() as playwright:
-        context = playwright.chromium.launch_persistent_context(
-            str(profile),
-            headless=True,
-            channel="chromium",
-            accept_downloads=False,
-            args=[
+        launch_options = {
+            "headless": True,
+            "accept_downloads": False,
+            "args": [
                 f"--remote-debugging-address={args.listen_address}",
                 f"--remote-debugging-port={args.port}",
             ],
+        }
+        if chromium := os.environ.get("POWERPASS_CHROMIUM"):
+            launch_options["executable_path"] = chromium
+        context = playwright.chromium.launch_persistent_context(
+            str(profile),
+            **launch_options,
         )
+        browser_exited = threading.Event()
+        context.on("close", lambda: browser_exited.set())
         try:
             print(
                 f"PowerPass Chromium is listening on "
                 f"http://{args.listen_address}:{args.port}.",
                 flush=True,
             )
-            while not stopping.wait(60):
-                pass
+            while not stopping.wait(1):
+                if browser_exited.is_set():
+                    raise UserError("managed Chromium exited unexpectedly")
         finally:
             try:
                 context.close()
             except Exception:
-                if not stopping.is_set():
+                if not stopping.is_set() and not browser_exited.is_set():
                     raise
 
 

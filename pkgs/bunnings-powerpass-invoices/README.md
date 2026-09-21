@@ -101,6 +101,8 @@ Bunnings requires it. It selects **Remember me** and **Trust this device**, then
 restarts the MCP gateway without closing Chromium. Post-login promotional pages
 are bypassed by navigating directly to Transactions. The retained profile lives in
 `/var/lib/bunnings-powerpass-invoices/chromium` with mode `0700`.
+The package launches the current Nixpkgs Chromium rather than Playwright's
+older bundled browser, since the PowerPass edge rejects obsolete browser builds.
 
 Trusted-device state is not permanent. If Bunnings expires or revokes it, MCP
 calls return `authentication_required`. On `sleet`, a systemd timer checks the
@@ -112,7 +114,8 @@ for MFA, CAPTCHA, or another interactive challenge. Passwords and SMS codes
 never pass through MCP, its HTTP gateway, its process environment, or its logs.
 When the Transactions portal reports scheduled maintenance, the check succeeds
 without submitting credentials and MCP reports `temporarily_unavailable` until
-the portal returns.
+the portal returns. Before deferring, it clears stale PowerPass-only cookies and
+HTTP cache once and retries the portal-specific OIDC flow.
 
 For local non-service debugging, `auth-session` still implements a
 single-process stdin exchange, while `login-cli` uses non-echoing terminal

@@ -18,6 +18,9 @@ let
   credentialCache = "${credentialDirectory}/login.cred";
   profile = "${stateRoot}/chromium";
   cdpUrl = "http://127.0.0.1:${toString cfg.browserPort}";
+  browserFontConfig = pkgs.makeFontsConf {
+    fontDirectories = [ pkgs.dejavu_fonts ];
+  };
 
   backend = pkgs.writeShellApplication {
     name = "bunnings-powerpass-invoices-mcp-backend";
@@ -375,7 +378,6 @@ in
     systemd.services.${browserServiceName} = {
       description = "Long-lived Chromium session for Bunnings PowerPass";
       wantedBy = [ "multi-user.target" ];
-      restartIfChanged = false;
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
@@ -400,6 +402,7 @@ in
       '';
 
       environment = {
+        FONTCONFIG_FILE = browserFontConfig;
         HOME = stateRoot;
         XDG_STATE_HOME = stateRoot;
       };
