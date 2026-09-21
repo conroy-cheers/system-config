@@ -127,7 +127,7 @@ let
       }
     ];
     model = "gpt-5.6-sol";
-    model_provider = "azure";
+    model_provider = "llmgateway";
     model_reasoning_effort = "high";
     personality = "pragmatic";
     tui.pet = "stacky";
@@ -136,25 +136,17 @@ let
 
     mcp_servers.atlassian.url = "https://mcp.atlassian.com/v1/mcp/authv2";
 
-    model_providers.azure = {
-      name = "Azure OpenAI";
-      base_url = "https://andromeda-developer-au.openai.azure.com/openai/v1";
+    model_providers.llmgateway = {
+      name = "LLM Gateway";
+      base_url = "https://llmgateway.tail738663.ts.net/openai/v1";
       wire_api = "responses";
+      supports_websockets = false;
 
+      # Read the decrypted key at runtime, including for desktop launches.
       auth = {
-        command = "az";
-        args = [
-          "account"
-          "get-access-token"
-          "--resource"
-          "https://cognitiveservices.azure.com"
-          "--query"
-          "accessToken"
-          "-o"
-          "tsv"
-        ];
-        timeout_ms = 60000;
-        refresh_interval_ms = 1800000;
+        command = "${pkgs.coreutils}/bin/cat";
+        args = [ config.age.secrets."andromeda.bifrost.key".path ];
+        refresh_interval_ms = 0;
       };
     };
 
@@ -324,6 +316,10 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    age.secrets."andromeda.bifrost.key" = {
+      rekeyFile = lib.repoSecret "andromeda/bifrost/key.age";
+    };
+
     age.secrets."andromeda.aws-home-config.credentials" = {
       rekeyFile = lib.repoSecret "andromeda/aws-home-config/credentials.age";
     };
