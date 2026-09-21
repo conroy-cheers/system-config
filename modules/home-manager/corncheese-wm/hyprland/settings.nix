@@ -69,6 +69,10 @@ in
             };
           };
 
+          binds = {
+            hide_special_on_workspace_change = true;
+          };
+
           decoration = {
             dim_special = lib.mkDefault 0.5;
             rounding = themeDetails.roundingRadius;
@@ -327,17 +331,9 @@ in
             };
             blur = {
               enabled = true;
-              size = 12;
+              size = 7;
               passes = 2;
-              ignore_opacity = true;
-              new_optimizations = true;
-              xray = false;
-              noise = 0.0117;
-              contrast = 0.8916;
-              brightness = 0.8172;
-              vibrancy = 0.1696;
-              vibrancy_darkness = 0.0;
-              special = false;
+              special = true;
               popups = true;
               popups_ignorealpha = 0.85;
             };
@@ -347,11 +343,10 @@ in
     ];
 
     wayland.windowManager.hyprland.extraConfig = lib.mkIf cfg.enableFancyEffects ''
-      -- Hyprland 0.55's Lua reload path misapplies some blur values when they
+      -- Hyprland Lua reload path misapplies some blur values when they
       -- are set inside the large generated settings.config table above.
-      hl.config({ decoration = { blur = { size = 12 } } })
-      hl.config({ decoration = { blur = { passes = 2 } } })
-      hl.config({ decoration = { blur = { vibrancy = 0.1696 } } })
+      hl.config({ decoration = { blur = { size = ${toString config.wayland.windowManager.hyprland.settings.config.decoration.blur.size} } } })
+      hl.config({ decoration = { blur = { passes = ${toString config.wayland.windowManager.hyprland.settings.config.decoration.blur.passes} } } })
     '';
   };
 }
