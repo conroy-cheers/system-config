@@ -37,7 +37,7 @@ from playwright.sync_api import (
 
 
 PORTAL_URL = "https://www.bunningspowerpass.com.au/pwrpass/f?p=111:30"
-LOGIN_URL = "https://www.bunningspowerpass.com.au/pwrpass/f?p=111:PP_LOGIN"
+LOGIN_URL = "https://trade.bunnings.com.au/sign-in"
 PORTAL_HOST = "www.bunningspowerpass.com.au"
 DEFAULT_ONEPASSWORD_ITEM = "o4mapnpvcr5cvwx4u5qjhwy62a"
 DATE_FORMAT = "%d/%m/%Y"
@@ -51,6 +51,10 @@ class UserError(RuntimeError):
 
 
 class AuthenticationRequired(UserError):
+    pass
+
+
+class PortalUnavailable(UserError):
     pass
 
 
@@ -298,6 +302,13 @@ def is_transactions_page(page: Page) -> bool:
     return page.get_by_role("button", name="Search", exact=True).count() > 0
 
 
+def is_portal_unavailable(page: Page) -> bool:
+    current = urlsplit(page.url)
+    return current.hostname == PORTAL_HOST and bool(
+        re.search(r"(?:under maintenance|temporarily unavailable)", page.title(), re.I)
+    )
+
+
 def goto_transactions(page: Page, timeout_ms: int) -> None:
     page.goto(PORTAL_URL, wait_until="domcontentloaded", timeout=timeout_ms)
 
@@ -425,6 +436,8 @@ def wait_for_auth_stage(page: Page, timeout_ms: int) -> str:
 
 def finish_portal_authentication(page: Page, timeout_ms: int) -> bool:
     goto_transactions(page, timeout_ms)
+    if is_portal_unavailable(page):
+        raise PortalUnavailable("the PowerPass Transactions portal is under maintenance")
     return is_transactions_page(page)
 
 
@@ -460,6 +473,8 @@ def ensure_authenticated(
     goto_transactions(page, timeout_ms)
     if is_transactions_page(page):
         return True
+    if is_portal_unavailable(page):
+        raise PortalUnavailable("the PowerPass Transactions portal is under maintenance")
 
     page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=timeout_ms)
     stage = auth_stage(page)
@@ -531,6 +546,8 @@ def ensure_authenticated(
         return False
 
     location = urlsplit(page.url).hostname or "the identity provider"
+    if is_portal_unavailable(page):
+        raise PortalUnavailable("the PowerPass Transactions portal is under maintenance")
     raise AuthenticationRequired(
         f"interactive authentication is required at {location} "
         f"({interaction_summary(page)}); "
@@ -974,6 +991,11 @@ class McpBackend:
         with self.browser_access():
             try:
                 authentication_ready(self.args)
+            except PortalUnavailable as error:
+                return {
+                    "status": "temporarily_unavailable",
+                    "message": str(error),
+                }
             except AuthenticationRequired:
                 return {
                     "status": "authentication_required",
@@ -997,6 +1019,12 @@ class McpBackend:
         with self.browser_access():
             try:
                 transactions = queried_transactions(self.args, from_date, to_date)
+            except PortalUnavailable as error:
+                return {
+                    "status": "temporarily_unavailable",
+                    "message": str(error),
+                    "invoices": [],
+                }
             except AuthenticationRequired:
                 return {
                     "status": "authentication_required",
@@ -1195,6 +1223,9 @@ def main() -> int:
     except AuthenticationRequired as error:
         print(f"bunnings-powerpass-invoices: {error}", file=sys.stderr)
         return 2
+    except PortalUnavailable as error:
+        print(f"bunnings-powerpass-invoices: {error}", file=sys.stderr)
+        return 3
     except (UserError, PlaywrightTimeoutError) as error:
         print(f"bunnings-powerpass-invoices: {error}", file=sys.stderr)
         return 1

@@ -150,6 +150,10 @@ let
           echo "PowerPass session expired; attempting automatic renewal."
           exec ${lib.getExe renewSession}
           ;;
+        3)
+          echo "PowerPass Transactions is temporarily unavailable; deferring renewal."
+          exit 0
+          ;;
         *)
           echo "PowerPass session check failed with status $check_status; refusing to submit credentials." >&2
           exit "$check_status"
@@ -495,7 +499,7 @@ in
       description = "Periodically check the PowerPass browser session";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        OnBootSec = "5m";
+        OnActiveSec = "5m";
         OnUnitInactiveSec = cfg.automaticRenewal.interval;
         RandomizedDelaySec = "1m";
       };

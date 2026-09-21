@@ -110,6 +110,9 @@ does not submit credentials after unrelated browser or network failures, and
 keeps the manual SSH command as the fail-closed recovery path if Bunnings asks
 for MFA, CAPTCHA, or another interactive challenge. Passwords and SMS codes
 never pass through MCP, its HTTP gateway, its process environment, or its logs.
+When the Transactions portal reports scheduled maintenance, the check succeeds
+without submitting credentials and MCP reports `temporarily_unavailable` until
+the portal returns.
 
 For local non-service debugging, `auth-session` still implements a
 single-process stdin exchange, while `login-cli` uses non-echoing terminal
