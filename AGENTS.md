@@ -18,7 +18,7 @@
   or `sudo -n nixos-rebuild build --flake .#<host>` before broad checks.
 - Deploy a remote host with `deploy .#example-hostname --skip-checks`.
 - Common NixOS hosts include `brick`, `kombu`, `labtop`, `panda`, `sleet`,
-  `snow`, and `wsl-brick`; `kiki` is nix-darwin.
+  and `snow`; `kiki` is nix-darwin.
 
 ## Server Config Input
 

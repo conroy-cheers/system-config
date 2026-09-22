@@ -62,13 +62,6 @@
     address = "10.42.42.7";
     ssh = null;
   };
-  wsl-brick = {
-    address = "10.42.42.8";
-    ssh = {
-      user = "conroy";
-      identity = "conroy-work";
-    };
-  };
   kiki = {
     address = "10.42.42.9";
     ssh = {
