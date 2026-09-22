@@ -152,11 +152,11 @@ let
     ${lib.getExe herdrPackage} integration install claude
   '';
 
-  onePassPath =
+  onePasswordSocket =
     if pkgs.stdenv.hostPlatform.isDarwin then
-      ''"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"''
+      "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
     else
-      "~/.1password/agent.sock";
+      "${config.home.homeDirectory}/.1password/agent.sock";
   nebulaInventory = import ../../common/corncheese-development/nebula-inventory.nix { inherit lib; };
   sshIdentities = nebulaInventory.identities;
   nebulaHosts = nebulaInventory.hosts;
@@ -1057,6 +1057,38 @@ in
       ];
     };
 
+    # One agent selection for SSH, Git signing, shells, and the desktop.
+    # Home Manager preserves SSH_AUTH_SOCK when SSH_CONNECTION is also set.
+    sshAuthSock = lib.mkIf cfg.ssh.onePassword {
+      enable = true;
+      initialization = {
+        bash = "export SSH_AUTH_SOCK=${lib.escapeShellArg onePasswordSocket}";
+        fish = "set -gx SSH_AUTH_SOCK ${lib.escapeShellArg onePasswordSocket}";
+        nushell = "$env.SSH_AUTH_SOCK = ${builtins.toJSON onePasswordSocket}";
+      };
+      systemd.socketProviderUnit = "1password.service";
+    };
+
+    # GnuPG still handles OpenPGP; 1Password owns the SSH agent socket.
+    services.gpg-agent.enableSshSupport = lib.mkIf cfg.ssh.onePassword false;
+
+    # sshAuthSock covers Linux desktop processes. On macOS, GUI apps inherit
+    # their environment from launchd instead of the shell.
+    launchd.agents.onepassword-ssh-auth-sock =
+      lib.mkIf (cfg.ssh.onePassword && pkgs.stdenv.hostPlatform.isDarwin)
+        {
+          enable = true;
+          config = {
+            ProgramArguments = [
+              "/bin/launchctl"
+              "setenv"
+              "SSH_AUTH_SOCK"
+              onePasswordSocket
+            ];
+            RunAtLoad = true;
+          };
+        };
+
     programs.ssh = lib.mkIf cfg.ssh.enable {
       enable = true;
       enableDefaultConfig = false;
@@ -1123,7 +1155,6 @@ in
           ForwardAgent = false;
           AddKeysToAgent = "no";
           Compression = false;
-          IdentityAgent = onePassPath;
           HashKnownHosts = true;
         };
       };

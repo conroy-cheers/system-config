@@ -67,11 +67,9 @@ in
       signing = {
         format = "ssh";
         signByDefault = true;
-        signer =
-          if pkgs.stdenv.hostPlatform.isDarwin then
-            "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
-          else
-            lib.getExe' pkgs._1password-gui "op-ssh-sign";
+        # The public signing key selects its private counterpart in SSH_AUTH_SOCK,
+        # including forwarded agents in sessions without a TTY.
+        signer = lib.getExe' pkgs.openssh "ssh-keygen";
         inherit (cfg) key;
       };
       lfs = {
