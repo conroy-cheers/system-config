@@ -313,18 +313,6 @@ in
       ssh = {
         enable = lib.mkEnableOption "corncheese developer ssh config";
         onePassword = lib.mkEnableOption "corncheese developer ssh 1password integration";
-        zellij = {
-          enable = lib.mkOption {
-            description = "Automatically attach interactive SSH logins to a zellij session.";
-            type = lib.types.bool;
-            default = cfg.ssh.enable;
-          };
-          sessionName = lib.mkOption {
-            description = "Zellij session name used for interactive SSH logins.";
-            type = lib.types.str;
-            default = "ssh";
-          };
-        };
       };
       vscode = {
         enable = lib.mkEnableOption "corncheese vscode config";
@@ -909,9 +897,6 @@ in
 
           hoppscotch
         ]
-        (lib.optionals cfg.ssh.zellij.enable [
-          zellij
-        ])
         (lib.optionals cfg.electronics.enable (
           [
             kicad
@@ -958,30 +943,6 @@ in
     home.sessionVariables = {
       GIT_SPICE_NO_GS_WARNING = "1";
     };
-
-    programs.fish.interactiveShellInit = lib.mkIf cfg.ssh.zellij.enable (
-      lib.mkAfter ''
-        if test -n "$SSH_TTY$SSH_CONNECTION"; and test -z "$ZELLIJ"; and test -z "$SSH_ORIGINAL_COMMAND"; and test "$TERM" != dumb; and test -t 0; and test -t 1
-            exec ${lib.getExe pkgs.zellij} attach --create ${lib.escapeShellArg cfg.ssh.zellij.sessionName}
-        end
-      ''
-    );
-
-    programs.zsh.initContent = lib.mkIf cfg.ssh.zellij.enable (
-      lib.mkAfter ''
-        if [[ -o interactive && -n "''${SSH_TTY:-}''${SSH_CONNECTION:-}" && -z "''${ZELLIJ:-}" && -z "''${SSH_ORIGINAL_COMMAND:-}" && "''${TERM:-}" != dumb && -t 0 && -t 1 ]]; then
-          exec ${lib.getExe pkgs.zellij} attach --create ${lib.escapeShellArg cfg.ssh.zellij.sessionName}
-        fi
-      ''
-    );
-
-    programs.bash.initExtra = lib.mkIf cfg.ssh.zellij.enable (
-      lib.mkAfter ''
-        if [[ $- == *i* && -n "''${SSH_TTY:-}''${SSH_CONNECTION:-}" && -z "''${ZELLIJ:-}" && -z "''${SSH_ORIGINAL_COMMAND:-}" && "''${TERM:-}" != dumb && -t 0 && -t 1 ]]; then
-          exec ${lib.getExe pkgs.zellij} attach --create ${lib.escapeShellArg cfg.ssh.zellij.sessionName}
-        fi
-      ''
-    );
 
     # programs.jetbrains-remote = {
     #   enable = true;

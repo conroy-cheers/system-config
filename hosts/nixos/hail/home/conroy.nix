@@ -20,7 +20,6 @@
       vscode.enable = false;
       ssh.enable = false;
       ssh.onePassword = false;
-      ssh.zellij.enable = true;
     };
     theming = {
       enable = true;

@@ -133,7 +133,7 @@ let
             fastfetch_supports_kitty_images=1
           fi
 
-          if [ -n "''${ZELLIJ:-}" ] || [ "''${TERM:-}" = dumb ] || [ "$fastfetch_supports_kitty_images" != 1 ]; then
+          if [ "''${TERM:-}" = dumb ] || [ "$fastfetch_supports_kitty_images" != 1 ]; then
             set -- --config ${textConfig} "$@"
           elif [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
             set -- --config ${sshConfig} "$@"
