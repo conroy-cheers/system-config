@@ -331,7 +331,7 @@ in
             };
             blur = {
               enabled = true;
-              size = 7;
+              size = 6;
               passes = 2;
               special = true;
               popups = true;
@@ -341,12 +341,5 @@ in
         };
       })
     ];
-
-    wayland.windowManager.hyprland.extraConfig = lib.mkIf cfg.enableFancyEffects ''
-      -- Hyprland Lua reload path misapplies some blur values when they
-      -- are set inside the large generated settings.config table above.
-      hl.config({ decoration = { blur = { size = ${toString config.wayland.windowManager.hyprland.settings.config.decoration.blur.size} } } })
-      hl.config({ decoration = { blur = { passes = ${toString config.wayland.windowManager.hyprland.settings.config.decoration.blur.passes} } } })
-    '';
   };
 }

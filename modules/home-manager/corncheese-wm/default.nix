@@ -133,17 +133,6 @@ in
       ++ lib.optional themeDetails.bordersPlusPlus pkgs.hyprlandPlugins.borders-plus-plus;
     };
 
-    home.activation.reloadHyprlandLuaConfig = lib.mkIf cfg.enableFancyEffects (
-      lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
-        runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-        if [[ -d "$runtime_dir/hypr" ]]; then
-          for instance in $(${hyprlandPackage}/bin/hyprctl instances -j | ${lib.getExe pkgs.jq} -r '.[].instance'); do
-            ${hyprlandPackage}/bin/hyprctl -i "$instance" eval 'hl.config({ decoration = { blur = { size = 12, passes = 2, vibrancy = 0.1696 } } })' >/dev/null || true
-          done
-        fi
-      ''
-    );
-
     services.hyprpaper = mkIf (cfg.hyprpaper.enable && !colorshellEnabled) {
       enable = true;
       settings = {
