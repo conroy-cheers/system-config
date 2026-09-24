@@ -114,6 +114,39 @@ not replace UART for those failures. Persistent journals on the ext4 partition
 are capped at 100 MiB and synced every 60 seconds; unplugging power can still
 lose recent writes. After SSH works, use `sudo poweroff` before removing power.
 
+## E-paper display
+
+The Waveshare 2.66-inch black/white/red B module is attached to SPI1 on the
+26-pin header:
+
+| Display | Header | H618 signal |
+| --- | ---: | --- |
+| VCC | 17 | 3.3 V |
+| GND | 20 | ground |
+| DIN | 19 | PH7 / SPI1 MOSI |
+| CLK | 23 | PH6 / SPI1 clock |
+| CS | 24 | PH5 / SPI1 CS0 |
+| DC | 22 | PI6 |
+| RST | 11 | PH2 |
+| BUSY | 18 | PH4 |
+
+The board device tree enables SPI1 at 4 MHz and describes the active-low reset
+and active-high busy lines. A patched SSD16xx DRM driver binds the panel as
+`/dev/dri/card0`, exposes a 296x152 preferred mode after the configured 90-degree
+rotation, and defaults to the panel's documented full refresh waveform. XRGB
+framebuffer pixels are quantized to the panel's native black, white, and red
+planes; this panel has no grayscale mode. Kernel fbdev emulation and the DRM log
+client stay disabled so boot messages do not cause slow, repeated flashes or
+consume panel lifetime. A userspace DRM client controls when a framebuffer
+commit reaches the display. The connector exposes only full refresh because
+Waveshare does not document partial or fast waveforms for this three-colour
+panel.
+
+`modules/nixos/orangepi-zero2w/epaper-spi-test.c` is the minimal userspace SPI
+reference used during bring-up. It is intentionally absent from the system
+closure; keep it for controller-sequence diagnostics if a future kernel or
+nixpkgs update breaks the DRM driver.
+
 ## Hardware validation
 
 The `sun50i-cpufreq-nvmem` module loads at boot and selects operating points

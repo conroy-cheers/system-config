@@ -61,40 +61,50 @@ in
           # Omitting debug information keeps its kernel build within the native
           # Linux builder's /build tmpfs.
           structuredExtraConfig =
-            (lib.genAttrs [
-              "ATA"
-              "BT"
-              "CAN"
-              "CIFS"
-              "DEBUG_INFO"
-              "DEBUG_INFO_BTF"
-              "DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT"
-              "DRM"
-              "HYPERV"
-              "IIO"
-              "INFINIBAND"
-              "KVM"
-              "MEDIA_SUPPORT"
-              "NET_DSA"
-              # Case-colliding target and match modules cannot both be installed
-              # on the Mac-backed Linux builder filesystem.
-              "NETFILTER_XT_TARGET_DSCP"
-              "NETFILTER_XT_TARGET_HL"
-              "NETFILTER_XT_TARGET_TCPMSS"
-              "NETFILTER_XT_MATCH_RATEEST"
-              "NFS_FS"
-              "NVME_CORE"
-              "PCI"
-              "RUST"
-              "SMC"
-              "SOUND"
-              "STAGING"
-              "WWAN"
-              "XEN"
-            ] (_: lib.mkForce lib.kernel.no))
+            (lib.genAttrs (
+              [
+                "ATA"
+                "BT"
+                "CAN"
+                "CIFS"
+                "DEBUG_INFO"
+                "DEBUG_INFO_BTF"
+                "DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT"
+                "HYPERV"
+                "IIO"
+                "INFINIBAND"
+                "KVM"
+                "MEDIA_SUPPORT"
+                "NET_DSA"
+                # Case-colliding target and match modules cannot both be installed
+                # on the Mac-backed Linux builder filesystem.
+                "NETFILTER_XT_TARGET_DSCP"
+                "NETFILTER_XT_TARGET_HL"
+                "NETFILTER_XT_TARGET_TCPMSS"
+                "NETFILTER_XT_MATCH_RATEEST"
+                "NFS_FS"
+                "NVME_CORE"
+                "PCI"
+                "RUST"
+                "SMC"
+                "SOUND"
+                "STAGING"
+                "WWAN"
+                "XEN"
+              ]
+              ++ (import ./disabled-drm.nix)
+            ) (_: lib.mkForce lib.kernel.no))
             // {
               DEBUG_INFO_NONE = lib.mkForce lib.kernel.yes;
+              DRM = lib.mkForce lib.kernel.module;
+              DRM_FBDEV_EMULATION = lib.mkForce lib.kernel.no;
+              DRM_PANEL_SSD16XX = lib.mkForce lib.kernel.module;
+              DRM_SIMPLEDRM = lib.mkForce lib.kernel.no;
             };
+        }
+        {
+          name = "ssd16xx-drm";
+          patch = ./ssd16xx-drm.patch;
         }
       ];
       extraModulePackages = [
@@ -127,6 +137,11 @@ in
           name = "orangepi-zero2w-cpufreq";
           filter = "sun50i-h618-orangepi-zero2w.dtb";
           dtsFile = ./cpufreq.dts;
+        }
+        {
+          name = "orangepi-zero2w-epaper";
+          filter = "sun50i-h618-orangepi-zero2w.dtb";
+          dtsFile = ./epaper.dts;
         }
       ];
     };

@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
+};
+
+/*
+ * Waveshare 2.66inch e-Paper Module on the 26-pin expansion header:
+ *   DIN  pin 19 = PH7 / SPI1_MOSI
+ *   CLK  pin 23 = PH6 / SPI1_CLK
+ *   CS   pin 24 = PH5 / SPI1_CS0
+ *   DC   pin 22 = PI6
+ *   RST  pin 11 = PH2
+ *   BUSY pin 18 = PH4
+ */
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>, <&spi1_cs0_pin>;
+	status = "okay";
+
+	display@0 {
+		compatible = "waveshare,epd-2in66b";
+		reg = <0>;
+		spi-max-frequency = <4000000>;
+		reset-gpios = <&pio 7 2 GPIO_ACTIVE_LOW>; /* PH2 */
+		busy-gpios = <&pio 7 4 GPIO_ACTIVE_HIGH>; /* PH4 */
+		dc-gpios = <&pio 8 6 GPIO_ACTIVE_HIGH>;   /* PI6 */
+		rotation = <90>;
+	};
+};
