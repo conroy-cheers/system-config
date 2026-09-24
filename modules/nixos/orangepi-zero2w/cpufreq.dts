@@ -1,0 +1,29 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+  compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
+
+  fragment@0 {
+    target-path = "/opp-table-cpu";
+
+    __overlay__ {
+      /*
+       * Shrimpus reset twice during sustained Wi-Fi and SD activity at the
+       * bin-selected 1.416 GHz maximum. Keep DVFS and its lower idle clocks,
+       * but leave margin in the board power path until 1.416 GHz is proven.
+       */
+      opp-1320000000 {
+        status = "disabled";
+      };
+
+      opp-1416000000 {
+        status = "disabled";
+      };
+
+      opp-1512000000 {
+        status = "disabled";
+      };
+    };
+  };
+};

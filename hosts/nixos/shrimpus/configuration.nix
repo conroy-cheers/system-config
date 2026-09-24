@@ -1,9 +1,12 @@
 {
+  lib,
+  modulesPath,
   ...
 }:
 
 {
   imports = [
+    (modulesPath + "/profiles/minimal.nix")
     ../../../modules/nixos/orangepi-zero2w/sd-image.nix
     ./network.nix
     ./diagnostics.nix
@@ -17,12 +20,25 @@
 
   image.baseName = "shrimpus";
 
-  nix.settings = {
-    experimental-features = [
-      "nix-command"
-      "flakes"
-    ];
-    auto-optimise-store = true;
+  system.disableInstallerTools = true;
+  fonts.fontconfig.enable = false;
+
+  # Keep the daemon and remote deployment support, but avoid the larger
+  # Determinate distribution and retaining flake source trees through the
+  # system registry. Rebuilds pass an explicit flake reference.
+  determinate.enable = false;
+
+  nix = {
+    registry = lib.mkForce { };
+    nixPath = lib.mkForce [ ];
+    settings = {
+      trusted-users = [ "conroy" ];
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
+      auto-optimise-store = true;
+    };
   };
 
   services.openssh = {

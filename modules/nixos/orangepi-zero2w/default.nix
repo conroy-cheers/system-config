@@ -8,6 +8,20 @@
 let
   cfg = config.hardware.orangePiZero2w;
 
+  # The generic arm64 kernel installs every supported device tree in its main
+  # output. Keep the one this board boots; hardware.deviceTree below applies
+  # our overlay to a separate copy before the boot loader sees it.
+  linuxOrangePiZero2W =
+    (pkgs.linux_latest.override { ignoreConfigErrors = true; }).overrideAttrs
+      (old: {
+        postInstall = (old.postInstall or "") + ''
+          target="$out/dtbs/allwinner/sun50i-h618-orangepi-zero2w.dtb"
+          test -f "$target"
+          find "$out/dtbs" -type f ! -path "$target" -delete
+          find "$out/dtbs" -depth -type d -empty -delete
+        '';
+      });
+
   # Adapted from katyo/nixos-arm's sunxi/Orange Pi support, but updated to use
   # the current kernel and U-Boot sources already pinned by this flake.
   ubootOrangePiZero2W = pkgs.buildUBoot {
@@ -38,9 +52,7 @@ in
       };
       # The generic kernel config requests sub-options for the hardware below;
       # allow those requests to disappear when their parent drivers are off.
-      kernelPackages = lib.mkDefault (
-        pkgs.linuxPackagesFor (pkgs.linux_latest.override { ignoreConfigErrors = true; })
-      );
+      kernelPackages = lib.mkDefault (pkgs.linuxPackagesFor linuxOrangePiZero2W);
       kernelPatches = [
         {
           name = "mmc-pwrseq-simple-fallback-on-unsupported-reset-gpio";
@@ -88,7 +100,10 @@ in
       extraModulePackages = [
         (config.boot.kernelPackages.callPackage ./uwe5622.nix { })
       ];
-      kernelModules = [ "sprdwl_ng" ];
+      kernelModules = [
+        "sun50i-cpufreq-nvmem"
+        "sprdwl_ng"
+      ];
       kernelParams = [
         "earlycon"
         "console=ttyS0,115200n8"
@@ -100,12 +115,18 @@ in
 
     hardware.deviceTree = {
       enable = true;
+      filter = "sun50i-h618-orangepi-zero2w.dtb";
       name = "allwinner/sun50i-h618-orangepi-zero2w.dtb";
       overlays = [
         {
           name = "orangepi-zero2w-wifi";
           filter = "sun50i-h618-orangepi-zero2w.dtb";
           dtsFile = ./wifi.dts;
+        }
+        {
+          name = "orangepi-zero2w-cpufreq";
+          filter = "sun50i-h618-orangepi-zero2w.dtb";
+          dtsFile = ./cpufreq.dts;
         }
       ];
     };

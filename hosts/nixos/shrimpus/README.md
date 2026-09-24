@@ -6,6 +6,15 @@ and its firmware/calibration file. Bluetooth is not configured.
 The first boot reported 964684 KiB of RAM, consistent with the 1 GiB model.
 The red LED indicates power; the green LED uses the Linux heartbeat trigger.
 
+The host uses NixOS's minimal profile and upstream Nix while retaining the Nix
+daemon for deploy-rs. Installer tools, desktop data, the system flake registry,
+and unrelated arm64 device trees are omitted. The resulting system closure is
+about 808 MiB (847 MB decimal). Deploy with:
+
+```sh
+deploy .#shrimpus --skip-checks
+```
+
 ## Network and login
 
 - Wi-Fi joins `floznet-7` or `Abi_Wifi` using the shared `home.wifi.conf` secret.
@@ -106,6 +115,12 @@ are capped at 100 MiB and synced every 60 seconds; unplugging power can still
 lose recent writes. After SSH works, use `sudo poweroff` before removing power.
 
 ## Hardware validation
+
+The `sun50i-cpufreq-nvmem` module loads at boot and selects operating points
+from the H618 speed-grade efuse. Sustained Wi-Fi and SD activity caused abrupt
+resets at this chip's 1.416 GHz maximum, including with a replacement supply,
+so the device tree currently caps it at 1.2 GHz while retaining lower DVFS
+states. Revisit that cap only with repeatable power and thermal testing.
 
 Check the router's DHCP leases if `shrimpus.local` does not resolve, and connect
 to that IP address with the same SSH key. Once connected, check:
