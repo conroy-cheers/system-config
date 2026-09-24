@@ -8,6 +8,50 @@
 let
   cfg = config.hardware.orangePiZero2w;
 
+  disabledKernelFeatures = [
+    "ATA"
+    "BT"
+    "CAN"
+    "CIFS"
+    "DEBUG_INFO"
+    "DEBUG_INFO_BTF"
+    "DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT"
+    "HYPERV"
+    "IIO"
+    "INFINIBAND"
+    "KVM"
+    "MEDIA_SUPPORT"
+    "NET_DSA"
+    # Case-colliding target and match modules cannot both be installed on the
+    # Mac-backed Linux builder filesystem.
+    "NETFILTER_XT_TARGET_DSCP"
+    "NETFILTER_XT_TARGET_HL"
+    "NETFILTER_XT_TARGET_TCPMSS"
+    "NETFILTER_XT_MATCH_RATEEST"
+    "NFS_FS"
+    "NVME_CORE"
+    "PCI"
+    "RUST"
+    "SMC"
+    "SOUND"
+    "STAGING"
+    "WWAN"
+    "XEN"
+  ];
+  disabledDrmFeatures = import ./disabled-drm.nix;
+  allowedDrmFeatures = [
+    "DRM"
+    "DRM_AUX_BRIDGE"
+    "DRM_AUX_HPD_BRIDGE"
+    "DRM_BRIDGE"
+    "DRM_GEM_DMA_HELPER"
+    "DRM_KMS_HELPER"
+    "DRM_PANEL"
+    "DRM_PANEL_BRIDGE"
+    "DRM_PANEL_ORIENTATION_QUIRKS"
+    "DRM_SSD16XX"
+  ];
+
   # The generic arm64 kernel installs every supported device tree in its main
   # output. Keep the one this board boots; hardware.deviceTree below applies
   # our overlay to a separate copy before the boot loader sees it.
@@ -32,7 +76,10 @@ let
   };
 in
 {
-  options.hardware.orangePiZero2w.enable = lib.mkEnableOption "Orange Pi Zero 2W board support";
+  options.hardware.orangePiZero2w = {
+    enable = lib.mkEnableOption "Orange Pi Zero 2W board support";
+    epaper.enable = lib.mkEnableOption "the Waveshare 2.66-inch B e-paper panel";
+  };
 
   config = lib.mkIf cfg.enable {
     boot = {
@@ -57,58 +104,44 @@ in
         {
           name = "mmc-pwrseq-simple-fallback-on-unsupported-reset-gpio";
           patch = ./pwrseq-simple-gpio-fallback.patch;
+        }
+      ]
+      ++ lib.optionals cfg.epaper.enable [
+        {
+          name = "ssd16xx-external-module-kconfig";
+          patch = ./ssd16xx-kconfig.patch;
+        }
+      ]
+      ++ [
+        {
+          name = "orangepi-zero2w-kernel-config";
+          patch = null;
           # This headless H618 board has no PCI, VM, audio, or media devices.
           # Omitting debug information keeps its kernel build within the native
           # Linux builder's /build tmpfs.
           structuredExtraConfig =
             (lib.genAttrs (
-              [
-                "ATA"
-                "BT"
-                "CAN"
-                "CIFS"
-                "DEBUG_INFO"
-                "DEBUG_INFO_BTF"
-                "DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT"
-                "HYPERV"
-                "IIO"
-                "INFINIBAND"
-                "KVM"
-                "MEDIA_SUPPORT"
-                "NET_DSA"
-                # Case-colliding target and match modules cannot both be installed
-                # on the Mac-backed Linux builder filesystem.
-                "NETFILTER_XT_TARGET_DSCP"
-                "NETFILTER_XT_TARGET_HL"
-                "NETFILTER_XT_TARGET_TCPMSS"
-                "NETFILTER_XT_MATCH_RATEEST"
-                "NFS_FS"
-                "NVME_CORE"
-                "PCI"
-                "RUST"
-                "SMC"
-                "SOUND"
-                "STAGING"
-                "WWAN"
-                "XEN"
-              ]
-              ++ (import ./disabled-drm.nix)
+              disabledKernelFeatures
+              ++ lib.optionals cfg.epaper.enable disabledDrmFeatures
+              ++ lib.optionals (!cfg.epaper.enable) [ "DRM" ]
             ) (_: lib.mkForce lib.kernel.no))
             // {
               DEBUG_INFO_NONE = lib.mkForce lib.kernel.yes;
+            }
+            // lib.optionalAttrs cfg.epaper.enable {
               DRM = lib.mkForce lib.kernel.module;
+              DRM_CLIENT_SELECTION = lib.mkForce lib.kernel.no;
               DRM_FBDEV_EMULATION = lib.mkForce lib.kernel.no;
-              DRM_PANEL_SSD16XX = lib.mkForce lib.kernel.module;
               DRM_SIMPLEDRM = lib.mkForce lib.kernel.no;
+              DRM_SSD16XX = lib.mkForce lib.kernel.module;
             };
-        }
-        {
-          name = "ssd16xx-drm";
-          patch = ./ssd16xx-drm.patch;
         }
       ];
       extraModulePackages = [
         (config.boot.kernelPackages.callPackage ./uwe5622.nix { })
+      ]
+      ++ lib.optionals cfg.epaper.enable [
+        (config.boot.kernelPackages.callPackage ./ssd16xx { })
       ];
       kernelModules = [
         "sun50i-cpufreq-nvmem"
@@ -138,6 +171,8 @@ in
           filter = "sun50i-h618-orangepi-zero2w.dtb";
           dtsFile = ./cpufreq.dts;
         }
+      ]
+      ++ lib.optionals cfg.epaper.enable [
         {
           name = "orangepi-zero2w-epaper";
           filter = "sun50i-h618-orangepi-zero2w.dtb";
@@ -152,5 +187,21 @@ in
     };
 
     system.build.orangepiZero2wUboot = ubootOrangePiZero2W;
+
+    system.checks = lib.optionals cfg.epaper.enable [
+      (pkgs.runCommand "orangepi-zero2w-kernel-config-check" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+        cat > disabled-symbols <<'EOF'
+        ${lib.concatStringsSep "\n" disabledDrmFeatures}
+        EOF
+        python3 ${./check-kernel-config.py} \
+          --config ${config.boot.kernelPackages.kernel.configfile} \
+          --disabled disabled-symbols \
+          ${lib.concatMapStringsSep " " (symbol: "--allow-drm ${symbol}") allowedDrmFeatures} \
+          --require DRM=m \
+          --require DRM_KMS_HELPER=m \
+          --require DRM_GEM_DMA_HELPER=m
+        touch "$out"
+      '')
+    ];
   };
 }

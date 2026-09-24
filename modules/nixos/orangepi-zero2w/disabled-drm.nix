@@ -1,6 +1,7 @@
-# The generic ARM64 kernel enables every reachable DRM driver. Shrimpus only
-# needs the SSD16xx SPI driver and its core helpers. Keep this list explicit so
-# a nixpkgs bump makes newly enabled DRM modules visible during closure review.
+# Generated from the generic ARM64 configurations with and without the DRM
+# core by update-disabled-drm.py, then reviewed. check-kernel-config.py rejects
+# any entry that becomes enabled and any newly enabled DRM symbol not in the
+# small allow-list in default.nix.
 [
   "BATTERY_QCOM_BATTMGR"
   "CHROMEOS_PRIVACY_SCREEN"
@@ -14,8 +15,6 @@
   "DRM_ANALOGIX_DP"
   "DRM_ARCPGU"
   "DRM_ASPEED_GFX"
-  "DRM_AUX_BRIDGE"
-  "DRM_AUX_HPD_BRIDGE"
   "DRM_CDNS_DSI"
   "DRM_CDNS_MHDP8546"
   "DRM_CHIPONE_ICN6211"

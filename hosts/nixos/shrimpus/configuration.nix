@@ -16,6 +16,7 @@
   time.timeZone = "Australia/Melbourne";
 
   hardware.orangePiZero2w.enable = true;
+  hardware.orangePiZero2w.epaper.enable = true;
   corncheese.development.nebula.enable = false;
 
   image.baseName = "shrimpus";

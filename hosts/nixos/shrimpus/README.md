@@ -130,22 +130,35 @@ The Waveshare 2.66-inch black/white/red B module is attached to SPI1 on the
 | RST | 11 | PH2 |
 | BUSY | 18 | PH4 |
 
-The board device tree enables SPI1 at 4 MHz and describes the active-low reset
-and active-high busy lines. A patched SSD16xx DRM driver binds the panel as
+The optional board device tree overlay enables SPI1 at 4 MHz and describes the
+active-low reset and active-high busy lines. Enable it with
+`hardware.orangePiZero2w.epaper.enable`. A small out-of-tree SSD16xx DRM module
+binds the panel as
 `/dev/dri/card0`, exposes a 296x152 preferred mode after the configured 90-degree
 rotation, and defaults to the panel's documented full refresh waveform. XRGB
 framebuffer pixels are quantized to the panel's native black, white, and red
 planes; this panel has no grayscale mode. Kernel fbdev emulation and the DRM log
 client stay disabled so boot messages do not cause slow, repeated flashes or
 consume panel lifetime. A userspace DRM client controls when a framebuffer
-commit reaches the display. The connector exposes only full refresh because
+commit reaches the display. The driver exposes only full refresh because
 Waveshare does not document partial or fast waveforms for this three-colour
-panel.
+panel. It sleeps while waiting for the BUSY GPIO interrupt and puts the panel
+into deep sleep one second after a commit.
 
-`modules/nixos/orangepi-zero2w/epaper-spi-test.c` is the minimal userspace SPI
-reference used during bring-up. It is intentionally absent from the system
-closure; keep it for controller-sequence diagnostics if a future kernel or
-nixpkgs update breaks the DRM driver.
+The separately buildable `shrimpus-epaper-spi-test` package contains the minimal
+userspace SPI reference used during bring-up. It is intentionally absent from
+the system closure; keep it for controller-sequence diagnostics if a future
+kernel or nixpkgs update breaks the DRM driver:
+
+```sh
+nix build .#packages.aarch64-linux.shrimpus-epaper-spi-test
+```
+
+The local device-tree schema documents the binding. The kernel configuration
+check fails a system build if disabled DRM drivers reappear or a nixpkgs update
+enables a new DRM symbol outside the reviewed core allow-list. Regenerate the
+disabled list from baseline and e-paper kernel `.config` files with
+`modules/nixos/orangepi-zero2w/update-disabled-drm.py`.
 
 ## Hardware validation
 

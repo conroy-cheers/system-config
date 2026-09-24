@@ -1,0 +1,15 @@
+diff --git a/drivers/gpu/drm/Kconfig b/drivers/gpu/drm/Kconfig
+index 8b9f58eaa36d..8167f9c02e06 100644
+--- a/drivers/gpu/drm/Kconfig
++++ b/drivers/gpu/drm/Kconfig
+@@ -268,0 +269,10 @@
++config DRM_SSD16XX
++	tristate "Support for an external SSD16xx DRM module"
++	depends on SPI
++	select DRM_GEM_DMA_HELPER
++	select DRM_KMS_HELPER
++	help
++	  Select the DRM helpers required by an SSD16xx e-paper driver built as
++	  an external module. The driver itself is maintained outside the kernel
++	  tree so it can be rebuilt without rebuilding the kernel.
++
