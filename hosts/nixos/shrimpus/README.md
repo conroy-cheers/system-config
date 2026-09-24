@@ -8,8 +8,9 @@ The red LED indicates power; the green LED uses the Linux heartbeat trigger.
 
 The host uses NixOS's minimal profile and upstream Nix while retaining the Nix
 daemon for deploy-rs. Installer tools, desktop data, the system flake registry,
-and unrelated arm64 device trees are omitted. The resulting system closure is
-about 808 MiB (847 MB decimal). Deploy with:
+and unrelated arm64 device trees are omitted. With the dashboard and its
+trimmed NetworkManager build, the resulting system closure is about 852 MiB
+(893 MB decimal). Deploy with:
 
 ```sh
 deploy .#shrimpus --skip-checks
@@ -82,7 +83,7 @@ board will not match the configured recipient.
 
 ## Recovery and diagnostics without UART
 
-The supplicant restarts after a failure. A device-arrival rule starts it if
+NetworkManager restarts after a failure. A device-arrival rule wakes it if
 `wlan0` appears late. An early-boot health check also attempts to reprobe an
 unbound Wi-Fi platform device up to three times, then stops its timer once the
 interface appears or the retry limit is reached. It does not unload a live
@@ -160,6 +161,31 @@ enables a new DRM symbol outside the reviewed core allow-list. Regenerate the
 disabled list from baseline and e-paper kernel `.config` files with
 `modules/nixos/orangepi-zero2w/update-disabled-drm.py`.
 
+### Dashboard
+
+`shrimpus-dashboard` is a 296x152 Slint application rendered directly through
+the LinuxKMS software backend. It uses only the panel's native black, white, and
+red, embeds its rasterized font glyphs, and runs as an unprivileged service with
+access limited to `/dev/dri/card0`. It shows the local date, reads the active
+`wlan0` SSID from NetworkManager over the system D-Bus, and fetches the day's
+Melbourne forecast from Open-Meteo. The last valid forecast is cached under
+`/var/cache`; failed startup requests retry every minute, and successful
+forecasts refresh every 30 minutes. The framebuffer is committed only when
+visible data changes.
+
+Run the native macOS preview with:
+
+```sh
+nix run .#shrimpus-dashboard -- --preview
+```
+
+On the board, inspect the service with:
+
+```sh
+systemctl status shrimpus-dashboard
+journalctl -u shrimpus-dashboard -b
+```
+
 ## Hardware validation
 
 The `sun50i-cpufreq-nvmem` module loads at boot and selects operating points
@@ -174,9 +200,9 @@ to that IP address with the same SSH key. Once connected, check:
 ```sh
 free -h
 ip -br address show wlan0
-systemctl status shrimpus-wifi-secrets wpa_supplicant-wlan0 dhcpcd sshd
+systemctl status NetworkManager NetworkManager-ensure-profiles shrimpus-dashboard sshd
 journalctl -b -k | grep -Ei 'mmc|sdio|sprd|wcn|firmware'
-sudo wpa_cli -i wlan0 status
+nmcli -f GENERAL.STATE,GENERAL.CONNECTION device show wlan0
 ```
 
 Module compilation and device-tree checks do not verify radio operation. A

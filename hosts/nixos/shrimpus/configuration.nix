@@ -9,6 +9,7 @@
     (modulesPath + "/profiles/minimal.nix")
     ../../../modules/nixos/orangepi-zero2w/sd-image.nix
     ./network.nix
+    ./dashboard.nix
     ./diagnostics.nix
   ];
 

@@ -1,8 +1,8 @@
 set -eu
 
 if [ -e /sys/class/net/wlan0 ]; then
-  # Also recovers a failed boot-time dependency job after the device appears.
-  systemctl start --no-block wpa_supplicant-wlan0.service dhcpcd.service
+  # Also recovers a failed boot-time job after the device appears.
+  systemctl start --no-block NetworkManager.service NetworkManager-ensure-profiles.service
   systemctl stop shrimpus-wifi-health.timer || true
   exit 0
 fi
@@ -34,5 +34,5 @@ if [ ! -e /sys/class/net/wlan0 ]; then
   fi
   exit 1
 fi
-systemctl start --no-block wpa_supplicant-wlan0.service dhcpcd.service
+systemctl start --no-block NetworkManager.service NetworkManager-ensure-profiles.service
 systemctl stop shrimpus-wifi-health.timer || true

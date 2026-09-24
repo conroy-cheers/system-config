@@ -4,71 +4,75 @@
   pkgs,
   ...
 }:
-let
-  supplicantSecrets = "/run/shrimpus-wifi/home.wifi.conf";
-in
 {
   age.secrets."home.wifi.conf" = {
     rekeyFile = ../../../secrets/master/home/wifi/conf.age;
-    group = "wpa_supplicant";
-    mode = "0440";
+    mode = "0400";
   };
   age.identityPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
   networking.usePredictableInterfaceNames = false;
   networking.useDHCP = false;
-  networking.interfaces.wlan0.useDHCP = true;
-  networking.wireless = {
+  boot.extraModprobeConfig = ''
+    options cfg80211 ieee80211_regdom=AU
+  '';
+  networking.networkmanager = {
     enable = true;
-    interfaces = [ "wlan0" ];
-    secretsFile = supplicantSecrets;
-    extraConfig = "country=AU";
-    networks = {
-      "floznet-7".pskRaw = "ext:pass_home";
-      "Abi_Wifi".pskRaw = "ext:pass_abi";
+    package = pkgs.shrimpus-networkmanager;
+    wifi.backend = "wpa_supplicant";
+    ensureProfiles = {
+      environmentFiles = [ config.age.secrets."home.wifi.conf".path ];
+      profiles = {
+        floznet-7 = {
+          connection = {
+            id = "floznet-7";
+            type = "wifi";
+            uuid = "e6998662-543b-4b85-84e2-f0f74f43d4d2";
+            interface-name = "wlan0";
+            autoconnect = true;
+            autoconnect-priority = 20;
+          };
+          wifi = {
+            mode = "infrastructure";
+            ssid = "floznet-7";
+          };
+          wifi-security = {
+            key-mgmt = "wpa-psk";
+            psk = "$pass_home";
+          };
+          ipv4.method = "auto";
+          ipv6.method = "auto";
+        };
+        Abi_Wifi = {
+          connection = {
+            id = "Abi_Wifi";
+            type = "wifi";
+            uuid = "28e89fd0-fd59-4d57-bc06-3c879675f8b8";
+            interface-name = "wlan0";
+            autoconnect = true;
+            autoconnect-priority = 10;
+          };
+          wifi = {
+            mode = "infrastructure";
+            ssid = "Abi_Wifi";
+          };
+          wifi-security = {
+            key-mgmt = "wpa-psk";
+            psk = "$pass_abi";
+          };
+          ipv4.method = "auto";
+          ipv6.method = "auto";
+        };
+      };
     };
   };
+  networking.modemmanager.enable = false;
+  security.polkit.enable = lib.mkForce false;
+  systemd.services.NetworkManager-wait-online.enable = false;
 
-  # The shared secret is shell-quoted; wpa_supplicant's ext_password backend
-  # needs unquoted key=value lines, as on panda.
-  systemd.services.shrimpus-wifi-secrets = {
-    description = "Prepare shrimpus Wi-Fi credentials";
-    # agenix decrypts during activation, before these services start.
-    before = [ "wpa_supplicant-wlan0.service" ];
-    requiredBy = [ "wpa_supplicant-wlan0.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      set -eu
-      . ${lib.escapeShellArg config.age.secrets."home.wifi.conf".path}
-      install -d -m 0750 -o root -g wpa_supplicant /run/shrimpus-wifi
-      tmp="$(mktemp /run/shrimpus-wifi/home.wifi.conf.XXXXXX)"
-      trap 'rm -f "$tmp"' EXIT
-      (
-        umask 0077
-        printf 'pass_home=%s\n' "''${pass_home:?}"
-        printf 'pass_abi=%s\n' "''${pass_abi:?}"
-      ) > "$tmp"
-      chown root:wpa_supplicant "$tmp"
-      chmod 0440 "$tmp"
-      mv "$tmp" ${lib.escapeShellArg supplicantSecrets}
-    '';
-    path = [ pkgs.coreutils ];
-  };
-
-  systemd.services.wpa_supplicant-wlan0 = {
-    serviceConfig = {
-      Restart = "on-failure";
-      RestartSec = "10s";
-    };
-    unitConfig.StartLimitIntervalSec = 0;
-  };
-
-  # A late SDIO device must start the service even if its boot-time job timed out.
+  # A late SDIO device must wake the network manager after it appears.
   services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="wpa_supplicant-wlan0.service"
+    ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="NetworkManager.service"
   '';
 
   systemd.services.shrimpus-wifi-health = {

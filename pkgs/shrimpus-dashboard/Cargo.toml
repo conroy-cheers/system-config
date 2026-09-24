@@ -1,0 +1,29 @@
+[package]
+name = "shrimpus-dashboard"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[dependencies]
+chrono = { version = "0.4.42", default-features = false, features = ["clock"] }
+minreq = { version = "2.14.1", default-features = false, features = ["https-rustls", "urlencoding"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+zbus = { version = "5.12.0", default-features = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+slint = { version = "1.18.1", default-features = false, features = ["backend-linuxkms", "compat-1-18", "renderer-software", "std"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+slint = { version = "1.18.1", default-features = false, features = ["backend-winit", "compat-1-18", "renderer-software", "std"] }
+
+[build-dependencies]
+slint-build = { version = "1.18.1", default-features = false, features = ["compat-1-18", "renderer-software"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "s"
+panic = "abort"
+strip = true

@@ -1,0 +1,158 @@
+import "DejaVuSansMono.ttf";
+import "DejaVuSansCondensed-Bold.ttf";
+import "MaterialSymbolsOutlined.ttf";
+
+// Material Symbols codepoints. The font is provided by Nix, not vendored here.
+component MaterialIcon inherits Text {
+    in property <int> kind;
+    font-family: "Material Symbols Outlined";
+    font-weight: 400;
+    color: #000000;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+    text: root.kind == 0 ? "\u{e81a}" : // sunny
+        root.kind == 1 ? "\u{f172}" : // partly_cloudy_day
+        root.kind == 2 ? "\u{f15c}" : // cloud
+        root.kind == 3 ? "\u{e818}" : // foggy
+        root.kind == 4 ? "\u{f176}" : // rainy
+        root.kind == 5 ? "\u{e2cd}" : // weather_snowy
+        root.kind == 6 ? "\u{ebdb}" : // thunderstorm
+        root.kind == 8 ? "\u{e798}" : // water_drop
+        root.kind == 9 ? "\u{e63e}" : // wifi
+        root.kind == 10 ? "\u{e648}" : // wifi_off
+        "\u{e8fd}"; // help / unavailable
+}
+
+// Fixed composition for the 296 × 152 three-colour panel.
+// All authored colours are opaque; the DRM driver quantizes antialiasing.
+export component Dashboard inherits Window {
+    in property <string> weekday;
+    in property <string> day;
+    in property <string> month-year;
+    in property <string> wifi-text;
+    in property <bool> wifi-connected;
+    in property <bool> weather-available;
+    in property <string> weather-title;
+    in property <string> temperatures;
+    in property <bool> compact-temperatures;
+    in property <string> rain-text;
+    in property <string> freshness-text;
+    in property <bool> weather-stale;
+    in property <int> weather-kind;
+
+    width: 296px;
+    height: 152px;
+    background: #ffffff;
+    // Separate families avoid Slint 1.18 resolving both static faces to regular.
+    default-font-family: "DejaVu Sans Mono";
+    default-font-size: 12px;
+    title: "Shrimpus";
+
+    Text {
+        x: 8px; y: 10px; width: 78px; height: 18px;
+        text: root.weekday;
+        color: #000000;
+        font-size: 12px;
+        font-family: "DejaVu Sans";
+        font-weight: 700;
+        horizontal-alignment: center;
+    }
+    Text {
+        x: 6px; y: 27px; width: 82px; height: 60px;
+        text: root.day;
+        color: #ff0000;
+        font-size: 52px;
+        font-family: "DejaVu Sans";
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    Text {
+        x: 8px; y: 94px; width: 78px; height: 16px;
+        text: root.month-year;
+        color: #000000;
+        font-size: 10px;
+        horizontal-alignment: center;
+    }
+
+    Rectangle { x: 94px; y: 12px; width: 1px; height: 99px; background: #000000; }
+
+    Text {
+        x: 106px; y: 11px; width: 180px; height: 16px;
+        text: "TODAY'S FORECAST";
+        color: #000000;
+        font-size: 10px;
+        font-family: "DejaVu Sans";
+        font-weight: 700;
+    }
+    MaterialIcon {
+        x: 104px; y: 34px; width: 43px; height: 43px;
+        kind: root.weather-available ? root.weather-kind : 7;
+        font-size: 43px;
+    }
+    Text {
+        x: 154px; y: 33px; width: 132px; height: 12px;
+        text: root.weather-available ? "LOW / HIGH °C" : "WEATHER";
+        color: #000000;
+        font-size: 10px;
+        font-family: "DejaVu Sans";
+        font-weight: 700;
+    }
+    Text {
+        x: 151px; y: 44px; width: 137px; height: 34px;
+        text: root.weather-available ? root.temperatures : "—";
+        color: #000000;
+        font-size: root.compact-temperatures ? 23px : 29px;
+        font-family: "DejaVu Sans";
+        font-weight: 700;
+        vertical-alignment: center;
+    }
+    Text {
+        x: 106px; y: 80px; width: 180px; height: 19px;
+        text: root.weather-title;
+        color: #000000;
+        font-size: 15px;
+        font-family: "DejaVu Sans";
+        font-weight: 700;
+    }
+    if root.weather-available : MaterialIcon {
+        x: 105px; y: 101px; width: 16px; height: 16px;
+        kind: 8;
+        font-size: 16px;
+    }
+    Text {
+        x: root.weather-available ? 123px : 106px;
+        y: 101px; width: root.weather-available ? 163px : 180px; height: 16px;
+        text: root.rain-text;
+        color: #000000;
+        font-size: 11px;
+    }
+
+    Rectangle { x: 10px; y: 124px; width: 276px; height: 1px; background: #000000; }
+    MaterialIcon {
+        x: 9px; y: 130px; width: 18px; height: 18px;
+        kind: root.wifi-connected ? 9 : 10;
+        color: root.wifi-connected ? #000000 : #ff0000;
+        font-size: 18px;
+    }
+    Text {
+        x: 31px; y: 130px; width: 115px; height: 18px;
+        text: root.wifi-text;
+        color: root.wifi-connected ? #000000 : #ff0000;
+        font-size: 10px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        x: 151px; y: 130px; width: 135px; height: 18px;
+        text: root.freshness-text;
+        color: root.weather-stale ? #ff0000 : #000000;
+        font-size: 10px;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+
+    // Dynamic text needs punctuation in the embedded glyph atlas.
+    Text { visible: false; text: "–—°"; font-family: "DejaVu Sans"; font-size: 29px; font-weight: 700; }
+    Text { visible: false; text: "–—°"; font-family: "DejaVu Sans"; font-size: 23px; font-weight: 700; }
+}
