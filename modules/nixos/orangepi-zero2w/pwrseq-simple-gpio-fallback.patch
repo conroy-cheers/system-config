@@ -1,0 +1,18 @@
+diff --git a/drivers/mmc/core/pwrseq_simple.c b/drivers/mmc/core/pwrseq_simple.c
+--- a/drivers/mmc/core/pwrseq_simple.c
++++ b/drivers/mmc/core/pwrseq_simple.c
+@@ -129,6 +129,14 @@ static int mmc_pwrseq_simple_probe(struct platform_device *pdev)
+ 	ngpio = of_count_phandle_with_args(dev->of_node, "reset-gpios", "#gpio-cells");
+ 	if (ngpio == 1) {
+ 		pwrseq->reset_ctrl = devm_reset_control_get_optional_shared(dev, NULL);
++		/*
++		 * Some GPIO providers, including Allwinner pinctrl, use three
++		 * GPIO cells. The reset-GPIO bridge only supports two. Fall back
++		 * to the GPIO consumer below when the bridge cannot translate it.
++		 */
++		if (IS_ERR(pwrseq->reset_ctrl) &&
++		    PTR_ERR(pwrseq->reset_ctrl) == -ENOENT)
++			pwrseq->reset_ctrl = NULL;
+ 		if (IS_ERR(pwrseq->reset_ctrl))
+ 			return dev_err_probe(dev, PTR_ERR(pwrseq->reset_ctrl),
+ 					     "reset control not ready\n");

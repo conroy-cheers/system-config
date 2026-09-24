@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0
+// Wi-Fi nodes adapted from Armbian's Orange Pi Zero 2W board patch:
+// https://github.com/armbian/build/blob/a7d6467ca230bc5c0f1ad5d3c55ff64d064bcb08/patch/kernel/archive/sunxi-7.2/patches.armbian/0302-arm64-dts-sun50i-h618-orangepi-zero2w-add-emac-sound.patch
+// The board module also installs the UWE5622 driver and firmware.
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "xunlong,orangepi-zero2w";
+};
+
+&{/} {
+	reg_vcc_wifi_io: vcc-wifi-io {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-wifi-io";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		vin-supply = <&reg_vcc3v3>;
+	};
+
+	wifi_pwrseq: wifi-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		clocks = <&rtc 1>;
+		clock-names = "ext_clock";
+		reset-gpios = <&pio 6 18 GPIO_ACTIVE_LOW>; /* PG18 */
+		post-power-on-delay-ms = <200>;
+	};
+};
+
+&mmc1 {
+	vmmc-supply = <&reg_vcc3v3>;
+	vqmmc-supply = <&reg_vcc_wifi_io>;
+	mmc-pwrseq = <&wifi_pwrseq>;
+	bus-width = <4>;
+	non-removable;
+	mmc-ddr-1_8v;
+	status = "okay";
+};
+
+// The red LED only indicates power. Make the green LED show that Linux reached
+// the LED driver, so a headless boot has a visible progress signal.
+&{/leds/led-0} {
+	linux,default-trigger = "heartbeat";
+};
