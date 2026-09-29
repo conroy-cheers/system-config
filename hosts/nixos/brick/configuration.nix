@@ -43,6 +43,16 @@ in
 
   ### Set boot options
   boot = {
+    kernelPatches = [
+      {
+        name = "amdgpu-allow-any-context-priority";
+        patch = pkgs.fetchpatch {
+          url = "https://github.com/Frogging-Family/community-patches/raw/a6a468420c0df18d51342ac6864ecd3f99f7011e/linux61-tkg/cap_sys_nice_begone.mypatch";
+          hash = "sha256-Y3a0+x2xvHsfLax/uwycdJf3xLxvVfkfDVqjkxNaYEo=";
+        };
+      }
+    ];
+
     # Use the systemd-boot boot loader.
     loader = {
       efi.canTouchEfiVariables = true;
