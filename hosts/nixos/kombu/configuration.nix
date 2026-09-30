@@ -131,6 +131,24 @@
   # };
 
   nix = {
+    buildMachines = [
+      {
+        hostName = "acacia";
+        system = "x86_64-linux";
+        sshUser = "root";
+        sshKey = "/home/conroy/.ssh/andromeda-infra";
+        maxJobs = 32;
+        speedFactor = 2;
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+          "kvm"
+          "large-memory"
+          "nixos-test"
+        ];
+        publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUxzNnhpdVJtUmk0SWdESnZuYWE3cW5xTnQ1aEpVQThaNkNUc1pPRk02dGkK";
+      }
+    ];
     settings = {
       trusted-users = [ "conroy" ];
     };
