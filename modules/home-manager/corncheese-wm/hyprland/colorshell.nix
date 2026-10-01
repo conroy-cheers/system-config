@@ -10,7 +10,15 @@ let
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
   themeDetails = config.corncheese.theming.themeDetails;
   colorshellPackage =
-    inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.overrideAttrs
+    (inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.override (args: {
+      # Patch Colorshell's own Astal dependency; a consumer pkgs overlay does
+      # not change the package exported by the Colorshell flake.
+      astal = args.astal // {
+        hyprland = args.astal.hyprland.overrideAttrs (old: {
+          patches = (old.patches or [ ]) ++ [ ./astal-hyprland-workspace-address.patch ];
+        });
+      };
+    })).overrideAttrs
       (oldAttrs: {
         src = oldAttrs.src.overrideAttrs {
           # The launcher now sets LD_PRELOAD on the command instead of exporting
