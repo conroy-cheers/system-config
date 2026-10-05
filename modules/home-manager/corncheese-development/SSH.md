@@ -18,17 +18,21 @@ the originating machine must contain the corresponding private keys.
 
 ## Forwarding
 
-Forwarding remains disabled by default. Enable it for a connection:
+Forwarding is enabled for machines in the shared Nebula host inventory,
+using their host names or mesh addresses. The SSH configuration derives this
+rule from the inventory, so there is no separate forwarding host list.
+Other destinations keep forwarding disabled by default. Enable it for a
+connection:
 
 ```sh
-ssh -A brick
+ssh -A build-server
 ```
 
-Or opt a trusted destination into forwarding in the originating machine's
-Home Manager configuration:
+Or opt a trusted destination outside the inventory into forwarding in the
+originating machine's Home Manager configuration:
 
 ```nix
-programs.ssh.settings."brick".ForwardAgent = true;
+programs.ssh.settings."build-server".ForwardAgent = true;
 ```
 
 Forward only to machines you trust: processes with access to the remote
@@ -37,7 +41,7 @@ socket can request use of the originating machine's keys while connected.
 Check a non-interactive connection:
 
 ```sh
-ssh -A brick 'printf "%s\n" "$SSH_AUTH_SOCK"; ssh-add -l'
+ssh sleet 'printf "%s\n" "$SSH_AUTH_SOCK"; ssh-add -l'
 ```
 
 On the remote machine, `ssh -G github.com` should have no explicit

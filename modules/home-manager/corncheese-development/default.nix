@@ -1151,6 +1151,15 @@ in
           ProxyJump = "snow";
           IdentitiesOnly = true;
         };
+        managed-machines = lib.hm.dag.entryBefore [ "*" ] {
+          # Share the mesh inventory rather than maintaining another host list.
+          header = "Host ${
+            lib.concatMapStringsSep " " (name: "${name} ${nebulaHosts.${name}.address}") (
+              builtins.attrNames nebulaHosts
+            )
+          }";
+          ForwardAgent = true;
+        };
         "*" = {
           ForwardAgent = false;
           AddKeysToAgent = "no";
