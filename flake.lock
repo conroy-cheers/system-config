@@ -417,11 +417,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790896125,
-        "narHash": "sha256-ijuTSCQZGFpV8m0r+ZFsmk2u6tWnxMUO7Y49apV+pIw=",
+        "lastModified": 1791497934,
+        "narHash": "sha256-+s5SbQP7ZISD34cB3v0ROnpZiTynOFccPz6+Q07JHB8=",
         "owner": "conroy-cheers",
         "repo": "codex-flake",
-        "rev": "2334c5f39b4e2f277a3f1d3c0c74907c184f5da2",
+        "rev": "e598a8f53998844d394543703c005e058d6bff29",
         "type": "github"
       },
       "original": {
