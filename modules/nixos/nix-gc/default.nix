@@ -3,7 +3,7 @@
 {
   nix.gc = {
     automatic = true;
-    dates = lib.mkDefault "weekly";
+    dates = lib.mkDefault "daily";
     options = "--delete-older-than 7d";
   };
 }
