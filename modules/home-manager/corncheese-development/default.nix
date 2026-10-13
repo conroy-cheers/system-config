@@ -65,12 +65,6 @@ let
       }
     ];
     tui.pet = "rocky";
-    mcp_servers.ReVa = {
-      command = lib.getExe pkgs.reverse-engineering-assistant;
-      default_tools_approval_mode = "prompt";
-      startup_timeout_sec = 90;
-      tool_timeout_sec = 300;
-    };
   };
   codexRemovedNixMcpServers = [
     "atlassian"
