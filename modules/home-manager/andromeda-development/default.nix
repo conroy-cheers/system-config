@@ -511,7 +511,8 @@ in
       codex-andromeda-wrapped
       pkgs.atlassian-cli
       pkgs.bitwarden-cli
-    ];
+    ]
+    ++ lib.optionals (pkgs ? rive-cli) [ pkgs.rive-cli ];
 
     # The dispatcher must run after direnv or direnv-instant has selected the
     # checkout-provided driver.
