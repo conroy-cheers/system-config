@@ -7,6 +7,18 @@
 }:
 
 let
+  # Factory SDR/native-gamut profile from LG's 27GN950-B support page.
+  # Use the monitor's default/Gamer 1 mode, rather than its sRGB gamut clamp.
+  lg27gn950Profile = pkgs.runCommand "lg-27gn950.icm" { nativeBuildInputs = [ pkgs.unzip ]; } ''
+    unzip -p ${
+      pkgs.fetchurl {
+        url = "https://gscs-b2c.lge.com/downloadFile?fileId=TdSEQ5D6A9YxP3OxJDVhg";
+        name = "27GN95.zip";
+        hash = "sha256-taHEpeyYCuvdDxaR7atlCiQAj/yXKlTjwJkYzdr89VE=";
+      }
+    } 27GN950.icm > "$out"
+  '';
+
   configurePlexMpvShim = pkgs.writeShellApplication {
     name = "configure-plex-mpv-shim";
     runtimeInputs = with pkgs; [
@@ -130,7 +142,24 @@ in
 
   programs.colorshell.enable = true;
 
+  # Standalone mpv (including Plezy's external-player route) can use gpu-next
+  # for HDR-to-SDR tone mapping while the monitor stays in native-gamut SDR.
+  programs.mpv.config = {
+    vo = "gpu-next";
+    gpu-api = "vulkan";
+    gpu-context = "waylandvk";
+    target-colorspace-hint = "auto";
+    tone-mapping = "bt.2390";
+    hdr-compute-peak = "yes";
+    hdr-contrast-recovery = 0.3;
+    target-contrast = 950;
+    contrast = 10;
+    gamut-mapping-mode = "perceptual";
+  };
+
   wayland.windowManager.hyprland.settings = {
+    # Keep SDR output: HDR videos are tone-mapped by the player on this display.
+    config.render.cm_auto_hdr = 0;
     monitor = [
       {
         output = "desc: LG Electronics 27GN950 008NTJJ7W924";
@@ -138,6 +167,9 @@ in
         position = "0x0";
         scale = 1.33333;
         vrr = 3;
+        bitdepth = 10;
+        cm = "srgb";
+        icc = "${lg27gn950Profile}";
       }
       {
         output = "desc: Dell Inc. DELL U2720Q 8LXMZ13";
