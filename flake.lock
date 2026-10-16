@@ -2285,6 +2285,23 @@
         "type": "github"
       }
     },
+    "jovian": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790752710,
+        "narHash": "sha256-mpFFy+vabu4WOma4Tx7myAPUaj+Ob58qK8ZXL/xANmo=",
+        "owner": "Jovian-Experiments",
+        "repo": "Jovian-NixOS",
+        "rev": "49c2c729cc6d78bf64ae252d3a31e6311d896ab9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Jovian-Experiments",
+        "ref": "development",
+        "repo": "Jovian-NixOS",
+        "type": "github"
+      }
+    },
     "jovian-nixos": {
       "inputs": {
         "nix-github-actions": "nix-github-actions",
@@ -3084,11 +3101,11 @@
     },
     "nixpkgs_12": {
       "locked": {
-        "lastModified": 1789426278,
-        "narHash": "sha256-GnotcvKtbTMnoVx6G4E7ZdUX6487Dky74dqq3pU7iRk=",
-        "owner": "nixos",
+        "lastModified": 1791260994,
+        "narHash": "sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "efe6f071ede9d21c37462d2d6682d5e670099684",
+        "rev": "151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4",
         "type": "github"
       },
       "original": {
@@ -3622,6 +3639,21 @@
         "type": "github"
       }
     },
+    "preservation": {
+      "locked": {
+        "lastModified": 1757436102,
+        "narHash": "sha256-mMI9IanU+Xw+pVogD2oT0I2kTmvz2Un/Apc5+CwUpEY=",
+        "owner": "nix-community",
+        "repo": "preservation",
+        "rev": "93416f4614ad2dfed5b0dcf12f27e57d27a5ab11",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "preservation",
+        "type": "github"
+      }
+    },
     "prusa-slicer-profiles": {
       "flake": false,
       "locked": {
@@ -3781,6 +3813,7 @@
         "ragenix": "ragenix",
         "sigma-studio": "sigma-studio",
         "spicetify-nix": "spicetify-nix",
+        "steam-frame-nixos": "steam-frame-nixos",
         "stylix": "stylix",
         "superfile": "superfile",
         "swww": "swww",
@@ -3971,6 +4004,34 @@
       "original": {
         "owner": "the-argus",
         "repo": "spicetify-nix",
+        "type": "github"
+      }
+    },
+    "steam-frame-nixos": {
+      "inputs": {
+        "disko": [
+          "disko"
+        ],
+        "home-manager": [
+          "home-manager"
+        ],
+        "jovian": "jovian",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "preservation": "preservation"
+      },
+      "locked": {
+        "lastModified": 1791984794,
+        "narHash": "sha256-G14mEEwggUrwI/nRpyXrkehfj6Ja4qCWYTEGczcWBgs=",
+        "owner": "conroy-cheers",
+        "repo": "steam-frame-nixos",
+        "rev": "00750fc6cece37c452f3b27d5a54e79f6ceba2ce",
+        "type": "github"
+      },
+      "original": {
+        "owner": "conroy-cheers",
+        "repo": "steam-frame-nixos",
         "type": "github"
       }
     },
@@ -4392,11 +4453,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790678552,
-        "narHash": "sha256-gIO7jwaQc2lJgMU5MUcvsnDtoblx1WXbNgsCNJRrgA8=",
+        "lastModified": 1791984283,
+        "narHash": "sha256-A0noD+/xdWpGeAGP//zHkWZLBKqJ0d/h1K36z3ha7uM=",
         "owner": "conroy-cheers",
         "repo": "tinymux",
-        "rev": "9473f11998352f236c2b60ec6f1d5139ac2dcd23",
+        "rev": "879200ed5fac05c70a91760ff63c6fd6f8dada28",
         "type": "github"
       },
       "original": {

@@ -179,6 +179,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    steam-frame-nixos = {
+      url = "github:conroy-cheers/steam-frame-nixos";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+      inputs.disko.follows = "disko";
+    };
+
     jovian-nixos = {
       url = "github:Jovian-Experiments/Jovian-NixOS";
       inputs.nixpkgs.follows = "nixpkgs";
