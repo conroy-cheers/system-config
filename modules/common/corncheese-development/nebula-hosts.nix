@@ -69,4 +69,11 @@
       identity = "conroy-work";
     };
   };
+  bouba = {
+    address = "10.42.42.11";
+    ssh = {
+      user = "conroy";
+      identity = "conroy-home";
+    };
+  };
 }

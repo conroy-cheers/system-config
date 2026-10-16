@@ -322,7 +322,11 @@ in
         {
           inherit (meta.deploy) hostname;
           profiles.system = meta.deploy // {
-            path = inputs.deploy-rs.lib.${meta.system}.activate."nixos" configuration;
+            # Hosts with strict boot-path validation can embed the activation
+            # helpers in their toplevel instead of using a symlink-joined wrapper.
+            path =
+              configuration.config.system.build.deploy
+                or (inputs.deploy-rs.lib.${meta.system}.activate."nixos" configuration);
           };
         }
       );
