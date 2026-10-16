@@ -123,7 +123,7 @@ void onWindowClose(PHLWINDOW window) {
     markDirty();
 }
 
-void onRenderStage(eRenderStage) {
+void onRenderStage() {
     int remaining = g_renderSettles.load();
     if (remaining <= 0)
         return;
@@ -165,7 +165,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     static auto monitorLayoutChanged = Event::bus()->m_events.monitor.layoutChanged.listen([] { markDirty(); });
     static auto configReloaded = Event::bus()->m_events.config.reloaded.listen([] { markDirty(); });
     static auto keybindsSubmap = Event::bus()->m_events.keybinds.submap.listen([](const std::string&) { markDirty(); });
-    static auto renderStage = Event::bus()->m_events.render.stage.listen([](eRenderStage stage) { onRenderStage(stage); });
+    static auto renderStage = Event::bus()->m_events.render.stage.listen([] { onRenderStage(); });
 
     watchExistingWindows();
     markDirty();
