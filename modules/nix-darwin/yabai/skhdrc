@@ -64,8 +64,8 @@ ctrl + lalt - e : yabai -m space --balance
 # Toggle sketchybar
 shift + lalt - space : sketchybar --bar hidden=toggle
 
-# Ghostty
-lalt - return : open -na Ghostty
+# Create a window in the existing Ghostty instance (requires Ghostty 1.3+).
+lalt - return : /usr/bin/osascript -e 'tell application "Ghostty" to new window'
 
 # Safari
 lalt - f : @openSafariWindow@
