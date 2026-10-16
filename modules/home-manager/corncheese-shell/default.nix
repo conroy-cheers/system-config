@@ -3,6 +3,7 @@
   lib,
   pkgs,
   config,
+  osConfig ? null,
   ...
 }:
 
@@ -20,7 +21,7 @@ let
         ;
       flakeRef = if cfg.hostname != null then "${cfg.flakePath}#${cfg.hostname}" else "${cfg.flakePath}";
       rebuildCommand =
-        if isx86_64 && isLinux then
+        if isLinux && (isx86_64 || (osConfig != null && osConfig ? system.nixos)) then
           ''
             if [ "$(id -u)" -eq 0 ]; then
               nixos-rebuild --log-format internal-json -v --flake "$flake_ref" "$action" "$@"
@@ -83,7 +84,9 @@ let
       }
 
       run_rebuild "$@" |& ${lib.getExe pkgs.nix-output-monitor} ${
-        lib.optionalString (!isAarch64) "--json"
+        lib.optionalString (
+          isDarwin || !isAarch64 || (osConfig != null && osConfig ? system.nixos)
+        ) "--json"
       }
     '';
 
