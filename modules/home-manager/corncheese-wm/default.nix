@@ -11,7 +11,21 @@ let
   cfg = config.corncheese.wm;
   themeDetails = config.corncheese.theming.themeDetails;
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
-  hyprlandPackage = osConfig.programs.hyprland.package or pkgs.hyprland;
+  nested = cfg.sessionMode == "nested";
+  hyprlandPackage =
+    if nested then
+      pkgs.callPackage ./hyprland/nested-package.nix {
+        transparent = cfg.transparentBackground;
+        steamFrameSource =
+          if
+            lib.attrByPath [ "programs" "steamvr" "nestedDesktop" "transport" ] "x11" config == "wayland"
+          then
+            inputs.steam-frame-nixos.outPath
+          else
+            null;
+      }
+    else
+      osConfig.programs.hyprland.package or pkgs.hyprland;
   inherit (lib) mkEnableOption mkOption mkIf;
 in
 {
@@ -52,6 +66,20 @@ in
   options = {
     corncheese.wm = {
       enable = mkEnableOption "corncheese window manager setup";
+      sessionMode = mkOption {
+        type = lib.types.enum [
+          "login"
+          "nested"
+        ];
+        default = "login";
+        description = "Whether Hyprland owns the login session or runs inside another compositor.";
+      };
+      transparentBackground = mkEnableOption "transparent background for a nested desktop";
+      terminal = mkOption {
+        type = lib.types.str;
+        default = "ghostty";
+        description = "Terminal command used by desktop keybindings.";
+      };
       environment = mkOption {
         type = with lib.types; attrsOf str;
         default = { };
@@ -122,11 +150,18 @@ in
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = !cfg.transparentBackground || nested;
+        message = "corncheese.wm.transparentBackground requires sessionMode = nested";
+      }
+    ];
     wayland.windowManager.hyprland = {
       enable = true;
       configType = "lua";
       package = hyprlandPackage;
-      systemd.enable = true;
+      portalPackage = lib.mkIf nested null;
+      systemd.enable = !nested;
       plugins = [
         # pkgs.hyprlandPlugins.hyprexpo
       ]
@@ -148,16 +183,32 @@ in
       };
     };
 
-    home.packages = with pkgs; [
-      grimblast
-      qalculate-gtk
-      xdg-utils
-      plexamp
-    ];
+    home.packages =
+      with pkgs;
+      [
+        grimblast
+        qalculate-gtk
+        xdg-utils
+        thunar
+        chromium
+        wl-clipboard
+        pulsemixer
+        adwaita-fonts
+      ]
+      ++ lib.optionals (!nested) [ pkgs.plexamp ]
+      ++ lib.optionals nested [
+        pkgs.xdg-desktop-portal
+        pkgs.xdg-desktop-portal-gtk
+      ];
+
+    programs.ghostty.systemd.enable = lib.mkIf nested false;
+    xdg.configFile."xdg-desktop-portal/hyprland-portals.conf" = lib.mkIf nested {
+      text = "[preferred]\ndefault=gtk\n";
+    };
 
     # NOTE: this executable is used by greetd to start a wayland session when system boot up
     # with such a vendor-no-locking script, we can switch to another wayland compositor without modifying greetd's config in NixOS module
-    home.file.".wayland-session" = {
+    home.file.".wayland-session" = lib.mkIf (!nested) {
       text = ''
         #!${pkgs.bash}/bin/bash
 
@@ -186,12 +237,14 @@ in
     };
 
     home.pointerCursor = {
+      name = lib.mkIf nested (lib.mkDefault "Adwaita");
+      package = lib.mkIf nested (lib.mkDefault pkgs.adwaita-icon-theme);
       enable = true;
       hyprcursor.enable = true;
     };
 
     xdg.portal = {
-      enable = true;
+      enable = if nested then lib.mkForce false else true;
       xdgOpenUsePortal = true;
       config = {
         common.default = [ "gtk" ];
@@ -226,7 +279,7 @@ in
         "inode/directory" = [ "thunar.desktop" ];
       };
     };
-    xdg.desktopEntries.plexamp = {
+    xdg.desktopEntries.plexamp = lib.mkIf (!nested) {
       name = "Plexamp";
       genericName = "Music Player";
       exec = lib.getExe pkgs.plexamp;
@@ -242,7 +295,7 @@ in
       };
     };
 
-    systemd.user.services."1password" = {
+    systemd.user.services."1password" = lib.mkIf (!nested) {
       Unit = {
         Description = "1Password";
         Requires = [ "graphical-session.target" ];

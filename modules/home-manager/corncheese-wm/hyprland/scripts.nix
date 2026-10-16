@@ -100,125 +100,127 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    home.packages = with pkgs; [
-      (pkgs.writeShellApplication {
-        name = "hyprworkspace";
-        runtimeInputs = with pkgs; [
-          coreutils
-          hyprland
-          jq
-        ];
-        text = ''
-          set -euo pipefail
+    home.packages =
+      with pkgs;
+      [
+        (pkgs.writeShellApplication {
+          name = "hyprworkspace";
+          runtimeInputs = with pkgs; [
+            coreutils
+            config.wayland.windowManager.hyprland.package
+            jq
+          ];
+          text = ''
+            set -euo pipefail
 
-          lua_string() {
-            jq -Rn --arg value "$1" '$value'
-          }
+            lua_string() {
+              jq -Rn --arg value "$1" '$value'
+            }
 
-          dispatch_lua() {
-            hyprctl dispatch "$1"
-          }
+            dispatch_lua() {
+              hyprctl dispatch "$1"
+            }
 
-          focus_workspace() {
-            dispatch_lua "hl.dsp.focus({ workspace = $1 })"
-          }
+            focus_workspace() {
+              dispatch_lua "hl.dsp.focus({ workspace = $1 })"
+            }
 
-          move_workspace_to_monitor() {
-            dispatch_lua "hl.dsp.workspace.move({ workspace = $1, monitor = $(lua_string "$2") })"
-          }
+            move_workspace_to_monitor() {
+              dispatch_lua "hl.dsp.workspace.move({ workspace = $1, monitor = $(lua_string "$2") })"
+            }
 
-          swap_active_workspaces() {
-            dispatch_lua "hl.dsp.workspace.swap_monitors({ monitor1 = $(lua_string "$1"), monitor2 = $(lua_string "$2") })"
-          }
+            swap_active_workspaces() {
+              dispatch_lua "hl.dsp.workspace.swap_monitors({ monitor1 = $(lua_string "$1"), monitor2 = $(lua_string "$2") })"
+            }
 
-          # from https://github.com/taylor85345/hyprland-dotfiles/blob/master/hypr/scripts/workspace
-          monitors="$(hyprctl monitors -j)"
+            # from https://github.com/taylor85345/hyprland-dotfiles/blob/master/hypr/scripts/workspace
+            monitors="$(hyprctl monitors -j)"
 
-          if [[ -z "''${1:-}" ]]; then
-            workspace="$(
-              jq -r 'map(select(.focused == false))[0].activeWorkspace.id // empty' <<< "$monitors"
+            if [[ -z "''${1:-}" ]]; then
+              workspace="$(
+                jq -r 'map(select(.focused == false))[0].activeWorkspace.id // empty' <<< "$monitors"
+              )"
+            else
+              workspace="$1"
+            fi
+
+            if [[ -z "$workspace" ]]; then
+              exit 0
+            fi
+
+            activemonitor="$(jq -r 'map(select(.focused == true))[0].name' <<< "$monitors")"
+            passivemonitor="$(
+              jq -r --argjson workspace "$workspace" '
+                map(select(.activeWorkspace.id == $workspace))[0].name // empty
+              ' <<< "$monitors"
             )"
-          else
-            workspace="$1"
-          fi
+            passivews="$(
+              jq -r --arg monitor "$passivemonitor" '
+                map(select(.name == $monitor))[0].activeWorkspace.id // empty
+              ' <<< "$monitors"
+            )"
 
-          if [[ -z "$workspace" ]]; then
-            exit 0
-          fi
+            if [[ "$workspace" == "$passivews" && "$activemonitor" != "$passivemonitor" ]]; then
+              focus_workspace "$workspace"
+              swap_active_workspaces "$activemonitor" "$passivemonitor"
+              focus_workspace "$workspace"
+            else
+              move_workspace_to_monitor "$workspace" "$activemonitor" >/dev/null 2>&1 || true
+              focus_workspace "$workspace"
+            fi
+          '';
+        })
+        # Spotifyd is slow with playerctl, use dbus insted.
+        (pkgs.writeScriptBin "hyprmusic" ''
+          #!/bin/sh
+          set -euo pipefail
+          case "''${1:-}" in
+            next)
+              MEMBER=Next
+              ;;
 
-          activemonitor="$(jq -r 'map(select(.focused == true))[0].name' <<< "$monitors")"
-          passivemonitor="$(
-            jq -r --argjson workspace "$workspace" '
-              map(select(.activeWorkspace.id == $workspace))[0].name // empty
-            ' <<< "$monitors"
-          )"
-          passivews="$(
-            jq -r --arg monitor "$passivemonitor" '
-              map(select(.name == $monitor))[0].activeWorkspace.id // empty
-            ' <<< "$monitors"
-          )"
+            previous)
+              MEMBER=Previous
+              ;;
 
-          if [[ "$workspace" == "$passivews" && "$activemonitor" != "$passivemonitor" ]]; then
-            focus_workspace "$workspace"
-            swap_active_workspaces "$activemonitor" "$passivemonitor"
-            focus_workspace "$workspace"
-          else
-            move_workspace_to_monitor "$workspace" "$activemonitor" >/dev/null 2>&1 || true
-            focus_workspace "$workspace"
-          fi
-        '';
-      })
-      # Spotifyd is slow with playerctl, use dbus insted.
-      (pkgs.writeScriptBin "hyprmusic" ''
-        #!/bin/sh
-        set -euo pipefail
-        case "''${1:-}" in
-          next)
-            MEMBER=Next
-            ;;
+            play)
+              MEMBER=Play
+              ;;
 
-          previous)
-            MEMBER=Previous
-            ;;
+            pause)
+              MEMBER=Pause
+              ;;
 
-          play)
-            MEMBER=Play
-            ;;
+            play-pause)
+              MEMBER=PlayPause
+              ;;
 
-          pause)
-            MEMBER=Pause
-            ;;
+            *)
+              echo "Usage: $0 next|previous|play|pause|play-pause"
+              exit 1
+              ;;
 
-          play-pause)
-            MEMBER=PlayPause
-            ;;
+          esac
 
-          *)
-            echo "Usage: $0 next|previous|play|pause|play-pause"
-            exit 1
-            ;;
+          exec dbus-send                                                \
+            --print-reply                                               \
+            --dest="org.mpris.MediaPlayer2.spotify_player" \
+            /org/mpris/MediaPlayer2                                     \
+            "org.mpris.MediaPlayer2.Player.$MEMBER"
+        '')
+        (pkgs.writeScriptBin "hyprtheme" ''
+          #!/bin/sh
+          home-manager switch --flake .
+          pkill ags
+          ags 1>/dev/null 2>&1 &
+          disown ags
+          hyprctl reload
+          pkill -USR2 cava
+        '')
+      ]
+      ++ lib.optional (cfg.sessionMode == "login") hyprGameSubmapd;
 
-        esac
-
-        exec dbus-send                                                \
-          --print-reply                                               \
-          --dest="org.mpris.MediaPlayer2.spotify_player" \
-          /org/mpris/MediaPlayer2                                     \
-          "org.mpris.MediaPlayer2.Player.$MEMBER"
-      '')
-      (pkgs.writeScriptBin "hyprtheme" ''
-        #!/bin/sh
-        home-manager switch --flake .
-        pkill ags
-        ags 1>/dev/null 2>&1 &
-        disown ags
-        hyprctl reload
-        pkill -USR2 cava
-      '')
-      hyprGameSubmapd
-    ];
-
-    systemd.user.services.hypr-game-submapd = {
+    systemd.user.services.hypr-game-submapd = lib.mkIf (cfg.sessionMode == "login") {
       Unit = {
         Description = "Switch Hyprland into the game submap for tagged windows";
         PartOf = [ "graphical-session.target" ];

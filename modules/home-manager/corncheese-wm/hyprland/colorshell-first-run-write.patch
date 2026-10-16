@@ -1,0 +1,36 @@
+--- a/src/modules/utils.ts
++++ b/src/modules/utils.ts
+@@ -30,13 +30,26 @@
+     if(parent && !parent.query_exists(null))
+         parent.make_directory_with_parents(null);
+ 
+-    await file.replace_contents_async(
+-        encoder.encode(contents),
+-        null,
+-        false,
+-        Gio.FileCreateFlags.NONE,
+-        null
+-    );
++    // Config can call this during a circular import, before this module's
++    // encoder and Gio._promisify setup have run. Use call-local state and the
++    // original callback API so first-run settings can be written reliably.
++    await new Promise<void>((resolve, reject) => {
++        file.replace_contents_async(
++            new TextEncoder().encode(contents),
++            null,
++            false,
++            Gio.FileCreateFlags.NONE,
++            null,
++            (source, result) => {
++                try {
++                    source!.replace_contents_finish(result);
++                    resolve();
++                } catch(error) {
++                    reject(error);
++                }
++            }
++        );
++    });
+ }
+ 
+ export const time = createPoll(GLib.DateTime.new_now_local(), 500, () => 

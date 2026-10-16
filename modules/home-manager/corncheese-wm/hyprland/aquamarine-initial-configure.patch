@@ -1,0 +1,65 @@
+--- a/src/backend/Wayland.cpp
++++ b/src/backend/Wayland.cpp
+@@ -1,4 +1,5 @@
+ #include <algorithm>
++#include <poll.h>
+ #include <aquamarine/backend/Wayland.hpp>
+ #include <wayland.hpp>
+ #include <xdg-shell.hpp>
+@@ -182,7 +183,8 @@
+     o->self = o;
+     if (backend->ready)
+         o->swapchain = CSwapchain::create(backend->primaryAllocator, self.lock());
+-    idleCallbacks.emplace_back([this, o]() { backend->events.newOutput.emit(SP<IOutput>(o)); });
++    // Output discovery must run even when the parent has no further events.
++    backend->addIdleEvent(makeShared<std::function<void(void)>>([this, o]() { backend->events.newOutput.emit(SP<IOutput>(o)); }));
+     return true;
+ }
+ 
+@@ -197,10 +199,16 @@
+     wl_display_flush(waylandState.display);
+ 
+     if (wl_display_prepare_read(waylandState.display) == 0) {
+-        wl_display_read_events(waylandState.display);
++        // This function is also called during startup without a readable fd.
++        // Do not block the compositor's event loop waiting for parent traffic.
++        pollfd pfd{.fd = wl_display_get_fd(waylandState.display), .events = POLLIN, .revents = 0};
++        if (poll(&pfd, 1, 0) > 0)
++            wl_display_read_events(waylandState.display);
++        else
++            wl_display_cancel_read(waylandState.display);
+         wl_display_dispatch_pending(waylandState.display);
+     } else
+-        wl_display_dispatch(waylandState.display);
++        wl_display_dispatch_pending(waylandState.display);
+ 
+     int ret = 0;
+     do {
+@@ -523,9 +531,11 @@
+         return;
+     }
+ 
+-    waylandState.xdgSurface->setConfigure([this](CCXdgSurface* r, uint32_t serial) {
++    auto configured = std::make_shared<bool>(false);
++    waylandState.xdgSurface->setConfigure([this, configured](CCXdgSurface* r, uint32_t serial) {
+         backend->backend->log(AQ_LOG_DEBUG, std::format("Output {}: configure surface with {}", name, serial));
+         r->sendAckConfigure(serial);
++        *configured = true;
+     });
+ 
+     waylandState.xdgToplevel = makeShared<CCXdgToplevel>(waylandState.xdgSurface->sendGetToplevel());
+@@ -566,6 +576,14 @@
+     waylandState.surface->sendCommit();
+ 
+     inputRegion->sendDestroy();
++
++    // Do not expose an output to the consumer until the initial xdg configure
++    // has been acknowledged. Hyprland may otherwise submit its first buffer
++    // immediately, violating xdg-shell's unconfigured_buffer rule.
++    while (!*configured) {
++        if (wl_display_dispatch(backend->waylandState.display) < 0)
++            return;
++    }
+ 
+     backend->backend->log(AQ_LOG_DEBUG, std::format("Output {}: initialized", name));
+ }

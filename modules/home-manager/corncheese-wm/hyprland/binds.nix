@@ -54,11 +54,10 @@ in
       (bind (mod "P") (lua "hl.dsp.window.pseudo()"))
 
       # Lock screen
-      (bindExec (mod "Escape") lockCommand)
 
       # Application shortcuts.
-      (bindExec (mod "Return") "ghostty")
-      (bindExec (mod "SHIFT + Return") "ghostty '--title=ghostty-floating'")
+      (bindExec (mod "Return") cfg.terminal)
+      (bindExec (mod "SHIFT + Return") "${cfg.terminal} --title=ghostty-floating")
       (bindExec (mod "F") "chromium")
       (bindExec (mod "T") "thunar")
 
@@ -126,6 +125,7 @@ in
         end
       ''))
     ]
+    ++ lib.optionals (cfg.sessionMode == "login") [ (bindExec (mod "Escape") lockCommand) ]
     ++ lib.optionals colorshellEnabled [
       (bindExec (mod "F5") "colorshell reload")
       (bindExec (mod "Space") "colorshell runner")

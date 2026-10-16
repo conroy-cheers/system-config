@@ -20,7 +20,8 @@ let
       };
     })).overrideAttrs
       (oldAttrs: {
-        src = oldAttrs.src.overrideAttrs {
+        src = oldAttrs.src.overrideAttrs (oldSrc: {
+          patches = (oldSrc.patches or [ ]) ++ [ ./colorshell-first-run-write.patch ];
           # The launcher now sets LD_PRELOAD on the command instead of exporting
           # it. Patch the library path independently of that shell syntax.
           postPatch = ''
@@ -29,9 +30,9 @@ let
               --replace-fail '#!/usr/bin/env -S gjs -m' '#!${lib.getExe pkgs.gjs} -m' \
               --replace-fail '/usr/lib/libgtk4-layer-shell.so' '${pkgs.gtk4-layer-shell}/lib/libgtk4-layer-shell.so'
             substituteInPlace src/modules/wallpaper.ts \
-              --replace-fail '/usr/share/hypr/wall2.png' '${pkgs.hyprland}/share/hypr/wall2.png'
+              --replace-fail '/usr/share/hypr/wall2.png' '${themeDetails.wallpaper}'
           '';
-        };
+        });
 
         # The bundled launcher base64-encodes the generated GJS program, which
         # hides its interpreter store path from Nix's runtime reference scan.
@@ -42,6 +43,15 @@ let
           ln -s ${pkgs.gjs} $out/libexec/gjs
         '';
       });
+  wallpaperConfig = pkgs.writeText "colorshell-theme-hyprpaper.conf" ''
+    splash = false
+    wallpaper {
+      monitor = *
+      path = ${themeDetails.wallpaper}
+      fit_mode = cover
+    }
+  '';
+  wallpaperMarker = pkgs.writeText "colorshell-theme-wallpaper" "${themeDetails.wallpaper}\n";
   colorshellHyprlockTemplate = with config.lib.stylix.colors; ''
     background {
       monitor =
@@ -119,6 +129,8 @@ in
 
     programs.colorshell = {
       package = colorshellPackage;
+      hyprlock.enable = lib.mkIf (cfg.sessionMode == "nested") false;
+      hyprsunset.enable = lib.mkIf (cfg.sessionMode == "nested") false;
       settings = {
         color = {
           engine = "static";
@@ -134,10 +146,46 @@ in
           };
         };
 
+        aliases = {
+          terminal = cfg.terminal;
+          file_manager = "thunar";
+        };
         misc.match_window_border_color = false;
       };
     };
 
-    programs.hyprlock.extraConfig = colorshellHyprlockTemplate;
+    # Colorshell edits hyprpaper.conf itself, so seed a writable config rather
+    # than installing an immutable Home Manager symlink. Follow theme updates
+    # only while the previous theme wallpaper remains selected.
+    home.activation.colorshellWallpaper = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      wallpaper_config=${lib.escapeShellArg "${config.xdg.configHome}/hypr/hyprpaper.conf"}
+      wallpaper_state=${lib.escapeShellArg "${config.xdg.stateHome}/colorshell/theme-wallpaper"}
+      previous_wallpaper=""
+      current_wallpaper=""
+      if [[ -f "$wallpaper_state" ]]; then
+        previous_wallpaper=$(cat "$wallpaper_state")
+      fi
+      if [[ -f "$wallpaper_config" ]]; then
+        current_wallpaper=$(${pkgs.gnused}/bin/sed -n 's/^[[:space:]]*path[[:space:]]*=[[:space:]]*//p' "$wallpaper_config" | head -n 1)
+      fi
+      if [[ ! -L "$wallpaper_config" ]] && {
+        [[ ! -e "$wallpaper_config" ]] ||
+        [[ -n "$previous_wallpaper" && "$current_wallpaper" == "$previous_wallpaper" ]] ||
+        [[ "$current_wallpaper" == "${pkgs.hyprland}/share/hypr/wall2.png" ]];
+      }; then
+        run mkdir -p "$(dirname "$wallpaper_config")" "$(dirname "$wallpaper_state")"
+        run install -m 600 ${wallpaperConfig} "$wallpaper_config"
+        run install -m 600 ${wallpaperMarker} "$wallpaper_state"
+      fi
+    '';
+
+    programs.hyprlock.extraConfig = lib.mkIf (cfg.sessionMode == "login") colorshellHyprlockTemplate;
+
+    # Nested services run in the compositor's private bus/runtime and cgroup.
+    # Keep the shared shell configuration, but disable login-target autostart.
+    systemd.user.services = lib.mkIf (cfg.sessionMode == "nested") {
+      colorshell.Install.WantedBy = lib.mkForce [ ];
+      hyprpaper.Install.WantedBy = lib.mkForce [ ];
+    };
   };
 }

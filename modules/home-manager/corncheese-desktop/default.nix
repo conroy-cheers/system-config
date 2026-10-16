@@ -7,7 +7,10 @@
 }:
 
 {
-  imports = [ ./minecraft-client.nix ];
+  imports = [
+    ./minecraft-client.nix
+    ./terminal.nix
+  ];
 
   options.corncheese.desktop = {
     enable = lib.mkEnableOption "corncheese desktop environment setup";
@@ -26,45 +29,6 @@
           "text/plain" = [ "neovide.desktop" ];
         };
       };
-      xdg.terminal-exec = {
-        enable = true;
-        package = pkgs.xdg-terminal-exec;
-        settings = {
-          Hyprland = [
-            "com.mitchellh.ghostty.desktop"
-          ];
-          default = [
-            "com.mitchellh.ghostty.desktop"
-          ];
-        };
-      };
-      programs.ghostty =
-        let
-          # On macOS, the ghostty package is not available through Nix
-          isAvailable = inputs.ghostty.packages.${pkgs.stdenv.hostPlatform.system} ? "default";
-        in
-        {
-          enable = true;
-          package =
-            if isAvailable then inputs.ghostty.packages.${pkgs.stdenv.hostPlatform.system}.default else null;
-          # enableZshIntegration = true;  # TODO flag or remove
-          enableFishIntegration = true;
-          settings = {
-            keybind = [
-            ];
-            background-blur = config.corncheese.theming.themeDetails.terminalBackgroundBlur or 0;
-            background-opacity =
-              config.corncheese.theming.themeDetails.terminalOpacity
-                or config.corncheese.theming.themeDetails.opacity;
-            background-opacity-cells = config.corncheese.theming.themeDetails.terminalTuiTransparent or false;
-            font-family = [
-              (config.corncheese.theming.themeDetails.terminalFontFamily or "MesloLGM Nerd Font Mono")
-              (config.corncheese.theming.themeDetails.terminalEmojiFontFamily or "Noto Color Emoji")
-            ];
-            font-size = config.corncheese.theming.themeDetails.fontSize;
-          };
-          installBatSyntax = isAvailable;
-        };
 
       home.packages = with pkgs; [
         slack

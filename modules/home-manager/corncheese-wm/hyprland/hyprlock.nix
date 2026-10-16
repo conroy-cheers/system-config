@@ -10,7 +10,7 @@ let
   colorshellEnabled = lib.attrByPath [ "programs" "colorshell" "enable" ] false config;
 in
 {
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf (cfg.enable && cfg.sessionMode == "login") {
     services.hypridle = lib.mkIf (!colorshellEnabled) {
       enable = true;
       settings = {

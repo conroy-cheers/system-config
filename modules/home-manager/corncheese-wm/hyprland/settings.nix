@@ -22,10 +22,12 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    home.packages = with pkgs; [
-      inputs.swww.packages.${pkgs.stdenv.hostPlatform.system}.swww
-      cliphist
-    ];
+    home.packages =
+      with pkgs;
+      [ cliphist ]
+      ++ lib.optionals (cfg.sessionMode == "login") [
+        inputs.swww.packages.${pkgs.stdenv.hostPlatform.system}.swww
+      ];
 
     wayland.windowManager.hyprland.settings = lib.mkMerge [
       {
@@ -43,15 +45,35 @@ in
             "hyprland.start"
             (lua ''
               function()
-                hl.exec_cmd(${builtins.toJSON (lib.getExe waitForPipewire)})
                 hl.exec_cmd("wl-paste --type text --watch cliphist store")
                 hl.exec_cmd("wl-paste --type image --watch cliphist store")
-                hl.exec_cmd("ghostty", { workspace = "1 silent" })
-                hl.exec_cmd("ghostty --title=btop -e btop", { workspace = "2 silent" })
-                hl.exec_cmd("ghostty --title=cava -e cava", { workspace = "2 silent" })
-                hl.exec_cmd(${builtins.toJSON (lib.getExe pkgs.plexamp)}, { workspace = "2 silent" })
-                hl.exec_cmd("slack --ozone-platform=wayland", { workspace = "special silent" })
-                hl.exec_cmd("chromium", { workspace = "special silent" })
+                hl.exec_cmd(${builtins.toJSON cfg.terminal})
+                ${
+                  if cfg.sessionMode == "nested" then
+                    ''
+                      hl.exec_cmd("${pkgs.dbus}/bin/dbus-update-activation-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE")
+                      hl.exec_cmd("${pkgs.xdg-desktop-portal-gtk}/libexec/xdg-desktop-portal-gtk")
+                      hl.exec_cmd("${pkgs.xdg-desktop-portal}/libexec/xdg-desktop-portal")
+                      ${lib.optionalString config.programs.colorshell.enable ''
+                        ${lib.optionalString (!cfg.transparentBackground) ''
+                          hl.exec_cmd(${builtins.toJSON (lib.head (lib.toList config.systemd.user.services.hyprpaper.Service.ExecStart))})
+                        ''}
+                        hl.exec_cmd(${builtins.toJSON (lib.head (lib.toList config.systemd.user.services.colorshell.Service.ExecStart))})
+                      ''}
+                      ${lib.optionalString (!config.programs.colorshell.enable && !cfg.transparentBackground) ''
+                        hl.exec_cmd(${builtins.toJSON "${pkgs.swaybg}/bin/swaybg -i ${themeDetails.wallpaper} -m fill"})
+                      ''}
+                    ''
+                  else
+                    ''
+                      hl.exec_cmd(${builtins.toJSON (lib.getExe waitForPipewire)})
+                      hl.exec_cmd("ghostty --title=btop -e btop", { workspace = "2 silent" })
+                      hl.exec_cmd("ghostty --title=cava -e cava", { workspace = "2 silent" })
+                      hl.exec_cmd(${builtins.toJSON (lib.getExe pkgs.plexamp)}, { workspace = "2 silent" })
+                      hl.exec_cmd("slack --ozone-platform=wayland", { workspace = "special silent" })
+                      hl.exec_cmd("chromium", { workspace = "special silent" })
+                    ''
+                }
               end
             '')
           ];
@@ -141,14 +163,19 @@ in
           };
 
           misc = {
-            background_color = "rgb(${config.lib.stylix.colors.base00})";
+            background_color =
+              if cfg.transparentBackground then
+                lib.mkForce "rgba(00000000)"
+              else
+                "rgb(${config.lib.stylix.colors.base00})";
+            disable_splash_rendering = cfg.transparentBackground;
             disable_hyprland_logo = true;
             force_default_wallpaper = 0;
             vrr = 3;
           };
 
           render = {
-            direct_scanout = true;
+            direct_scanout = !cfg.transparentBackground;
           };
 
           xwayland = {
@@ -317,6 +344,9 @@ in
           sensitivity = -0.5;
         };
       }
+      (lib.mkIf cfg.transparentBackground {
+        config.decoration.blur.enabled = lib.mkForce false;
+      })
       (lib.mkIf cfg.enableFancyEffects {
         config = {
           decoration = {

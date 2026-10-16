@@ -13,7 +13,10 @@ let
     inherit pkgs;
   }) cfg.themeOverrides;
   hasSystemStylix = osConfig != null || darwinConfig != null;
-  useWalbridgePalette = pkgs.stdenv.hostPlatform.isLinux && config.corncheese.wm.enable;
+  useWalbridgePalette =
+    pkgs.stdenv.hostPlatform.isLinux
+    && config.corncheese.wm.enable
+    && config.corncheese.wm.sessionMode == "login";
   walbridgeVisualize =
     inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.walbridge-visualize;
 in
