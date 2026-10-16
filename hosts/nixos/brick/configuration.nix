@@ -35,6 +35,7 @@ in
   imports = [
     ./hardware-configuration.nix
     ./disko.nix
+    ./home-migration.nix
     inputs.impermanence.nixosModules.impermanence
     ./impermanence.nix
     ./network.nix

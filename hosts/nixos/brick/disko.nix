@@ -51,7 +51,7 @@
     disk = {
       nvme1n1 = {
         type = "disk";
-        device = "/dev/nvme1n1";
+        device = "/dev/disk/by-id/nvme-CT1000P310SSD8_25144F85044E";
         content = {
           type = "gpt";
           partitions = {
@@ -93,14 +93,6 @@
                     "-f"
                   ];
                   subvolumes = {
-                    home = {
-                      mountpoint = "/home";
-                      mountOptions = [
-                        "subvol=home"
-                        "compress=zstd"
-                        "noatime"
-                      ];
-                    };
                     nix = {
                       mountpoint = "/nix";
                       mountOptions = [
@@ -140,8 +132,52 @@
           };
         };
       };
+      home = {
+        type = "disk";
+        device = "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_2TB_S59CNZ0NB03852A";
+        content = {
+          type = "gpt";
+          partitions.home = {
+            label = "brick-home";
+            type = "8309";
+            size = "100%";
+            content = {
+              type = "luks";
+              name = "crypthome";
+              # The key lives on cryptroot, so unlock this disk in stage 2.
+              initrdUnlock = false;
+              settings.keyFile = "/persist/keys/brick-home.key";
+              extraOpenArgs = [
+                "--allow-discards"
+                "--perf-no_read_workqueue"
+                "--perf-no_write_workqueue"
+              ];
+              content = {
+                type = "btrfs";
+                extraArgs = [
+                  "-L"
+                  "brick-home"
+                ];
+                subvolumes.home = {
+                  mountpoint = "/home";
+                  mountOptions = [
+                    "compress=zstd"
+                    "noatime"
+                  ];
+                };
+              };
+            };
+          };
+        };
+      };
     };
   };
+
+  # Keep the key out of the Nix store and the unencrypted initrd. /persist is
+  # already mounted by the initrd after the existing cryptroot unlock.
+  environment.etc.crypttab.text = ''
+    crypthome /dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_2TB_S59CNZ0NB03852A-part1 /persist/keys/brick-home.key luks,discard,no-read-workqueue,no-write-workqueue
+  '';
 
   fileSystems."/persist".neededForBoot = true;
   fileSystems."/var/log".neededForBoot = true;
