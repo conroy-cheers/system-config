@@ -19,6 +19,7 @@
     chromium.enable = lib.mkEnableOption "chromium configuration";
     element.enable = lib.mkEnableOption "element configuration";
     media.enable = lib.mkEnableOption "media viewer configuration";
+    media.plezy.package = lib.mkPackageOption pkgs "plezy" { };
   };
 
   config = lib.mkMerge [
@@ -119,8 +120,8 @@
       };
     })
     (lib.mkIf config.corncheese.desktop.media.enable {
-      home.packages = with pkgs; [
-        plezy
+      home.packages = [
+        config.corncheese.desktop.media.plezy.package
       ];
 
       xdg.configFile."plex-mpv-shim/mpv.conf" = {

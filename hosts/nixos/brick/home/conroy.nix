@@ -112,6 +112,7 @@ in
       element.enable = true;
       media = {
         enable = true;
+        plezy.package = pkgs.callPackage ../plezy { };
       };
     };
     shell = {
@@ -142,7 +143,7 @@ in
 
   programs.colorshell.enable = true;
 
-  # Standalone mpv (including Plezy's external-player route) can use gpu-next
+  # Standalone mpv can use gpu-next
   # for HDR-to-SDR tone mapping while the monitor stays in native-gamut SDR.
   programs.mpv.config = {
     vo = "gpu-next";
