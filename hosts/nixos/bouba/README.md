@@ -65,7 +65,12 @@ integration are excluded; Colorshell, hyprpaper and GTK portals run on the priva
 desktop bus. The common terminal module supplies the theme's Nerd Font and emoji
 font without enabling development tools.
 
-The nested Hyprland package uses scoped Aquamarine fixes for protocol negotiation and initial window configuration.
+Bouba selects `corncheese.wm.package` explicitly. The shared WM module does not
+inspect SteamVR settings. Its nested Hyprland package and all Aquamarine patches
+live in system-config; the Frame flake exposes the protocol XML through
+`lib.desktopProtocol`. The package also disables Hyprland's systemd environment,
+target and notification integration, keeping the Frame launcher compositor-neutral.
+The nested package uses scoped Aquamarine fixes for protocol negotiation and initial window configuration.
 Frame's own Mesa, gamescope, SteamVR, audio and login services remain responsible
 for the outer session. The desktop connects directly to Gamescope over Wayland,
 using Frame’s surface metadata protocol and a software cursor.

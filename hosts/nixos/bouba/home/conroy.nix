@@ -1,6 +1,7 @@
 {
   inputs,
   config,
+  pkgs,
   lib,
   ...
 }:
@@ -56,6 +57,16 @@
   corncheese.wm = {
     enable = true;
     sessionMode = "nested";
+    package =
+      pkgs.callPackage ../../../../modules/home-manager/corncheese-wm/hyprland/nested-package.nix
+        {
+          transparent = config.corncheese.wm.transparentBackground;
+          desktopProtocol =
+            if config.programs.steamvr.nestedDesktop.transport == "wayland" then
+              inputs.steam-frame-nixos.lib.desktopProtocol
+            else
+              null;
+        };
     transparentBackground = config.programs.steamvr.nestedDesktop.transparent;
     enableFancyEffects = false;
   };

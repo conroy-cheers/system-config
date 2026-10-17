@@ -16,13 +16,6 @@ let
     if nested then
       pkgs.callPackage ./hyprland/nested-package.nix {
         transparent = cfg.transparentBackground;
-        steamFrameSource =
-          if
-            lib.attrByPath [ "programs" "steamvr" "nestedDesktop" "transport" ] "x11" config == "wayland"
-          then
-            inputs.steam-frame-nixos.outPath
-          else
-            null;
       }
     else
       osConfig.programs.hyprland.package or pkgs.hyprland;
@@ -66,6 +59,11 @@ in
   options = {
     corncheese.wm = {
       enable = mkEnableOption "corncheese window manager setup";
+      package = mkOption {
+        type = lib.types.package;
+        default = hyprlandPackage;
+        description = "Hyprland package used for this desktop session.";
+      };
       sessionMode = mkOption {
         type = lib.types.enum [
           "login"
@@ -159,7 +157,7 @@ in
     wayland.windowManager.hyprland = {
       enable = true;
       configType = "lua";
-      package = hyprlandPackage;
+      package = cfg.package;
       portalPackage = lib.mkIf nested null;
       systemd.enable = !nested;
       plugins = [
@@ -231,7 +229,7 @@ in
         ${builtins.concatStringsSep "\n" (
           builtins.attrValues (builtins.mapAttrs (name: value: ''export ${name}="${value}"'') cfg.environment)
         )}
-        exec ${hyprlandPackage}/bin/start-hyprland
+        exec ${cfg.package}/bin/start-hyprland
       '';
       executable = true;
     };

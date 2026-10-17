@@ -1,0 +1,109 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -112,6 +112,8 @@
+ 
+ protocolwayland()
+ 
++protocolnew("protocols" "steam-frame-desktop-v1" true)
++
+ protocolnew("stable/xdg-shell" "xdg-shell" false)
+ protocolnew("stable/linux-dmabuf" "linux-dmabuf-v1" false)
+ 
+--- a/src/backend/Wayland.cpp
++++ b/src/backend/Wayland.cpp
+@@ -6,6 +6,9 @@
+ #include "FormatUtils.hpp"
+ #include <chrono>
+ #include <cstring>
++#include <unordered_map>
++#include <cstdlib>
++#include <steam-frame-desktop-v1.hpp>
+ #include <xf86drm.h>
+ #include <gbm.h>
+ #include <fcntl.h>
+@@ -17,6 +20,15 @@
+ using namespace Hyprutils::Math;
+ #define SP CSharedPointer
+ 
++// Out-of-line state keeps the installed Aquamarine ABI unchanged.
++struct FrameDesktopState {
++    SP<CCSteamFrameDesktopManagerV1> manager;
++    uint32_t appId = 0, alpha = 0, width = 1280, height = 800;
++    std::string title;
++};
++static std::unordered_map<CWaylandBackend*, FrameDesktopState> frameDesktops;
++
++
+ static std::pair<int, std::string> openExclusiveShm() {
+     // Only absolute paths can be shared across different shm_open() calls
+     srand(time(nullptr));
+@@ -63,6 +75,7 @@
+ 
+ Aquamarine::CWaylandBackend::~CWaylandBackend() {
+     outputs.clear();
++    frameDesktops.erase(this);
+     keyboards.clear();
+     pointers.clear();
+     idleCallbacks.clear();
+@@ -104,6 +117,22 @@
+         return false;
+     }
+ 
++
++    if (getenv("STEAM_FRAME_NATIVE_WAYLAND")) {
++        const auto read = [](const char* key, const char* fallback) {
++            const char* value = getenv(key);
++            return value ? value : fallback;
++        };
++        auto& desktop = frameDesktops[this];
++        desktop.appId = std::strtoul(read("STEAM_FRAME_DESKTOP_APP_ID", "0"), nullptr, 10);
++        desktop.alpha = std::strtoul(read("STEAM_FRAME_DESKTOP_ALPHA", "0"), nullptr, 10);
++        desktop.width = std::strtoul(read("STEAM_FRAME_DESKTOP_WIDTH", "1280"), nullptr, 10);
++        desktop.height = std::strtoul(read("STEAM_FRAME_DESKTOP_HEIGHT", "800"), nullptr, 10);
++        desktop.title = read("STEAM_FRAME_DESKTOP_TITLE", "Desktop");
++        // Do not opt applications launched inside Hyprland into this outer transport.
++        unsetenv("STEAM_FRAME_NATIVE_WAYLAND");
++    }
++
+     auto XDGCURRENTDESKTOP = getenv("XDG_CURRENT_DESKTOP");
+     backend->log(AQ_LOG_DEBUG, std::format("Connected to a wayland compositor: {}", (XDGCURRENTDESKTOP ? XDGCURRENTDESKTOP : "unknown (XDG_CURRENT_DEKSTOP unset?)")));
+ 
+@@ -116,7 +145,10 @@
+ 
+         const std::string NAME = name;
+ 
+-        if (NAME == "wl_seat") {
++        if (NAME == "steam_frame_desktop_manager_v1" && frameDesktops.contains(this)) {
++            frameDesktops.at(this).manager = makeShared<CCSteamFrameDesktopManagerV1>((wl_proxy*)wl_registry_bind(
++                (wl_registry*)waylandState.registry->resource(), id, &steam_frame_desktop_manager_v1_interface, 1));
++        } else if (NAME == "wl_seat") {
+             TRACE(backend->log(AQ_LOG_TRACE, std::format("  > binding to global: {} (version {}) with id {}", name, 9, id)));
+             waylandState.seat = makeShared<CCWlSeat>((wl_proxy*)wl_registry_bind((wl_registry*)waylandState.registry->resource(), id, &wl_seat_interface, 9));
+             initSeat();
+@@ -143,6 +175,10 @@
+     waylandState.registry->setGlobalRemove([this](CCWlRegistry* r, uint32_t id) { backend->log(AQ_LOG_DEBUG, std::format("Global {} removed", id)); });
+ 
+     wl_display_roundtrip(waylandState.display);
++    if (auto it = frameDesktops.find(this); it != frameDesktops.end() && !it->second.manager) {
++        backend->log(AQ_LOG_ERROR, "Native desktop requires Gamescope's steam_frame_desktop_manager_v1 protocol");
++        return false;
++    }
+ 
+     if (!waylandState.xdg || !waylandState.compositor || !waylandState.seat || !waylandState.dmabuf || waylandState.dmabufFailed || !waylandState.shm) {
+         backend->log(AQ_LOG_ERROR, "Wayland backend cannot start: Missing protocols");
+@@ -557,6 +593,15 @@
+ 
+     waylandState.xdgToplevel->sendSetTitle(std::format("aquamarine - {}", name).c_str());
+     waylandState.xdgToplevel->sendSetAppId("aquamarine");
++
++    if (auto it = frameDesktops.find(backend.get()); it != frameDesktops.end()) {
++        auto& desktop = it->second;
++        waylandState.xdgToplevel->sendSetTitle(desktop.title.c_str());
++        waylandState.xdgToplevel->sendSetAppId("org.steam-frame.NestedDesktop");
++        desktop.manager->sendConfigure(waylandState.surface->resource(), desktop.appId,
++            desktop.alpha, desktop.width, desktop.height, desktop.title.c_str());
++    }
++
+ 
+     auto inputRegion = makeShared<CCWlRegion>(backend->waylandState.compositor->sendCreateRegion());
+     inputRegion->sendAdd(0, 0, INT32_MAX, INT32_MAX);

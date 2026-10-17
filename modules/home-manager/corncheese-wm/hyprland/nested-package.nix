@@ -2,7 +2,7 @@
   pkgs,
   enableXWayland ? true,
   transparent ? false,
-  steamFrameSource ? null,
+  desktopProtocol ? null,
 }:
 let
   hyprland = (pkgs.hyprland.override { inherit enableXWayland; }).overrideAttrs (old: {
@@ -21,12 +21,18 @@ let
     '';
   });
   aquamarine =
-    if steamFrameSource == null then
+    if desktopProtocol == null then
       patchedAquamarine
     else
-      pkgs.callPackage "${steamFrameSource}/pkgs/nested-desktop/aquamarine-native.nix" {
-        aquamarine = patchedAquamarine;
-      };
+      patchedAquamarine.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [
+          ./aquamarine-native.patch
+          ./aquamarine-timing.patch
+        ];
+        postPatch = (old.postPatch or "") + ''
+          cp ${desktopProtocol} protocols/steam-frame-desktop-v1.xml
+        '';
+      });
 in
 # The patches preserve the Aquamarine ABI.
 # Scope it to this executable instead of rebuilding/replacing the host desktop.
@@ -43,6 +49,10 @@ pkgs.symlinkJoin {
     makeWrapper ${hyprland}/bin/Hyprland "$out/bin/Hyprland" \
       --set XDG_CURRENT_DESKTOP Hyprland \
       --set XDG_SESSION_TYPE wayland \
+      --unset HYPRLAND_INSTANCE_SIGNATURE \
+      --set HYPRLAND_NO_SD_VARS 1 \
+      --set HYPRLAND_NO_SD_TARGET 1 \
+      --set HYPRLAND_NO_SD_NOTIFY 1 \
       --prefix LD_LIBRARY_PATH : ${aquamarine}/lib
   '';
 }

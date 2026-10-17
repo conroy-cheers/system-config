@@ -1,0 +1,148 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -114,6 +114,8 @@
+ 
+ protocolnew("protocols" "steam-frame-desktop-v1" true)
+ 
++protocolnew("stable/presentation-time" "presentation-time" false)
++
+ protocolnew("stable/xdg-shell" "xdg-shell" false)
+ protocolnew("stable/linux-dmabuf" "linux-dmabuf-v1" false)
+ 
+--- a/src/backend/Wayland.cpp
++++ b/src/backend/Wayland.cpp
+@@ -9,6 +9,7 @@
+ #include <unordered_map>
+ #include <cstdlib>
+ #include <steam-frame-desktop-v1.hpp>
++#include <presentation-time.hpp>
+ #include <xf86drm.h>
+ #include <gbm.h>
+ #include <fcntl.h>
+@@ -23,10 +24,33 @@
+ // Out-of-line state keeps the installed Aquamarine ABI unchanged.
+ struct FrameDesktopState {
+     SP<CCSteamFrameDesktopManagerV1> manager;
++    SP<CCWlOutput> parentOutput;
++    SP<CCWpPresentation> presentation;
++    uint32_t refresh = 0;
++    uint32_t clock = UINT32_MAX;
++    std::unordered_map<CWaylandOutput*, std::vector<SP<CCWpPresentationFeedback>>> feedbacks;
+     uint32_t appId = 0, alpha = 0, width = 1280, height = 800;
+     std::string title;
+ };
+ static std::unordered_map<CWaylandBackend*, FrameDesktopState> frameDesktops;
++
++static void updateFrameRefresh(CWaylandBackend* backend, uint32_t refresh, CBackend* core, const std::vector<SP<CWaylandOutput>>& outputs) {
++    auto& desktop = frameDesktops.at(backend);
++    if (!refresh || refresh == desktop.refresh)
++        return;
++    desktop.refresh = refresh;
++    core->log(AQ_LOG_DEBUG, std::format("Native desktop parent refresh: {} mHz", refresh));
++    for (auto& output : outputs) {
++        output->modes = {makeShared<SOutputMode>(SOutputMode{
++            .pixelSize = {static_cast<int>(desktop.width), static_cast<int>(desktop.height)}, .refreshRate = refresh, .preferred = true})};
++        // Reapply the preferred mode outside protocol event dispatch.
++        core->addIdleEvent(makeShared<std::function<void(void)>>([weak = output->self]() {
++            if (auto output = weak.lock())
++                output->events.state.emit(IOutput::SStateEvent{});
++        }));
++    }
++}
++
+ 
+ 
+ static std::pair<int, std::string> openExclusiveShm() {
+@@ -145,7 +169,20 @@
+ 
+         const std::string NAME = name;
+ 
+-        if (NAME == "steam_frame_desktop_manager_v1" && frameDesktops.contains(this)) {
++        if (NAME == "wl_output" && frameDesktops.contains(this) && !frameDesktops.at(this).parentOutput) {
++            auto& desktop = frameDesktops.at(this);
++            desktop.parentOutput = makeShared<CCWlOutput>((wl_proxy*)wl_registry_bind(
++                (wl_registry*)waylandState.registry->resource(), id, &wl_output_interface, std::min(version, 4u)));
++            desktop.parentOutput->setMode([this](CCWlOutput*, uint32_t flags, int32_t, int32_t, int32_t refresh) {
++                if ((flags & WL_OUTPUT_MODE_CURRENT) && refresh > 0)
++                    updateFrameRefresh(this, refresh, backend.get(), outputs);
++            });
++        } else if (NAME == "wp_presentation" && frameDesktops.contains(this)) {
++            auto& desktop = frameDesktops.at(this);
++            desktop.presentation = makeShared<CCWpPresentation>((wl_proxy*)wl_registry_bind(
++                (wl_registry*)waylandState.registry->resource(), id, &wp_presentation_interface, 1));
++            desktop.presentation->setClockId([this](CCWpPresentation*, uint32_t clock) { frameDesktops.at(this).clock = clock; });
++        } else if (NAME == "steam_frame_desktop_manager_v1" && frameDesktops.contains(this)) {
+             frameDesktops.at(this).manager = makeShared<CCSteamFrameDesktopManagerV1>((wl_proxy*)wl_registry_bind(
+                 (wl_registry*)waylandState.registry->resource(), id, &steam_frame_desktop_manager_v1_interface, 1));
+         } else if (NAME == "wl_seat") {
+@@ -185,6 +222,13 @@
+         return false;
+     }
+ 
++    // Receive initial output mode and presentation clock before advertising our output.
++    wl_display_roundtrip(waylandState.display);
++    if (auto it = frameDesktops.find(this); it != frameDesktops.end() &&
++        (!it->second.refresh || !it->second.presentation || it->second.clock != CLOCK_MONOTONIC)) {
++        backend->log(AQ_LOG_ERROR, "Native desktop requires parent refresh and monotonic presentation feedback");
++        return false;
++    }
+     dispatchEvents();
+ 
+     createOutput();
+@@ -596,6 +640,8 @@
+ 
+     if (auto it = frameDesktops.find(backend.get()); it != frameDesktops.end()) {
+         auto& desktop = it->second;
++        modes = {makeShared<SOutputMode>(SOutputMode{
++            .pixelSize = {static_cast<int>(desktop.width), static_cast<int>(desktop.height)}, .refreshRate = desktop.refresh, .preferred = true})};
+         waylandState.xdgToplevel->sendSetTitle(desktop.title.c_str());
+         waylandState.xdgToplevel->sendSetAppId("org.steam-frame.NestedDesktop");
+         desktop.manager->sendConfigure(waylandState.surface->resource(), desktop.appId,
+@@ -616,6 +662,8 @@
+ }
+ 
+ Aquamarine::CWaylandOutput::~CWaylandOutput() {
++    if (auto it = frameDesktops.find(backend.get()); it != frameDesktops.end())
++        it->second.feedbacks.erase(this);
+     events.destroy.emit();
+     // frameIdle captures a raw this and may still be queued; pull it before we die.
+     backend->backend->removeIdleEvent(frameIdle);
+@@ -716,6 +764,28 @@
+ 
+     waylandState.surface->sendAttach(wlBuffer->waylandState.buffer.get(), 0, 0);
+     waylandState.surface->sendDamageBuffer(0, 0, INT32_MAX, INT32_MAX);
++
++    if (auto it = frameDesktops.find(backend.get()); it != frameDesktops.end()) {
++        auto& desktop = it->second;
++        auto feedback = makeShared<CCWpPresentationFeedback>(desktop.presentation->sendFeedback(waylandState.surface->resource()));
++        desktop.feedbacks[this].push_back(feedback);
++        feedback->setPresented([this](CCWpPresentationFeedback* feedback, uint32_t secHi, uint32_t secLo,
++                                      uint32_t nsec, uint32_t refresh, uint32_t seqHi, uint32_t seqLo, uint32_t flags) {
++            timespec when{.tv_sec = static_cast<time_t>((uint64_t(secHi) << 32) | secLo), .tv_nsec = static_cast<long>(nsec)};
++            // The parent provides cadence estimates, not guaranteed physical scanout.
++            // Do not claim zero-copy or hardware completion for our nested composition.
++            events.present.emit(IOutput::SPresentEvent{.presented = true, .when = &when, .seq = seqLo,
++                .refresh = static_cast<int>(refresh), .flags = flags & (AQ_OUTPUT_PRESENT_VSYNC | AQ_OUTPUT_PRESENT_HW_CLOCK)});
++            if (refresh)
++                updateFrameRefresh(backend.get(), static_cast<uint32_t>((1'000'000'000'000ULL + refresh / 2) / refresh), backend->backend.get(), backend->outputs);
++            std::erase_if(frameDesktops.at(backend.get()).feedbacks[this], [feedback](const auto& p) { return p.get() == feedback; });
++        });
++        feedback->setDiscarded([this](CCWpPresentationFeedback* feedback) {
++            // A discarded submission was never presented. Frame callbacks
++            // independently keep the renderer moving; do not invent a timestamp.
++            std::erase_if(frameDesktops.at(backend.get()).feedbacks[this], [feedback](const auto& p) { return p.get() == feedback; });
++        });
++    }
+ 
+     // Register the next wl_surface.frame callback as part of this commit's pending state,
+     // but only if one isn't already pending. A consumer that commits twice in quick
+@@ -783,7 +853,8 @@
+ 
+     CFrameRunningGuard frameRunning(sched);
+ 
+-    events.present.emit(IOutput::SPresentEvent{.presented = true});
++    if (!frameDesktops.contains(backend.get()))
++        events.present.emit(IOutput::SPresentEvent{.presented = true});
+ 
+     sched.frameReady.emit();
+ }
