@@ -49,7 +49,9 @@ in
     }
     (lib.mkIf cfg.enable {
       corncheese.theming.themeDetails = themeDetails;
+      fonts.fontconfig.enable = lib.mkIf pkgs.stdenv.hostPlatform.isLinux true;
 
+      # Integrated homes inherit Stylix fonts from NixOS/nix-darwin.
       stylix =
         lib.optionalAttrs (!hasSystemStylix) {
           enable = true;
@@ -70,7 +72,7 @@ in
             desktop = themeDetails.opacity;
             popups = themeDetails.opacity;
           };
-          fonts.sizes.terminal = themeDetails.fontSize;
+          fonts = themeDetails.fonts;
         }
         // {
           targets = {

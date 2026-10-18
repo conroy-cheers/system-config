@@ -53,9 +53,6 @@
 
   programs.fish.enable = true;
 
-  # Fonts
-  fonts.packages = with pkgs; [ nerd-fonts.meslo-lg ];
-
   # Keyboard
   system.keyboard.enableKeyMapping = true;
   system.keyboard.remapCapsLockToEscape = false;

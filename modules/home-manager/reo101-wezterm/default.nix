@@ -1,6 +1,5 @@
 {
   lib,
-  pkgs,
   config,
   ...
 }:
@@ -24,15 +23,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages =
-      with pkgs;
-      builtins.concatLists [
-        [
-          wezterm
-          nerd-fonts.fira-code
-        ]
-      ];
-
     programs.wezterm = {
       enable = true;
       extraConfig = builtins.concatStringsSep "\n" [

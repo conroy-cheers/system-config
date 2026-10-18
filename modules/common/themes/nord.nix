@@ -1,9 +1,9 @@
+{ pkgs, ... }:
 {
   themeName = "nord";
   wallpaper = ../non-nix/wallpapers/green.jpg;
   override = null;
-  terminalFontFamily = "MesloLGM Nerd Font Mono";
-  terminalEmojiFontFamily = "Noto Color Emoji";
+  fonts = import ../corncheese-themes/fonts.nix { inherit pkgs; };
 
   # Override stylix theme of btop.
   btopTheme = "nord";

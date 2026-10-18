@@ -39,19 +39,9 @@
             config.corncheese.theming.themeDetails.terminalOpacity
               or config.corncheese.theming.themeDetails.opacity;
           background-opacity-cells = config.corncheese.theming.themeDetails.terminalTuiTransparent or false;
-          font-family = lib.mkForce [
-            (config.corncheese.theming.themeDetails.terminalFontFamily or "MesloLGM Nerd Font Mono")
-            (config.corncheese.theming.themeDetails.terminalEmojiFontFamily or "Noto Color Emoji")
-          ];
-          font-size = config.corncheese.theming.themeDetails.fontSize;
         };
         installBatSyntax = isAvailable;
       };
 
-    fonts.fontconfig.enable = lib.mkIf pkgs.stdenv.hostPlatform.isLinux true;
-    home.packages = [
-      config.corncheese.theming.themeDetails.fontPkg
-      pkgs.noto-fonts-color-emoji
-    ];
   };
 }

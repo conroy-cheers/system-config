@@ -51,12 +51,7 @@ in
         desktop = cfg.themeDetails.opacity;
         popups = cfg.themeDetails.opacity;
       };
-      fonts = {
-        sizes = {
-          applications = 10;
-          terminal = 11;
-        };
-      };
+      fonts = lib.recursiveUpdate themeDetails.fonts { sizes.applications = 10; };
 
       targets.nixvim.enable = lib.mkIf (cfg.theme != null) false;
 

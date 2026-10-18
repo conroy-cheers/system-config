@@ -7,9 +7,6 @@
 ;;; Font Options ;;;
 ;;;;;;;;;;;;;;;;;;;;
 
-(set config.font
-     (wezterm.font "FiraCode Nerd Font Mono"))
-
 (set config.harfbuzz_features
      [:liga
       :cv02 :cv19 :cv25 :cv26 :cv28 :cv30 :cv32

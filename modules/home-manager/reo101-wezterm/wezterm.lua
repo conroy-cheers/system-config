@@ -2,11 +2,6 @@ local M = {}
 
 local wezterm = require("wezterm")
 
-----------
--- Font --
-----------
-M.font = wezterm.font("FiraCode Nerd Font Mono")
-
 ------------------
 -- Font options --
 ------------------

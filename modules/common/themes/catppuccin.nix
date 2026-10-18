@@ -11,11 +11,7 @@
   overrideBtop = true;
   btopTheme = "catppuccin";
 
-  font = "Meslo LG";
-  fontPkg = pkgs.nerd-fonts.meslo-lg;
-  fontSize = 11;
-  terminalFontFamily = "MesloLGM Nerd Font Mono";
-  terminalEmojiFontFamily = "Noto Color Emoji";
+  fonts = import ../corncheese-themes/fonts.nix { inherit pkgs; };
 
   wallpaper = pkgs.corncheese-wallpapers.paths.green;
 

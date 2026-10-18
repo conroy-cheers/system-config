@@ -38,10 +38,7 @@ in
   config = lib.mkIf cfg.enable {
     corncheese.theming.themeDetails = themeDetails;
 
-    fonts = {
-      fontconfig.enable = true;
-      packages = [ config.stylix.fonts.monospace.package ];
-    };
+    fonts.fontconfig.enable = true;
 
     stylix = {
       enable = true;
@@ -62,7 +59,7 @@ in
         desktop = cfg.themeDetails.opacity;
         popups = cfg.themeDetails.opacity;
       };
-      fonts.sizes.terminal = themeDetails.fontSize;
+      fonts = themeDetails.fonts;
       cursor = lib.mkIf useWalbridgePalette {
         package = pkgs.catppuccin-cursors.mochaLavender;
         name = "catppuccin-mocha-lavender-cursors";

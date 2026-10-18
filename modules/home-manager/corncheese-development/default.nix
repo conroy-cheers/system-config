@@ -441,8 +441,7 @@ in
             "git.enableSmartCommit" = true;
 
             # Theming
-            "editor.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
-            "terminal.integrated.fontFamily" = lib.mkForce "MesloLGM Nerd Font Mono";
+            "terminal.integrated.fontFamily" = config.stylix.fonts.monospace.name;
             "workbench.iconTheme" = "catppuccin-mocha";
 
             # C++
@@ -892,7 +891,6 @@ in
           pklPackage
           pyright
 
-          nerd-fonts.meslo-lg
           nodejs-slim
           tmux
           claude-code-wrapped

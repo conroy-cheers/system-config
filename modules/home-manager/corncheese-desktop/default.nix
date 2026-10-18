@@ -68,10 +68,6 @@
           vsync = true;
           wsl = false;
 
-          font = {
-            normal = [ "MesloLGM Nerd Font Mono" ];
-            # size = 12.0;
-          };
         };
       };
 
