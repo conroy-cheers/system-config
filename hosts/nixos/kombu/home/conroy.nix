@@ -27,6 +27,7 @@ in
   corncheese = {
     development = {
       enable = true;
+      codexDesktop.enable = true;
       electronics = {
         enable = true;
       };

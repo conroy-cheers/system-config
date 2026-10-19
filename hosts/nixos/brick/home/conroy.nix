@@ -66,6 +66,7 @@ in
   corncheese = {
     development = {
       enable = true;
+      codexDesktop.enable = true;
       electronics = {
         enable = true;
       };
@@ -73,7 +74,6 @@ in
       audio.enable = true;
       jetbrains = {
         enable = true;
-        # clion.versionOverride = "2023.2.5";
       };
       rust.enable = false;
       vscode.enable = true;
@@ -138,8 +138,6 @@ in
   andromeda = {
     development.enable = true;
   };
-
-  corncheese.development.codexDesktop.enable = true;
 
   programs.colorshell.enable = true;
 
