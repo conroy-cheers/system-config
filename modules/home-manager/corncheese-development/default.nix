@@ -64,7 +64,18 @@ let
         enabled = false;
       }
     ];
-    tui.pet = "rocky";
+    tui = {
+      pet = "rocky";
+      status_line = [
+        "model-with-reasoning"
+        "current-dir"
+        "git-branch"
+        "weekly-limit"
+        "context-used"
+        "context-window-size"
+        "daybreak"
+      ];
+    };
   };
   codexRemovedNixMcpServers = [
     "atlassian"

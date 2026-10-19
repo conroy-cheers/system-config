@@ -126,11 +126,20 @@ let
         enabled = false;
       }
     ];
-    model = "gpt-5.6-sol";
     model_provider = "llmgateway";
     model_reasoning_effort = "high";
     personality = "pragmatic";
-    tui.pet = "stacky";
+    tui = {
+      pet = "stacky";
+      status_line = [
+        "model-with-reasoning"
+        "current-dir"
+        "git-branch"
+        "pull-request-number"
+        "context-used"
+        "context-window-size"
+      ];
+    };
 
     features.multi_agent_v2.tool_namespace = "agents";
 
