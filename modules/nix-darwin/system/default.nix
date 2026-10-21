@@ -119,7 +119,15 @@ in
           ++ [
             { app = "/System/Applications/System\ Settings.app"; }
           ];
-          persistent-others = [ "/Users/${config.system.primaryUser}/Downloads" ];
+          persistent-others = [
+            {
+              folder = {
+                path = "/Users/${config.system.primaryUser}/Downloads";
+                showas = "fan";
+                arrangement = "date-added";
+              };
+            }
+          ];
         };
 
         finder = {
