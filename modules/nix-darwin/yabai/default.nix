@@ -301,6 +301,8 @@ in
             right_padding = 5;
             window_gap = 8;
             # menubar_opacity = 0.0;
+            window_animation_duration = 0.15;
+            window_animation_easing = "ease_out_quint";
           };
           extraConfig = ''
             ${lib.getExe applySketchybarPadding}
