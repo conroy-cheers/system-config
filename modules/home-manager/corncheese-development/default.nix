@@ -643,7 +643,7 @@ in
           statusline = {
             lualine = {
               enable = true;
-              setupOpts.options.theme = lib.mkForce "catppuccin";
+              setupOpts.options.theme = lib.mkForce "catppuccin-mocha";
               integrations.breadcrumbs = {
                 nvim-navic.enable = true;
                 navbuddy.enable = true;
@@ -785,7 +785,7 @@ in
               cmp.enable = false;
             };
             codecompanion-nvim.enable = false;
-            avante-nvim.enable = true;
+            avante-nvim.enable = false;
           };
 
           session = {
