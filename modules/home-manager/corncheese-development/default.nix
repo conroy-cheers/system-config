@@ -513,6 +513,8 @@ in
           viAlias = true;
           vimAlias = true;
 
+          globals.neovide_normal_opacity = themeDetails.terminalOpacity or themeDetails.opacity or 1.0;
+
           clipboard = {
             enable = true;
             registers = "unnamedplus";
