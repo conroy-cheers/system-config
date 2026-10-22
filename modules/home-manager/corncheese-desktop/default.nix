@@ -41,6 +41,16 @@
 
       programs.neovide = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
         enable = true;
+        package = pkgs.neovide.overrideAttrs (old: {
+          # Neovim 0.13 adds optional fields to API parameter metadata.
+          # Backport the upstream parser fix until the next Neovide release.
+          patches = (old.patches or [ ]) ++ [
+            (pkgs.fetchurl {
+              url = "https://github.com/neovide/neovide/commit/7af518d72c33907b57d3a6c54c67969857a13871.patch";
+              hash = "sha256-cW/6J/Cv8SAZxUszMdSbI94YYYa18cGxScGBS0vGQfw=";
+            })
+          ];
+        });
         settings = {
           fork = false;
           frame = "full";
