@@ -281,7 +281,6 @@ in
     programs.chatgpt.enable = true;
     programs.chatgpt.profiles.andromeda = {
       settings = codexAndromedaSettings;
-      extraPackages = lib.mkAfter [ pkgs.azure-cli ];
       activationScript = "${installHerdrCodexAndromedaIntegration}";
       desktop = {
         name = "ChatGPT Andromeda";
