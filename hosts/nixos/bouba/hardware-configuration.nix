@@ -2,6 +2,7 @@
 {
   hardware.steam-frame = {
     enable = true;
+    dsp.remoteproc.enable = true;
     allowUnfreeHardwareSupport = true;
     layout = "nixos-only";
     storage.enable = true;

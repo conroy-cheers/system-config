@@ -1,8 +1,9 @@
 # bouba
 
 Valve Steam Frame, using the hardware and session modules from
-`steam-frame-nixos`. The shared Nixpkgs lock matches that repo's validated
-`151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4` revision.
+`steam-frame-nixos`. The live-tested Nixpkgs revision is
+`151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`; use the override below to retain
+that stack when the shared lock advances for other hosts.
 
 The session and Home Manager run as `conroy` (UID 1000), with `/home/conroy`.
 The common shell module supplies Fish, Starship, direnv, zoxide and local Atuin
@@ -17,6 +18,38 @@ Btrfs subvolumes, and preservation for machine identity, SSH and Wi-Fi profiles.
 No partition provisioning is needed. The existing loader A enters the generation
 menu; rebuilds publish a new catalog without rewriting firmware environment.
 An SSH-first recovery configuration is included in the menu.
+
+Console palette theming is disabled: Valve U-Boot's extlinux `APPEND` buffer is
+512 bytes including its terminating NUL, and Stylix's three VT palettes made
+Bouba's lines exceed it. The symptom was a dim logo while U-Boot rejected each
+entry with `bootarg overflow`; Linux had not started. Application theming stays
+enabled. To capture early boot over USB, power on while holding Volume Down +
+Select/Aux (release Power first). This enables the USB ACM console with a
+20-second boot delay. The pinned SSH-first recovery also provides the setup AP.
+
+Recovery on 2026-10-17 republished the existing generations with only the VT
+palette arguments omitted, retaining recovery and independent RAM rescue.
+An ordinary reboot selected the intended default, boot acknowledgement and
+retention succeeded, no system units failed, and SteamVR was confirmed working.
+Saved loader environments and firmware hashes were unchanged.
+
+Kernel-owned CDSP loading is enabled with
+`hardware.steam-frame.dsp.remoteproc.enable`. Live testing on 2026-10-17 booted
+the patched kernel, verified the system firmware and remoteproc state, passed
+three complete session/DSP restart cycles, and resumed from RTC-timed deep
+sleep. The user reports head and controller tracking working well. Gaze,
+passthrough and audible audio still need physical validation. Stop/start tests
+should use the full
+`steam-frame-session.service` before cycling `steam-frame-tracking-dsp.service`.
+The tested graphics/kernel dependency stack uses Nixpkgs
+`151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`; the shared root lock currently differs.
+To reproduce this test while the Frame changes are local:
+
+```sh
+nix develop -c deploy .#bouba --skip-checks --boot -- \
+  --override-input steam-frame-nixos ~/src/steam-frame-nixos \
+  --override-input nixpkgs github:NixOS/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4
+```
 
 `deploy.nix` embeds deploy-rs activation helpers directly into the NixOS
 toplevel. The host generator uses `system.build.deploy` when supplied, keeping

@@ -25,6 +25,9 @@ in
     enable = true;
     theme = "catppuccin";
   };
+  # Valve's U-Boot extlinux parser has a 512-byte APPEND buffer. The three
+  # VT colour palettes exceed it once the Frame boot handoff is included.
+  stylix.targets.console.enable = false;
   nix.registry = lib.mkForce { };
   nix.nixPath = lib.mkForce [ ];
   nix.settings.trusted-users = [
