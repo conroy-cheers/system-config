@@ -33,6 +33,14 @@ final: prev: {
     nix-output-monitor = final.nix-output-monitor;
   };
 
+  udiskie = prev.udiskie.overrideAttrs (oldAttrs: {
+    postPatch = (oldAttrs.postPatch or "") + ''
+      # Keyring IDs are binary data; .value truncates them at the first NUL.
+      substituteInPlace udiskie/keyutils.py \
+        --replace-fail 'return buffer.value' 'return buffer.raw[:ret]'
+    '';
+  });
+
   klipper-firmware = prev.klipper-firmware.overrideAttrs (oldAttrs: {
     postPatch = (oldAttrs.postPatch or "") + ''
       echo "${oldAttrs.version}-NixOS" > klippy/.version
