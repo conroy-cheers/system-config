@@ -1,0 +1,124 @@
+--- a/muse/framework/extensions/extensionstypes.h
++++ b/muse/framework/extensions/extensionstypes.h
+@@ -85,32 +85,32 @@
+     return shortcuts::CTX_PROJECT_OPENED;
+ }
+ 
+-enum class Type {
++enum class ExtensionType {
+     Undefined = 0,
+     Form,       // Have UI, controls, user interaction
+     Macros,     // Without UI, they just do some script
+     Composite   // Composite with some UI and script
+ };
+ 
+-static inline Type typeFromString(const std::string& str)
++static inline ExtensionType typeFromString(const std::string& str)
+ {
+     if (str == "form") {
+-        return Type::Form;
++        return ExtensionType::Form;
+     } else if (str == "macros") {
+-        return Type::Macros;
++        return ExtensionType::Macros;
+     } else if (str == "composite") {
+-        return Type::Composite;
+-    }
+-    return Type::Undefined;
+-}
+-
+-static inline std::string typeToString(const Type& type)
++        return ExtensionType::Composite;
++    }
++    return ExtensionType::Undefined;
++}
++
++static inline std::string typeToString(const ExtensionType& type)
+ {
+     switch (type) {
+-    case Type::Undefined: return "undefined";
+-    case Type::Form: return "form";
+-    case Type::Macros: return "macros";
+-    case Type::Composite: return "composite";
++    case ExtensionType::Undefined: return "undefined";
++    case ExtensionType::Form: return "form";
++    case ExtensionType::Macros: return "macros";
++    case ExtensionType::Composite: return "composite";
+     }
+     return std::string();
+ }
+@@ -137,7 +137,7 @@
+ 
+ struct Action {
+     std::string code;
+-    Type type = Type::Undefined;
++    ExtensionType type = ExtensionType::Undefined;
+     bool modal = DEFAULT_MODAL;
+     String title;
+     ui::IconCode::Code icon = ui::IconCode::Code::NONE;
+@@ -153,7 +153,7 @@
+         ExecPointName execPoint = EXEC_DISABLED;
+     };
+ 
+-    bool isValid() const { return type != Type::Undefined && !code.empty(); }
++    bool isValid() const { return type != ExtensionType::Undefined && !code.empty(); }
+ };
+ 
+ inline actions::ActionQuery makeActionQueryBase(const Uri& uri)
+@@ -224,7 +224,7 @@
+ 
+     Uri uri;
+     io::path_t path;
+-    Type type = Type::Undefined;
++    ExtensionType type = ExtensionType::Undefined;
+     String title;
+     String description;
+     String category;
+@@ -240,7 +240,7 @@
+ 
+     Config config;
+ 
+-    bool isValid() const { return type != Type::Undefined && uri.isValid(); }
++    bool isValid() const { return type != ExtensionType::Undefined && uri.isValid(); }
+ 
+     bool enabled() const
+     {
+--- a/muse/framework/extensions/internal/extensionsprovider.cpp
++++ b/muse/framework/extensions/internal/extensionsprovider.cpp
+@@ -148,14 +148,14 @@
+ {
+     Action a = action(uri);
+     switch (a.type) {
+-    case Type::Form: {
++    case ExtensionType::Form: {
+         UriQuery q = uri;
+         if (!q.contains("modal")) {
+             q.addParam("modal", Val(a.modal));
+         }
+         return interactive()->openSync(q).ret;
+     } break;
+-    case Type::Macros:
++    case ExtensionType::Macros:
+         return run(uri);
+     default:
+         break;
+--- a/muse/framework/extensions/internal/legacy/extpluginsloader.cpp
++++ b/muse/framework/extensions/internal/legacy/extpluginsloader.cpp
+@@ -159,7 +159,7 @@
+ 
+     Manifest m;
+     m.uri = makeUri(rootPath, path);
+-    m.type = Type::Macros;
++    m.type = ExtensionType::Macros;
+     m.apiversion = 1;
+     m.legacyPlugin = true;
+ 
+@@ -237,7 +237,7 @@
+         } else if (line.startsWith(u"pluginType:")) {
+             String pluginType = dropQuotes(line.mid(11).trimmed());
+             if (pluginType == "dialog" || pluginType == "dock") {
+-                m.type = Type::Form;
++                m.type = ExtensionType::Form;
+             }
+             ++propertiesFound;
+         } else if (line.startsWith(u"categoryCode:")) {

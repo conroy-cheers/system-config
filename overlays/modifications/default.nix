@@ -46,6 +46,11 @@ final: prev: {
     makeWrapperArgs = prev.lib.concatMap (prev.lib.splitString " ") oldAttrs.makeWrapperArgs;
   });
 
+  audacity = prev.audacity.overrideAttrs (oldAttrs: {
+    # Avoid a collision with Qt 6.12's generated QML validation Type.
+    patches = (oldAttrs.patches or [ ]) ++ [ ./audacity-extension-type.patch ];
+  });
+
   klipper-firmware = prev.klipper-firmware.overrideAttrs (oldAttrs: {
     postPatch = (oldAttrs.postPatch or "") + ''
       echo "${oldAttrs.version}-NixOS" > klippy/.version
