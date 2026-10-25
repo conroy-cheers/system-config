@@ -82,13 +82,6 @@ let
       pkgs.zlib
     ];
   };
-  installHerdrIntegrations = pkgs.writeShellScript "install-herdr-integrations" ''
-    export HOME=${lib.escapeShellArg config.home.homeDirectory}
-
-    ${pkgs.coreutils}/bin/mkdir -p "$HOME/.claude"
-    ${lib.getExe herdrPackage} integration install claude
-  '';
-
   onePasswordSocket =
     if pkgs.stdenv.hostPlatform.isDarwin then
       "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
@@ -124,58 +117,6 @@ let
       url = "https://github.com/apple/pkl-vscode/releases/download/${mktplcRef.version}/pkl-vscode-${mktplcRef.version}.vsix";
       sha256 = "sha256:0jgbsxllqd1vhqzd83vv7bjg2hb951hqg6wflxxxalxvj4zlni79";
     };
-  };
-
-  claude-code-wrapped = pkgs.symlinkJoin {
-    name = "claude-code-wrapped";
-    paths = [ inputs.llm-agents.packages.${meta.system}.claude-code ];
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-
-    postBuild = ''
-      wrapProgram $out/bin/claude \
-        --add-flags --dangerously-skip-permissions \
-        --prefix PATH : ${
-          lib.makeBinPath (
-            with pkgs;
-            [
-              gh
-              jq
-              yq
-              curl
-              python3
-              openssl
-              ripgrep
-              fd
-              dig
-              tree
-              file
-              xxd
-              bc
-              sqlite
-              envsubst
-              gnutar
-              gzip
-              unzip
-              zstd
-              shellcheck
-              findutils
-              diffutils
-              patch
-              nix-diff
-              lsof
-              gnused
-              gawk
-
-              nmap
-              tcpdump
-              socat
-              netcat
-              curl
-              wget2
-            ]
-          )
-        }
-    '';
   };
 in
 {
@@ -231,6 +172,14 @@ in
         experimental.kitty_graphics = true;
       };
     };
+    programs.claude = {
+      enable = true;
+      profiles.default = {
+        extraArgs = [ "--dangerously-skip-permissions" ];
+        activationScript = "${lib.getExe herdrPackage} integration install claude";
+      };
+    };
+
     programs.chatgpt.enable = true;
     programs.chatgpt.profiles.default = {
       settings = codexSettings;
@@ -729,10 +678,6 @@ in
       '';
     };
 
-    home.activation.installHerdrIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      ${installHerdrIntegrations}
-    '';
-
     home.packages =
       with pkgs;
       builtins.concatLists [
@@ -752,7 +697,6 @@ in
 
           nodejs-slim
           tmux
-          claude-code-wrapped
           deepseekRefresh
           ccusage
 

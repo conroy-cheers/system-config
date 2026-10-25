@@ -27,7 +27,6 @@ in
   corncheese = {
     development = {
       enable = true;
-      codexDesktop.enable = true;
       electronics = {
         enable = true;
       };
@@ -85,6 +84,11 @@ in
   };
   andromeda = {
     development.enable = true;
+  };
+
+  programs.chatgpt.profiles = {
+    default.desktop.enable = true;
+    andromeda.desktop.enable = true;
   };
 
   programs.colorshell.enable = true;

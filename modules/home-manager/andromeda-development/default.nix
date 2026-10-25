@@ -210,20 +210,6 @@ let
       pr = "";
     };
   };
-  claudeSettingsFile = "${config.home.homeDirectory}/.claude/settings.json";
-  claudeSettingsSource = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
-  mergeClaudeSettings = pkgs.writeShellScript "merge-claude-settings" ''
-    ${pkgs.coreutils}/bin/mkdir -p "${config.home.homeDirectory}/.claude"
-
-    if [ -f "${claudeSettingsFile}" ]; then
-      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' \
-        "${claudeSettingsFile}" \
-        "${claudeSettingsSource}" \
-        > "${claudeSettingsFile}.tmp" && ${pkgs.coreutils}/bin/mv "${claudeSettingsFile}.tmp" "${claudeSettingsFile}"
-    else
-      ${pkgs.coreutils}/bin/cp "${claudeSettingsSource}" "${claudeSettingsFile}"
-    fi
-  '';
 in
 {
   options = {
@@ -303,27 +289,16 @@ in
       };
     };
 
-    systemd.user.services.claude-settings-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-      Unit = {
-        Description = "Merge Claude settings with Nix-defined configuration";
-        After = [ "default.target" ];
-      };
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${mergeClaudeSettings}";
-        RemainAfterExit = true;
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-    };
-
-    launchd.agents.claude-settings-merge = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+    programs.claude = {
       enable = true;
-      config = {
-        ProgramArguments = [ "${mergeClaudeSettings}" ];
-        ProcessType = "Background";
-        RunAtLoad = true;
+      profiles.default.obsoleteSettings = {
+        inherit (claudeSettings) awsAuthRefresh env;
+      };
+      profiles.andromeda = {
+        settings = claudeSettings;
+        extraArgs = [ "--dangerously-skip-permissions" ];
+        activationScript = "${lib.getExe herdrPackage} integration install claude";
+        desktop.name = "Claude Andromeda";
       };
     };
 
