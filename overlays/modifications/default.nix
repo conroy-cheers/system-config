@@ -41,6 +41,11 @@ final: prev: {
     '';
   });
 
+  pywal16 = prev.pywal16.overrideAttrs (oldAttrs: {
+    # The Python wrapper hook now preserves array argument boundaries.
+    makeWrapperArgs = prev.lib.concatMap (prev.lib.splitString " ") oldAttrs.makeWrapperArgs;
+  });
+
   klipper-firmware = prev.klipper-firmware.overrideAttrs (oldAttrs: {
     postPatch = (oldAttrs.postPatch or "") + ''
       echo "${oldAttrs.version}-NixOS" > klippy/.version

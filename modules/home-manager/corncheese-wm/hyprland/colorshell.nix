@@ -11,6 +11,7 @@ let
   themeDetails = config.corncheese.theming.themeDetails;
   colorshellPackage =
     (inputs.colorshell.packages.${pkgs.stdenv.hostPlatform.system}.colorshell.override (args: {
+      pywal = pkgs.pywal16;
       # Patch Colorshell's own Astal dependency; a consumer pkgs overlay does
       # not change the package exported by the Colorshell flake.
       astal = args.astal // {
