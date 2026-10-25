@@ -1,6 +1,7 @@
 {
   fetchFromGitHub,
   fontconfig,
+  gcc-arm-embedded,
   gitMinimal,
   hidapi,
   keymap-drawer,
@@ -15,6 +16,20 @@
 }:
 
 let
+  firmwareQmk = qmk.override {
+    gcc-arm-embedded = gcc-arm-embedded.overrideAttrs (oldAttrs: {
+      # Preserve segment order so relocated writable data remains writable.
+      preFixup = lib.replaceStrings [ "patchelf --" ] [ "patchelf --no-sort --" ] oldAttrs.preFixup;
+      doInstallCheck = true;
+      installCheckPhase = ''
+        runHook preInstallCheck
+        $out/bin/arm-none-eabi-gcc --version
+        echo 'int main(void) { return 0; }' > check.c
+        $out/bin/arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -c check.c -o check.o
+        runHook postInstallCheck
+      '';
+    });
+  };
   silakkaRev = "75d168c5eaea4bdb635313a8fbcdd6d7009b212f";
   configuration = builtins.fromJSON (builtins.readFile ./configuration.json);
   viaProtocolLine =
@@ -73,7 +88,7 @@ rustPlatform.buildRustPackage {
     keymap-drawer
     pkg-config
     python
-    qmk
+    firmwareQmk
   ];
 
   buildInputs = lib.optionals stdenv.hostPlatform.isLinux [ hidapi ];
