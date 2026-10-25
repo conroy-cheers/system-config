@@ -23,6 +23,7 @@ let
 in
 {
   imports = [
+    ./sunshine.nix
     (import ./audio { inherit lib config pkgs; })
     (import ./common/wayland.nix { inherit lib config pkgs; })
     (import ./common/fonts.nix { inherit lib config pkgs; })

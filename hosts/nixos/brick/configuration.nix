@@ -121,6 +121,12 @@ in
     silakka54.enable = true;
     wm = {
       enable = true;
+      sunshine = {
+        enable = true;
+        users = [ "conroy" ];
+        # Moonlight on Kombu reaches Sunshine through the private Nebula mesh.
+        nebula.allowedHosts = [ "kombu" ];
+      };
       audio = {
         enable = true;
         equalizer.enable = true;
@@ -132,6 +138,18 @@ in
       };
     };
   };
+
+  services.sunshine.settings = {
+    sunshine_name = "Brick";
+    bind_address = config.corncheese.development.nebula.address;
+    capture = "wlr";
+    encoder = "vaapi";
+    adapter_name = "/dev/dri/renderD128";
+  };
+
+  # Uncompressed capture buffers avoid EGL import failures on Brick's RX 9070.
+  # This applies only to Sunshine's allocations, not the desktop compositor.
+  systemd.user.services.sunshine.environment.AMD_DEBUG = "nodcc";
 
   # log conroy into atuin sync
   age.secrets."corncheese.atuin.key" = {
