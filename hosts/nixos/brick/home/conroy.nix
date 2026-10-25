@@ -139,6 +139,11 @@ in
     development.enable = true;
   };
 
+  programs.chatgpt.profiles = {
+    default.desktop.enable = true;
+    andromeda.desktop.enable = true;
+  };
+
   programs.colorshell.enable = true;
 
   # Standalone mpv can use gpu-next

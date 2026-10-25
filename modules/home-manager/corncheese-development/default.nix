@@ -10,10 +10,8 @@ let
   cfg = config.corncheese.development;
   themeDetails =
     if config.corncheese.theming.enable then config.corncheese.theming.themeDetails else { };
-  codexHome = "${config.home.homeDirectory}/.codex";
-  codexAndromedaHome = "${config.home.homeDirectory}/.codex-andromeda";
-  codexConfigFile = "${codexHome}/config.toml";
-  codexPackage = inputs.codex-flake.packages.${meta.system}.codex;
+  codexHome = config.programs.chatgpt.profiles.default.codexHome;
+  codexPackage = config.programs.chatgpt.profiles.default.package;
   deepseekCatalogFile = "${config.xdg.cacheHome}/codex/deepseek/models.json";
   deepseekRefresh = pkgs.writeShellApplication {
     name = "codex-deepseek-refresh";
@@ -35,10 +33,9 @@ let
     model_catalog_json = deepseekCatalogFile;
   };
   ccusagePackage = inputs.llm-agents.packages.${meta.system}.ccusage;
-  ccusageCodexHomes = [
-    codexHome
-  ]
-  ++ lib.optional config.andromeda.development.enable codexAndromedaHome;
+  ccusageCodexHomes = map (setup: setup.codexHome) (
+    builtins.attrValues (lib.filterAttrs (_: setup: setup.enable) config.programs.chatgpt.profiles)
+  );
   ccusage = pkgs.writeShellApplication {
     name = "ccusage";
     text = ''
@@ -46,7 +43,7 @@ let
       exec ${lib.getExe ccusagePackage} "$@"
     '';
   };
-  codexConfig = (pkgs.formats.toml { }).generate "codex-config.toml" {
+  codexSettings = {
     model_providers.deepseek = {
       name = "DeepSeek Platform";
       base_url = "https://api.deepseek.com/";
@@ -77,70 +74,6 @@ let
       ];
     };
   };
-  codexRemovedNixMcpServers = [
-    "atlassian"
-    "slack"
-  ];
-  codexMergePython = pkgs.python3.withPackages (pythonPackages: [
-    pythonPackages.tomlkit
-  ]);
-  codexMergeScript = pkgs.writeText "merge-codex-config.py" ''
-    import os
-    import sys
-    from pathlib import Path
-
-    import tomlkit
-
-
-    def merge_config(existing, desired):
-        for key, desired_value in desired.items():
-            if key in existing and mergeable(existing[key], desired_value):
-                merge_config(existing[key], desired_value)
-            else:
-                existing[key] = desired_value
-
-
-    def mergeable(existing_value, desired_value):
-        return hasattr(existing_value, "items") and hasattr(desired_value, "items")
-
-
-    def remove_mcp_server(config, name):
-        mcp_servers = config.get("mcp_servers")
-        if hasattr(mcp_servers, "pop"):
-            mcp_servers.pop(name, None)
-
-
-    source = Path(sys.argv[1])
-    target = Path(sys.argv[2])
-    target.parent.mkdir(parents=True, exist_ok=True)
-
-    desired_config = tomlkit.parse(source.read_text())
-    existing_config = tomlkit.document()
-    if target.exists() or target.is_symlink():
-        try:
-            existing_config = tomlkit.parse(target.read_text())
-        except FileNotFoundError:
-            pass
-
-    if target.is_symlink():
-        target.unlink()
-
-    merge_config(existing_config, desired_config)
-    for removed_mcp_server in sys.argv[3:]:
-        remove_mcp_server(existing_config, removed_mcp_server)
-
-    tmp = target.with_name(f"{target.name}.tmp")
-    tmp.write_text(tomlkit.dumps(existing_config))
-    os.replace(tmp, target)
-  '';
-  mergeCodexConfig = pkgs.writeShellScript "merge-codex-config" ''
-    ${codexMergePython}/bin/python \
-      ${codexMergeScript} \
-      ${codexConfig} \
-      "${codexConfigFile}" \
-      ${lib.escapeShellArgs codexRemovedNixMcpServers}
-    ${lib.getExe deepseekRefresh} --seed-only
-  '';
   herdrPackage = inputs.llm-agents.packages.${meta.system}.herdr;
   pklPackage = inputs.pkl-flake.packages.${meta.system}.default.overrideAttrs {
     nativeBuildInputs = lib.optionals (!pkgs.stdenv.hostPlatform.isDarwin) [ pkgs.autoPatchelfHook ];
@@ -153,7 +86,6 @@ let
     export HOME=${lib.escapeShellArg config.home.homeDirectory}
 
     ${pkgs.coreutils}/bin/mkdir -p "$HOME/.claude"
-    ${lib.getExe herdrPackage} integration install codex
     ${lib.getExe herdrPackage} integration install claude
   '';
 
@@ -192,38 +124,6 @@ let
       url = "https://github.com/apple/pkl-vscode/releases/download/${mktplcRef.version}/pkl-vscode-${mktplcRef.version}.vsix";
       sha256 = "sha256:0jgbsxllqd1vhqzd83vv7bjg2hb951hqg6wflxxxalxvj4zlni79";
     };
-  };
-
-  codex-wrapped = pkgs.symlinkJoin {
-    name = "codex-wrapped";
-    paths = [ codexPackage ];
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-
-    postBuild = ''
-      wrapProgram $out/bin/codex \
-        --run '${lib.getExe deepseekRefresh} --for-codex "$@" || exit $?' \
-        --prefix PATH : ${
-          lib.makeBinPath (
-            with pkgs;
-            [
-              ripgrep
-              fd
-              gnused
-              gawk
-              jq
-              curl
-              wget2
-              gnutar
-              unzip
-              just
-              reverse-engineering-assistant
-            ]
-            ++ (lib.optionals pkgs.stdenv.hostPlatform.isLinux [
-              bubblewrap
-            ])
-          )
-        }
-    '';
   };
 
   claude-code-wrapped = pkgs.symlinkJoin {
@@ -277,44 +177,16 @@ let
         }
     '';
   };
-  codexAndromedaDesktopAppId = "codex-desktop-andromeda";
-  codexAndromedaDesktop =
-    pkgs.runCommand "codex-desktop-andromeda"
-      {
-        nativeBuildInputs = [ pkgs.makeWrapper ];
-      }
-      ''
-        mkdir -p "$out/bin"
-        makeWrapper ${
-          lib.getExe' inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.default
-            "codex-desktop"
-        } "$out/bin/codex-desktop-andromeda" \
-          --set CODEX_CLI_PATH "${lib.getExe' config.andromeda.development.codexPackage "codex-andromeda"}" \
-          --set CODEX_HOME "${codexAndromedaHome}" \
-          --set CODEX_APP_ID "${codexAndromedaDesktopAppId}" \
-          --set CODEX_LINUX_APP_ID "${codexAndromedaDesktopAppId}" \
-          --set CODEX_LINUX_APP_DISPLAY_NAME "Codex Andromeda" \
-          --set CODEX_WEBVIEW_PORT "5176"
-      '';
 in
 {
   imports = [
     "${inputs.vscode-server}/modules/vscode-server/home.nix"
     inputs.nvf.homeManagerModules.default
-    inputs.codex-desktop-linux.homeManagerModules.default
   ];
 
   options = {
     corncheese.development = {
       enable = lib.mkEnableOption "corncheese development environment";
-      codexPackage = lib.mkOption {
-        type = lib.types.package;
-        readOnly = true;
-        internal = true;
-        default = codex-wrapped;
-        description = "The wrapped Codex CLI package owned by the corncheese profile";
-      };
-      codexDesktop.enable = lib.mkEnableOption "Codex Desktop with regular and Andromeda profiles";
       ssh = {
         enable = lib.mkEnableOption "corncheese developer ssh config";
         onePassword = lib.mkEnableOption "corncheese developer ssh 1password integration";
@@ -359,20 +231,33 @@ in
         experimental.kitty_graphics = true;
       };
     };
-    programs.codexDesktopLinux = lib.mkIf cfg.codexDesktop.enable {
-      enable = true;
-      cliPackage = codex-wrapped;
-    };
-
-    xdg.desktopEntries.codex-desktop-andromeda = lib.mkIf cfg.codexDesktop.enable {
-      name = "Codex Andromeda";
-      genericName = "AI coding assistant";
-      comment = "Codex Desktop using the Andromeda CLI profile";
-      exec = "${lib.getExe' codexAndromedaDesktop "codex-desktop-andromeda"} %U";
-      icon = "codex-desktop";
-      terminal = false;
-      categories = [ "Development" ];
-      settings.StartupWMClass = codexAndromedaDesktopAppId;
+    programs.chatgpt.enable = true;
+    programs.chatgpt.profiles.default = {
+      settings = codexSettings;
+      removeSettings = [
+        [
+          "mcp_servers"
+          "atlassian"
+        ]
+        [
+          "mcp_servers"
+          "slack"
+        ]
+      ];
+      extraPackages = lib.mkAfter (
+        [ pkgs.reverse-engineering-assistant ]
+        ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.bubblewrap ]
+      );
+      beforeLaunch = ''${lib.getExe deepseekRefresh} --for-codex "$@" || exit $?'';
+      afterMerge = "${lib.getExe deepseekRefresh} --seed-only";
+      activationScript = ''
+        (
+          export HOME=${lib.escapeShellArg config.home.homeDirectory}
+          export CODEX_HOME=${lib.escapeShellArg codexHome}
+          ${lib.getExe herdrPackage} integration install codex
+        )
+      '';
+      desktop.webviewPort = 5175;
     };
 
     programs.vscodium = lib.mkIf cfg.vscode.enable {
@@ -810,7 +695,10 @@ in
 
     home.file = lib.mkMerge [
       {
-        ".codex/deepseek.config.toml".source = deepseekProfile;
+        codex-deepseek-profile = {
+          target = "${codexHome}/deepseek.config.toml";
+          source = deepseekProfile;
+        };
       }
       (lib.mkIf cfg.ssh.enable (
         lib.mapAttrs' (
@@ -841,42 +729,13 @@ in
       '';
     };
 
-    home.activation.mergeCodexConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      ${mergeCodexConfig}
-    '';
-
-    home.activation.installHerdrIntegrations = lib.hm.dag.entryAfter [ "mergeCodexConfig" ] ''
+    home.activation.installHerdrIntegrations = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ${installHerdrIntegrations}
     '';
-
-    systemd.user.services.codex-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-      Unit = {
-        Description = "Merge Codex config with Nix-defined configuration";
-        After = [ "default.target" ];
-      };
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${mergeCodexConfig}";
-        RemainAfterExit = true;
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-    };
-
-    launchd.agents.codex-config-merge = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-      enable = true;
-      config = {
-        ProgramArguments = [ "${mergeCodexConfig}" ];
-        ProcessType = "Background";
-        RunAtLoad = true;
-      };
-    };
 
     home.packages =
       with pkgs;
       builtins.concatLists [
-        (lib.optional cfg.codexDesktop.enable codexAndromedaDesktop)
         [
           # Nix
           nixd
@@ -894,7 +753,6 @@ in
           nodejs-slim
           tmux
           claude-code-wrapped
-          codex-wrapped
           deepseekRefresh
           ccusage
 
