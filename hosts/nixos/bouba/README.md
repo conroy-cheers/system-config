@@ -23,8 +23,10 @@ Console palette theming is disabled: Valve U-Boot's extlinux `APPEND` buffer is
 512 bytes including its terminating NUL, and Stylix's three VT palettes made
 Bouba's lines exceed it. The symptom was a dim logo while U-Boot rejected each
 entry with `bootarg overflow`; Linux had not started. Application theming stays
-enabled. To capture early boot over USB, power on while holding Volume Down +
-Select/Aux (release Power first). This enables the USB ACM console with a
+enabled. The Frame module also rejects oversized arguments during the system
+build and before publishing a boot catalog. To capture early boot over USB, power
+on while holding Volume Down + Select/Aux (release Power first). This enables the
+USB ACM console with a
 20-second boot delay. The pinned SSH-first recovery also provides the setup AP.
 
 Recovery on 2026-10-17 republished the existing generations with only the VT
@@ -41,15 +43,17 @@ sleep. The user reports head and controller tracking working well. Gaze,
 passthrough and audible audio still need physical validation. Stop/start tests
 should use the full
 `steam-frame-session.service` before cycling `steam-frame-tracking-dsp.service`.
-The tested graphics/kernel dependency stack uses Nixpkgs
+The physical tests used Nixpkgs
 `151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`; the shared root lock currently differs.
-To reproduce this test while the Frame changes are local:
+The committed Frame dependency includes the CDSP and boot-argument support, so
+ordinary builds and deployments need no local checkout override:
 
 ```sh
-nix develop -c deploy .#bouba --skip-checks --boot -- \
-  --override-input steam-frame-nixos ~/src/steam-frame-nixos \
-  --override-input nixpkgs github:NixOS/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4
+nix develop -c deploy .#bouba --skip-checks --boot
 ```
+
+To reproduce the physical tests' Nixpkgs stack, append
+`-- --override-input nixpkgs github:NixOS/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`.
 
 `deploy.nix` embeds deploy-rs activation helpers directly into the NixOS
 toplevel. The host generator uses `system.build.deploy` when supplied, keeping
