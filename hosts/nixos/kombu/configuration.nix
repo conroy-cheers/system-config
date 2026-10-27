@@ -42,16 +42,6 @@
       efi.canTouchEfiVariables = true;
     };
 
-    # Enable running aarch64 binaries using qemu
-    binfmt = {
-      emulatedSystems = [
-        "aarch64-linux"
-        "wasm32-wasip1"
-        "x86_64-windows"
-      ];
-      addEmulatedSystemsToNixSandbox = true;
-    };
-
     supportedFilesystems = [ "btrfs" ];
   };
 
