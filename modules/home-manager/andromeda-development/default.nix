@@ -433,7 +433,7 @@ in
         "profile abi-deploy" = {
           sso_session = "Andromeda";
           sso_account_id = "210362323009";
-          sso_role_name = "AbiDeployPermSet";
+          sso_role_name = "DevelopersPermSet-andromeda";
           region = "ap-southeast-2";
           output = "json";
         };
