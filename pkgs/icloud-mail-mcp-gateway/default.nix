@@ -6,14 +6,15 @@
 }:
 
 let
+  fastmcp = import ../oauth-mcp-gateway/fastmcp.nix { inherit python3Packages; };
   testPython = python3Packages.python.withPackages (pythonPackages: [
-    pythonPackages.fastmcp
+    fastmcp
     pythonPackages.httpx
   ]);
 in
 writers.writePython3Bin "icloud-mail-mcp-gateway" {
   libraries = [
-    python3Packages.fastmcp
+    fastmcp
     python3Packages.httpx
   ];
   flakeIgnore = [ "E501" ];

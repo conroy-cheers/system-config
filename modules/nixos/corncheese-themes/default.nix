@@ -7,6 +7,7 @@
 }:
 let
   cfg = config.corncheese.theming;
+  schemeSource = import ../../common/corncheese-themes/scheme-source.nix { inherit pkgs; };
   themeDetails = lib.recursiveUpdate (import (../../common + "/themes/${cfg.theme}.nix") {
     inherit pkgs;
   }) cfg.themeOverrides;
@@ -49,7 +50,7 @@ in
           inputs.walbridge.packages.${pkgs.stdenv.hostPlatform.system}.stylix-palette-generator;
       base16Scheme = lib.mkIf (
         !useWalbridgePalette
-      ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
+      ) "${schemeSource}/base16/${themeDetails.base16Scheme}.yaml";
       override = lib.mkIf (
         !useWalbridgePalette && themeDetails.stylixOverride != null
       ) themeDetails.stylixOverride;
@@ -59,7 +60,8 @@ in
         desktop = cfg.themeDetails.opacity;
         popups = cfg.themeDetails.opacity;
       };
-      fonts = themeDetails.fonts;
+      # The module system inspects font submodule keys even when theming is off.
+      fonts = lib.optionalAttrs cfg.enable themeDetails.fonts;
       cursor = lib.mkIf useWalbridgePalette {
         package = pkgs.catppuccin-cursors.mochaLavender;
         name = "catppuccin-mocha-lavender-cursors";

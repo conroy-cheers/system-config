@@ -115,6 +115,6 @@ python3Packages.buildPythonApplication {
     homepage = "https://github.com/cyberkaida/reverse-engineering-assistant";
     license = lib.licenses.asl20;
     mainProgram = "mcp-reva";
-    platforms = lib.platforms.linux ++ lib.platforms.darwin;
+    platforms = ghidra.meta.platforms;
   };
 }

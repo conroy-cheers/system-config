@@ -165,6 +165,9 @@ let
 
             users.users = lib.mapAttrs (_user: initialPassword: {
               hashedPasswordFile = lib.mkForce null;
+              hashedPassword = lib.mkForce null;
+              initialHashedPassword = lib.mkForce null;
+              password = lib.mkForce null;
               initialPassword = lib.mkForce initialPassword;
             }) cfg.bootSharedStoreUserPasswords;
 
@@ -263,8 +266,8 @@ in
       bootSharedStoreUserPasswords = lib.mkOption {
         description = ''
           VM-only initial passwords for existing users in generated shared-store
-          boot VMs. This clears each listed user's hashedPasswordFile so logins do
-          not depend on host secret mounts.
+          boot VMs. This clears each listed user's other password settings so
+          logins do not depend on host credentials or secret mounts.
         '';
         type = types.attrsOf types.str;
         default = {
@@ -594,6 +597,7 @@ in
             mkApp = name: vmPackage: {
               type = "app";
               program = "${mkRunWrapper name vmPackage}/bin/run-${name}";
+              meta.description = "Run the ${name} NixOS VM";
             };
           in
           {
@@ -610,6 +614,7 @@ in
             "test-boot-store-vm-${host}" = {
               type = "app";
               program = "${mkBootSharedStoreTestWrapper "vm-boot-store-${host}" hostVms.bootSharedStore}/bin/test-vm-boot-store-${host}";
+              meta.description = "Test the ${host} NixOS VM with a shared host store";
             };
           }
           // lib.optionalAttrs (hostVms ? disko) {

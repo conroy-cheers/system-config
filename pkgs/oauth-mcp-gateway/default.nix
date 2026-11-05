@@ -6,7 +6,7 @@
 
 writers.writePython3Bin "oauth-mcp-gateway"
   {
-    libraries = [ python3Packages.fastmcp ];
+    libraries = [ (import ./fastmcp.nix { inherit python3Packages; }) ];
     flakeIgnore = [ "E501" ];
   }
   ''

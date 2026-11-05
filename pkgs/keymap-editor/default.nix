@@ -43,6 +43,6 @@ rustPlatform.buildRustPackage {
     description = "Interactive GTK JSON configuration editor for Silakka54";
     license = lib.licenses.mit;
     mainProgram = "keymap-editor";
-    platforms = lib.platforms.linux;
+    platforms = lib.intersectLists lib.platforms.linux silakka54.meta.platforms;
   };
 }

@@ -7,6 +7,7 @@
 }:
 let
   cfg = config.corncheese.theming;
+  schemeSource = import ../../common/corncheese-themes/scheme-source.nix { inherit pkgs; };
   themeDetails = lib.recursiveUpdate (import (../../common + "/themes/${cfg.theme}.nix") {
     inherit pkgs;
   }) cfg.themeOverrides;
@@ -43,7 +44,7 @@ in
       image = themeDetails.wallpaper;
       base16Scheme = lib.mkIf (
         cfg.theme != null
-      ) "${pkgs.base16-schemes}/share/themes/${themeDetails.base16Scheme}.yaml";
+      ) "${schemeSource}/base16/${themeDetails.base16Scheme}.yaml";
       override = lib.mkIf (cfg.themeDetails.stylixOverride != null) cfg.themeDetails.stylixOverride;
       opacity = {
         terminal = cfg.themeDetails.opacity;
@@ -51,7 +52,9 @@ in
         desktop = cfg.themeDetails.opacity;
         popups = cfg.themeDetails.opacity;
       };
-      fonts = lib.recursiveUpdate themeDetails.fonts { sizes.applications = 10; };
+      fonts = lib.optionalAttrs cfg.enable (
+        lib.recursiveUpdate themeDetails.fonts { sizes.applications = 10; }
+      );
 
       targets.nixvim.enable = lib.mkIf (cfg.theme != null) false;
 

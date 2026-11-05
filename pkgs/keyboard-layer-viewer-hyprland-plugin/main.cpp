@@ -90,6 +90,15 @@ void markDirty(bool settleOnRender = true) {
     g_workerCv.notify_one();
 }
 
+template <typename WorkspaceEvents>
+auto listenWorkspaceCreated(WorkspaceEvents& events) {
+    auto callback = [](PHLWORKSPACEREF) { markDirty(); };
+    if constexpr (requires { events.createdLate; })
+        return events.createdLate.listen(callback);
+    else
+        return events.created.listen(callback);
+}
+
 void forgetWindow(PHLWINDOW window) {
     if (!window)
         return;
@@ -157,7 +166,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     static auto windowUpdateRules = Event::bus()->m_events.window.updateRules.listen([](PHLWINDOW) { markDirty(); });
     static auto workspaceActive = Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE) { markDirty(); });
     static auto workspaceMoveToMonitor = Event::bus()->m_events.workspace.moveToMonitor.listen([](PHLWORKSPACE, PHLMONITOR) { markDirty(); });
-    static auto workspaceCreated = Event::bus()->m_events.workspace.created.listen([](PHLWORKSPACEREF) { markDirty(); });
+    static auto workspaceCreated = listenWorkspaceCreated(Event::bus()->m_events.workspace);
     static auto workspaceRemoved = Event::bus()->m_events.workspace.removed.listen([](PHLWORKSPACEREF) { markDirty(); });
     static auto monitorFocused = Event::bus()->m_events.monitor.focused.listen([](PHLMONITOR) { markDirty(); });
     static auto monitorAdded = Event::bus()->m_events.monitor.added.listen([](PHLMONITOR) { markDirty(); });

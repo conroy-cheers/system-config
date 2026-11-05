@@ -17,21 +17,19 @@ final: prev: {
     };
   };
 
-  nix-output-monitor = prev.nix-output-monitor.overrideAttrs {
-    # Unreleased support for unknown Nix activity/result types (upstream #321).
-    version = "2.2.0-unstable-2026-10-19";
-    src = prev.fetchFromGitHub {
-      owner = "maralorn";
-      repo = "nix-output-monitor";
-      rev = "d48ff7935da72a5a5764ee8c5358d38417b0f337";
-      hash = "sha256-GOP4WQiZMTEMvwM2kH4YEE6sU7oEgPo9+Ys+kerIhes=";
-    };
-  };
-
   nix-monitored = inputs.nix-monitored.packages.${prev.stdenv.hostPlatform.system}.default.override {
     nix = final.nix;
     nix-output-monitor = final.nix-output-monitor;
   };
+
+  ceph = prev.ceph.overrideAttrs (oldAttrs: {
+    postPatch = (oldAttrs.postPatch or "") + ''
+      # Both QAT autogen.sh scripts have license headers before their shebangs.
+      substituteInPlace cmake/modules/BuildQAT{,zip}.cmake \
+        --replace-fail 'CONFIGURE_COMMAND ./autogen.sh' \
+          'CONFIGURE_COMMAND ${prev.runtimeShell} ./autogen.sh'
+    '';
+  });
 
   udiskie = prev.udiskie.overrideAttrs (oldAttrs: {
     postPatch = (oldAttrs.postPatch or "") + ''

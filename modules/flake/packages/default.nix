@@ -142,6 +142,9 @@
                 }
               )
           ))
+          # A package can declare narrower support than the directory's
+          # systems predicate (which defaults to all systems).
+          (lib.filterAttrs (_: package: lib.meta.availableOn pkgsPure.stdenv.hostPlatform package))
         ];
       in
       {

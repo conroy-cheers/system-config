@@ -228,6 +228,6 @@ rustPlatform.buildRustPackage {
     homepage = "https://github.com/Squalius-cephalus/silakka54";
     license = lib.licenses.gpl2Plus;
     mainProgram = "silakka54-sync";
-    platforms = lib.platforms.linux ++ lib.platforms.darwin;
+    platforms = gcc-arm-embedded.meta.platforms;
   };
 }

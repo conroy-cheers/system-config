@@ -1,5 +1,6 @@
 {
   pre-commit,
+  pdfium,
   python3Packages,
   fetchFromGitHub,
 }:
@@ -152,5 +153,8 @@ python3Packages.buildPythonApplication rec {
     "tests/config"
   ];
 
-  meta.mainProgram = "marker_single";
+  meta = {
+    mainProgram = "marker_single";
+    platforms = pdfium.meta.platforms;
+  };
 }

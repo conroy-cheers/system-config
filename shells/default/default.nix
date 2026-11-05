@@ -16,7 +16,8 @@ pkgs.mkShellNoCC {
     home-manager
     git
     wireguard-tools
-    inputs.deploy-rs.packages.${pkgs.stdenv.hostPlatform.system}.default
+    # The deploy-rs flake does not export i686-linux packages.
+    (inputs.deploy-rs.packages.${pkgs.stdenv.hostPlatform.system}.default or deploy-rs)
     # inputs.agenix.packages.${pkgs.system}.agenix
     # inputs.ragenix.packages.${pkgs.system}.ragenix
     rage

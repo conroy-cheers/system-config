@@ -178,7 +178,24 @@ in
 
     (mkIf lookingGlass.enable {
       boot = {
-        extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
+        extraModulePackages = [
+          # Backport https://github.com/NixOS/nixpkgs/pull/576593 until the
+          # nixpkgs pin includes it. Kbuild installs the module certificate
+          # required by aggregateModules alongside the compressed module.
+          (config.boot.kernelPackages.kvmfr.overrideAttrs (oldAttrs: {
+            makeFlags = oldAttrs.makeFlags ++ [
+              "INSTALL_MOD_PATH=${placeholder "out"}"
+              "INSTALL_MOD_DIR=kernel/drivers/misc"
+            ];
+            installPhase = null;
+            installFlags = [
+              "-C"
+              "${config.boot.kernelPackages.kernel.dev}/lib/modules/${config.boot.kernelPackages.kernel.modDirVersion}/build"
+              "M=$(PWD)"
+            ];
+            installTargets = [ "modules_install" ];
+          }))
+        ];
         extraModprobeConfig = ''
           options kvmfr static_size_mb=${toString lookingGlass.staticMemoryMB}
         '';

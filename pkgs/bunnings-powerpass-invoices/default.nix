@@ -8,7 +8,7 @@
 
 let
   python = python3.withPackages (ps: [
-    ps.fastmcp
+    (import ../oauth-mcp-gateway/fastmcp.nix { python3Packages = ps; })
     ps.playwright
   ]);
 in
@@ -26,6 +26,10 @@ writeShellApplication {
     description = "Download Bunnings PowerPass tax invoices with an authenticated Playwright session";
     license = lib.licenses.mit;
     mainProgram = "bunnings-powerpass-invoices";
-    platforms = lib.platforms.linux;
+    # Playwright's Chromium downloads are only available for 64-bit Linux.
+    platforms = [
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
   };
 }

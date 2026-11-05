@@ -330,7 +330,6 @@ in
     enable = true;
     # theme = lib.mkForce "breeze";
   };
-  boot.initrd.systemd.enable = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget

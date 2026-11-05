@@ -831,11 +831,13 @@ in
       # TODO: move this to scm module
       ignores =
         let
-          gitignoreSrc = pkgs.fetchFromGitHub {
+          # These files are read during evaluation, including Hydra's no-IFD checks.
+          gitignoreSrc = builtins.fetchTree {
+            type = "github";
             owner = "github";
             repo = "gitignore";
             rev = "ceea7cab239eece5cb9fd9416e433a9497c2d747";
-            hash = "sha256-YOPkqYJXinGHCbuCpHLS76iIWqUvYZh6SaJ0ROGoHc4=";
+            narHash = "sha256-YOPkqYJXinGHCbuCpHLS76iIWqUvYZh6SaJ0ROGoHc4=";
           };
           gitignoreText = builtins.concatStringsSep "\n" (
             builtins.concatLists [
