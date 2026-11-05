@@ -190,8 +190,8 @@ in
     workspace_rule = [
       {
         workspace = "special";
-        gaps_in = 24;
-        gaps_out = 64;
+        gaps_in = 16;
+        gaps_out = 24;
       }
     ];
 
