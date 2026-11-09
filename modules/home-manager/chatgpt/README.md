@@ -47,6 +47,14 @@ exposes the generated CLI wrapper for other modules. Set
 `profiles.default.enable = false` to disable the default profile while keeping
 other profiles enabled.
 
+`configProfiles.<name>.settings` manages a named Codex profile's settings in
+`$CODEX_HOME/<name>.config.toml`. These files are writable and merged at
+activation and login, like the base config. Unmanaged leaves, including a
+model selected in the TUI, survive later merges. Existing Home Manager
+symlinks are migrated to private regular files after file activation.
+Use `configProfiles.<name>.removeSettings` for obsolete managed paths, just as
+with the base config's `removeSettings` option.
+
 Enable `relay.enable` on a setup to install `pkgs.codex-relay` and run a
 loopback-only user service (`<command>-relay` under systemd on Linux or launchd
 on macOS). Set `relay.upstream` to a Chat Completions API base URL and
@@ -56,7 +64,7 @@ when the service starts; restart the service after rotating it. Set a distinct
 override the nixpkgs package.
 
 The relay adds a `relay` Responses provider to the setup's merged TOML and
-installs `$CODEX_HOME/chat-completions.config.toml`. Use
+merges `$CODEX_HOME/chat-completions.config.toml` as a writable profile. Use
 `codex-work --profile chat-completions --model <upstream-model>` to opt in.
 This profile disables hosted web search, which the relay cannot translate.
 The setup's default provider remains available. CLI and desktop share these
@@ -105,6 +113,9 @@ modules. No authenticated fetching happens during Nix evaluation or builds.
 and concurrent refreshes against a local API. Set `CODEX_RELAY_TEST_CODEX` and
 `CODEX_RELAY_TEST_RELAY` to the unwrapped binaries and run it with Python 3.11
 or newer; no inference requests are needed.
+`test_config_profiles.py` checks symlink migration, model persistence through
+Codex's `config/batchWrite` API, and preservation across later merges. Run it
+with `tomlkit` available and `CODEX_PROFILE_TEST_CODEX` pointing to the binary.
 
 Desktop support uses the existing `codex-desktop-linux` input on Linux. Each
 enabled desktop setup requires a unique `desktop.webviewPort`. Its command

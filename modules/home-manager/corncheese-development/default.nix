@@ -24,7 +24,7 @@ let
         --curl ${lib.getExe pkgs.curl} "$@"
     '';
   };
-  deepseekProfile = (pkgs.formats.toml { }).generate "codex-deepseek.config.toml" {
+  deepseekProfile = {
     model_provider = "deepseek";
     model = "deepseek-flash";
     model_reasoning_effort = "high";
@@ -183,6 +183,7 @@ in
     programs.chatgpt.enable = true;
     programs.chatgpt.profiles.default = {
       settings = codexSettings;
+      configProfiles.deepseek.settings = deepseekProfile;
       removeSettings = [
         [
           "mcp_servers"
@@ -643,12 +644,6 @@ in
     };
 
     home.file = lib.mkMerge [
-      {
-        codex-deepseek-profile = {
-          target = "${codexHome}/deepseek.config.toml";
-          source = deepseekProfile;
-        };
-      }
       (lib.mkIf cfg.ssh.enable (
         lib.mapAttrs' (
           _name: identity:

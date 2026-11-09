@@ -73,6 +73,14 @@ let
         ${toml.generate "codex-${name}.toml" setup.settings} \
         ${lib.escapeShellArg "${setup.codexHome}/config.toml"} \
         ${lib.escapeShellArg (builtins.toJSON setup.removeSettings)}
+      ${lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (profileName: profile: ''
+          ${mergePython}/bin/python ${./merge-config.py} \
+            ${toml.generate "codex-${name}-${profileName}.toml" profile.settings} \
+            ${lib.escapeShellArg "${setup.codexHome}/${profileName}.config.toml"} \
+            ${lib.escapeShellArg (builtins.toJSON profile.removeSettings)}
+        '') setup.configProfiles
+      )}
       ${setup.afterMerge}
       ${lib.optionalString (setup.relay.enable && setup.relay.catalog.enable) ''
         ${lib.getExe setup.relay.catalog.refreshPackage} --if-stale --allow-missing
@@ -184,6 +192,25 @@ in
             settings = mkOption {
               type = toml.type;
               default = { };
+            };
+            configProfiles = mkOption {
+              type = types.attrsOf (
+                types.submodule {
+                  options = {
+                    settings = mkOption {
+                      type = toml.type;
+                      default = { };
+                    };
+                    removeSettings = mkOption {
+                      type = types.listOf (types.listOf types.str);
+                      default = [ ];
+                      description = "Obsolete managed paths to remove from this profile.";
+                    };
+                  };
+                }
+              );
+              default = { };
+              description = "Managed settings merged into mutable <name>.config.toml files. Unmanaged settings such as the selected model are preserved.";
             };
             removeSettings = mkOption {
               type = types.listOf (types.listOf types.str);
@@ -318,6 +345,16 @@ in
             };
           };
           config = lib.mkIf (config.enable && config.relay.enable) {
+            configProfiles.chat-completions = {
+              settings = {
+                model_provider = "relay";
+                web_search = "disabled";
+              }
+              // lib.optionalAttrs config.relay.catalog.enable {
+                model_catalog_json = config.relay.catalog.cacheFile;
+              };
+              removeSettings = lib.optional (!config.relay.catalog.enable) [ "model_catalog_json" ];
+            };
             settings = {
               model_providers.relay = {
                 name = "Chat Completions relay";
@@ -374,6 +411,9 @@ in
     ++ lib.mapAttrsToList (name: setup: {
       assertion =
         builtins.match "[a-zA-Z0-9][a-zA-Z0-9._-]*" name != null
+        && builtins.all (profileName: builtins.match "[a-zA-Z0-9_-]+" profileName != null) (
+          builtins.attrNames setup.configProfiles
+        )
         && lib.hasPrefix "/" setup.codexHome
         && (
           !setup.relay.enable
@@ -389,24 +429,10 @@ in
       ++ (valuesOf (s: s.desktop.finalPackage) desktopSetups)
       ++ (valuesOf (s: s.relay.package) relaySetups)
       ++ (valuesOf (s: s.relay.catalog.refreshPackage) catalogSetups);
-    home.file = lib.mapAttrs' (
-      _: setup:
-      lib.nameValuePair "${setup.codexHome}/chat-completions.config.toml" {
-        source = toml.generate "codex-chat-completions.toml" (
-          {
-            model_provider = "relay";
-            web_search = "disabled";
-          }
-          // lib.optionalAttrs setup.relay.catalog.enable {
-            model_catalog_json = setup.relay.catalog.cacheFile;
-          }
-        );
-      }
-    ) relaySetups;
     home.activation = lib.mapAttrs' (
       name: setup:
       lib.nameValuePair "mergeCodexSetup-${name}" (
-        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        lib.hm.dag.entryAfter [ "linkGeneration" ] ''
           ${mergeScript name setup}
           ${setup.activationScript}
         ''
