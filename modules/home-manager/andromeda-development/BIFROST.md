@@ -27,6 +27,19 @@ On Linux, inspect or restart it with
 `systemctl --user restart codex-andromeda-relay`. On macOS the Home Manager
 launchd agent is `org.nix-community.home.codex-andromeda-relay`.
 
+The relay profile gets its model catalog from the gateway's
+`https://llmgateway.tail738663.ts.net/openai/v1/models` endpoint using the same
+Bifrost key. Discovery is separate from the Azure passthrough inference URL.
+Only `azure/` model IDs are included, and that prefix is removed for inference,
+so `azure/DeepSeek-V4.1-Flash` appears as `DeepSeek-V4.1-Flash` in the picker.
+Catalogs refresh at activation/login, periodically, and when stale before
+launch. The cache is `~/.cache/codex-andromeda/relay/models.json`; a failed
+refresh preserves the last successful catalog. The first relay-profile launch
+needs gateway access. Force a refresh with `codex-andromeda-relay-refresh`,
+then start a new Codex client to see updates. On Linux, periodic refreshes use
+the `codex-andromeda-relay-catalog` user service and timer; on macOS they use
+the `org.nix-community.home.codex-andromeda-relay-catalog` launchd agent.
+
 The Andromeda desktop launcher uses the same configuration. Codex reads the
 personal key at runtime from `~/.agenix/agenix/andromeda.bifrost.key` using its
 provider authentication command; no shell export or Azure login is needed.

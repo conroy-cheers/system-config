@@ -284,6 +284,10 @@ in
         enable = true;
         upstream = "https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1/";
         apiKeyFile = config.age.secrets."andromeda.bifrost.key".path;
+        catalog = {
+          upstream = "https://llmgateway.tail738663.ts.net/openai/v1/";
+          stripPrefix = "azure/";
+        };
       };
       settings = codexAndromedaSettings;
       activationScript = "${installHerdrCodexAndromedaIntegration}";

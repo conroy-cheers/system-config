@@ -10,10 +10,35 @@ let
   cfg = config.programs.chatgpt;
   configHome = config.home.homeDirectory;
   xdgConfigHome = config.xdg.configHome;
+  xdgCacheHome = config.xdg.cacheHome;
   toml = pkgs.formats.toml { };
   setups = lib.filterAttrs (_: setup: setup.enable) cfg.profiles;
   desktopSetups = lib.filterAttrs (_: setup: setup.desktop.enable) setups;
   relaySetups = lib.filterAttrs (_: setup: setup.relay.enable) setups;
+  catalogSetups = lib.filterAttrs (_: setup: setup.relay.catalog.enable) relaySetups;
+  catalogPackage =
+    setup:
+    pkgs.writeShellApplication {
+      name = "${setup.command}-relay-refresh";
+      text = ''
+        exec ${lib.getExe pkgs.python3} ${./refresh-relay-catalog.py} \
+          --config ${
+            pkgs.writeText "codex-relay-catalog.json" (
+              builtins.toJSON {
+                cache_file = setup.relay.catalog.cacheFile;
+                codex = lib.getExe' setup.package "codex";
+                relay = lib.getExe setup.relay.package;
+                api_key_file = setup.relay.apiKeyFile;
+                upstream = setup.relay.catalog.upstream;
+                strip_prefix = setup.relay.catalog.stripPrefix;
+                model_template = setup.relay.catalog.modelTemplate;
+                overrides = setup.relay.catalog.overrides;
+                refresh_interval = setup.relay.catalog.refreshInterval;
+              }
+            )
+          } "$@"
+      '';
+    };
   relayScript =
     name: setup:
     pkgs.writeShellScript "codex-${name}-relay" ''
@@ -49,6 +74,9 @@ let
         ${lib.escapeShellArg "${setup.codexHome}/config.toml"} \
         ${lib.escapeShellArg (builtins.toJSON setup.removeSettings)}
       ${setup.afterMerge}
+      ${lib.optionalString (setup.relay.enable && setup.relay.catalog.enable) ''
+        ${lib.getExe setup.relay.catalog.refreshPackage} --if-stale --allow-missing
+      ''}
     '';
   cliPackage =
     name: setup:
@@ -64,6 +92,13 @@ let
           --argv0 codex \
           --set CODEX_HOME ${lib.escapeShellArg setup.codexHome} \
           --run ${lib.escapeShellArg "${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg setup.codexHome}"} \
+          --run ${
+            lib.escapeShellArg (
+              lib.optionalString (
+                setup.relay.enable && setup.relay.catalog.enable
+              ) ''${lib.getExe setup.relay.catalog.refreshPackage} --if-stale --for-codex "$@" || exit $?''
+            )
+          } \
           --run ${lib.escapeShellArg setup.beforeLaunch} \
           --prefix PATH : ${lib.escapeShellArg (lib.makeBinPath (commonPackages ++ setup.extraPackages))}
       '';
@@ -90,6 +125,13 @@ let
           --set CODEX_WEBVIEW_PORT ${toString setup.desktop.webviewPort} \
           --set CHROME_DESKTOP ${lib.escapeShellArg "${setup.desktop.appId}.desktop"} \
           --set BAMF_DESKTOP_FILE_HINT ${lib.escapeShellArg "${config.xdg.dataHome}/applications/${setup.desktop.appId}.desktop"} \
+          --run ${
+            lib.escapeShellArg (
+              lib.optionalString (
+                setup.relay.enable && setup.relay.catalog.enable
+              ) "${lib.getExe setup.relay.catalog.refreshPackage} --if-stale --allow-missing"
+            )
+          } \
           --run ${lib.escapeShellArg "${pkgs.coreutils}/bin/mkdir -p ${
             lib.escapeShellArgs [
               setup.codexHome
@@ -192,6 +234,52 @@ in
                 default = null;
                 description = "Runtime file containing the upstream bearer token; never copied to the Nix store.";
               };
+              catalog = {
+                enable = mkOption {
+                  type = types.bool;
+                  default = true;
+                  description = "Generate and cache a model catalog for the Chat Completions profile at runtime.";
+                };
+                upstream = mkOption {
+                  type = types.str;
+                  default = config.relay.upstream;
+                  description = "Discovery API base URL; /models is appended. May differ from the inference upstream.";
+                };
+                stripPrefix = mkOption {
+                  type = types.str;
+                  default = "";
+                  description = "Only include model IDs with this prefix and remove it for passthrough inference.";
+                };
+                modelTemplate = mkOption {
+                  type = types.nullOr types.str;
+                  default = null;
+                  description = "Bundled Codex model whose instructions and tool formats the relay generator should use.";
+                };
+                overrides = mkOption {
+                  type = types.attrsOf (types.attrsOf (pkgs.formats.json { }).type);
+                  default = { };
+                  example = {
+                    "example-model".context_window = 131072;
+                  };
+                  description = "Metadata overrides keyed by normalized model ID. Model slugs cannot be changed.";
+                };
+                refreshInterval = mkOption {
+                  type = types.ints.positive;
+                  default = 86400;
+                  description = "Maximum catalog age in seconds before refreshing. Failed attempts have a five-minute retry backoff.";
+                };
+                cacheFile = mkOption {
+                  type = types.str;
+                  default = "${xdgCacheHome}/${config.command}/relay/models.json";
+                  description = "Absolute path to the runtime catalog cache.";
+                };
+                refreshPackage = mkOption {
+                  type = types.package;
+                  readOnly = true;
+                  default = catalogPackage config;
+                  description = "The generated per-instance catalog refresh command.";
+                };
+              };
             };
             desktop = {
               enable = lib.mkEnableOption "a ChatGPT desktop launcher for this setup";
@@ -275,6 +363,10 @@ in
         message = "Codex relay ports must be unique.";
       }
       {
+        assertion = unique (valuesOf (s: s.relay.catalog.cacheFile) catalogSetups);
+        message = "Codex relay catalog caches must use distinct files.";
+      }
+      {
         assertion = desktopSetups == { } || pkgs.stdenv.hostPlatform.isLinux;
         message = "Codex setup desktop launchers are only supported on Linux.";
       }
@@ -283,6 +375,11 @@ in
       assertion =
         builtins.match "[a-zA-Z0-9][a-zA-Z0-9._-]*" name != null
         && lib.hasPrefix "/" setup.codexHome
+        && (
+          !setup.relay.enable
+          || !setup.relay.catalog.enable
+          || lib.hasPrefix "/" setup.relay.catalog.cacheFile
+        )
         && (!setup.desktop.enable || lib.hasPrefix "/" setup.desktop.userDataDir);
       message = "Codex setup ${name} requires a safe name and absolute home/profile paths.";
     }) setups;
@@ -290,14 +387,20 @@ in
     home.packages =
       (valuesOf (s: s.finalPackage) setups)
       ++ (valuesOf (s: s.desktop.finalPackage) desktopSetups)
-      ++ (valuesOf (s: s.relay.package) relaySetups);
+      ++ (valuesOf (s: s.relay.package) relaySetups)
+      ++ (valuesOf (s: s.relay.catalog.refreshPackage) catalogSetups);
     home.file = lib.mapAttrs' (
       _: setup:
       lib.nameValuePair "${setup.codexHome}/chat-completions.config.toml" {
-        source = toml.generate "codex-chat-completions.toml" {
-          model_provider = "relay";
-          web_search = "disabled";
-        };
+        source = toml.generate "codex-chat-completions.toml" (
+          {
+            model_provider = "relay";
+            web_search = "disabled";
+          }
+          // lib.optionalAttrs setup.relay.catalog.enable {
+            model_catalog_json = setup.relay.catalog.cacheFile;
+          }
+        );
       }
     ) relaySetups;
     home.activation = lib.mapAttrs' (
@@ -341,6 +444,30 @@ in
           Install.WantedBy = [ "default.target" ];
         }
       ) relaySetups)
+      // (lib.mapAttrs' (
+        _: setup:
+        lib.nameValuePair "${setup.command}-relay-catalog" {
+          Unit.Description = "Refresh ${setup.command} relay model catalog";
+          Service = {
+            Type = "oneshot";
+            ExecStart = "${lib.getExe setup.relay.catalog.refreshPackage} --if-stale";
+            UMask = "0077";
+          };
+        }
+      ) catalogSetups)
+    );
+    systemd.user.timers = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
+      lib.mapAttrs' (
+        _: setup:
+        lib.nameValuePair "${setup.command}-relay-catalog" {
+          Unit.Description = "Periodically refresh ${setup.command} relay model catalog";
+          Timer = {
+            OnActiveSec = "1m";
+            OnUnitActiveSec = "${toString (lib.min 3600 setup.relay.catalog.refreshInterval)}s";
+          };
+          Install.WantedBy = [ "timers.target" ];
+        }
+      ) catalogSetups
     );
     launchd.agents = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
       (lib.mapAttrs' (
@@ -367,6 +494,21 @@ in
           };
         }
       ) relaySetups)
+      // (lib.mapAttrs' (
+        _: setup:
+        lib.nameValuePair "${setup.command}-relay-catalog" {
+          enable = true;
+          config = {
+            ProgramArguments = [
+              (lib.getExe setup.relay.catalog.refreshPackage)
+              "--if-stale"
+            ];
+            ProcessType = "Background";
+            RunAtLoad = true;
+            StartInterval = lib.min 3600 setup.relay.catalog.refreshInterval;
+          };
+        }
+      ) catalogSetups)
     );
     xdg.desktopEntries = lib.mapAttrs' (
       _: setup:

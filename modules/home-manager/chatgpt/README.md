@@ -62,6 +62,50 @@ This profile disables hosted web search, which the relay cannot translate.
 The setup's default provider remains available. CLI and desktop share these
 settings and the same background relay; no shell environment is required.
 
+Relay catalogs are enabled by default. At runtime, `codex-relay` generates
+metadata using the setup's unwrapped Codex package, and the refresh helper
+keeps only the models advertised by the discovery API. The result is validated
+by that Codex version and atomically cached at
+`$XDG_CACHE_HOME/<command>/relay/models.json`. Only the `chat-completions`
+profile sets `model_catalog_json`; the native provider's catalog is unaffected.
+
+Configure a separate discovery API or model-name prefix when needed:
+
+```nix
+programs.chatgpt.profiles.work.relay.catalog = {
+  upstream = "https://gateway.example/openai/v1/"; # /models is appended
+  stripPrefix = "azure/"; # select matching IDs and remove the prefix
+  overrides."example-model".context_window = 131072;
+};
+```
+
+`catalog.upstream` defaults to `relay.upstream`, and discovery uses the same
+runtime bearer-token file. Metadata comes from the relay's heuristics and the
+installed Codex's bundled instructions/tool formats; use `catalog.overrides`
+for known model capabilities, and `catalog.modelTemplate` to choose a different
+bundled template. Override keys are normalized model IDs; `slug` cannot be
+overridden.
+
+Refreshes run at activation/login and periodically using a systemd user timer
+or launchd agent named `<command>-relay-catalog`. CLI launches with
+`--profile chat-completions` and desktop launches also check freshness. The
+default maximum age is 24 hours (`catalog.refreshInterval`, in seconds).
+Periodic checks run at least hourly; failed attempts have a five-minute retry
+backoff. The last successful catalog remains usable when the gateway is
+unreachable. The first relay-profile launch needs gateway access if no catalog
+has been cached yet. Activation and native-provider desktop startup can proceed
+without one. Run `<command>-relay-refresh` to force a refresh, or add
+`--if-stale` to respect the cache. Restart an existing client to load updates.
+
+Set `catalog.enable = false` to opt out, or `catalog.cacheFile` to use another
+absolute path. `catalog.refreshPackage` exposes the generated command for other
+modules. No authenticated fetching happens during Nix evaluation or builds.
+
+`test_relay_catalog.py` exercises generation, filtering, validation, failures,
+and concurrent refreshes against a local API. Set `CODEX_RELAY_TEST_CODEX` and
+`CODEX_RELAY_TEST_RELAY` to the unwrapped binaries and run it with Python 3.11
+or newer; no inference requests are needed.
+
 Desktop support uses the existing `codex-desktop-linux` input on Linux. Each
 enabled desktop setup requires a unique `desktop.webviewPort`. Its command
 and app ID default to `codex-desktop` or `codex-desktop-<name>`. The default
