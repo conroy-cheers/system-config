@@ -187,18 +187,23 @@ def selected_profile(arguments):
     return profile
 
 
+def uses_relay(arguments, default_relay):
+    profile = selected_profile(arguments)
+    return profile == "chat-completions" or (profile is None and default_relay)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--if-stale", action="store_true")
     parser.add_argument("--allow-missing", action="store_true", help="do not block activation or native-provider desktop startup")
-    parser.add_argument("--for-codex", nargs=argparse.REMAINDER, help="refresh only for --profile chat-completions")
+    parser.add_argument("--for-codex", nargs=argparse.REMAINDER, help="refresh when the relay is selected explicitly or by default")
     args = parser.parse_args()
-    if args.for_codex is not None and selected_profile(args.for_codex) != "chat-completions":
-        return 0
     os.umask(0o077)
     try:
         config = json.loads(args.config.read_text())
+        if args.for_codex is not None and not uses_relay(args.for_codex, config.get("default_relay", False)):
+            return 0
         success = refresh(config, force=not args.if_stale and args.for_codex is None)
     except (OSError, ValueError):
         print("Cannot prepare Codex relay catalog", file=sys.stderr)

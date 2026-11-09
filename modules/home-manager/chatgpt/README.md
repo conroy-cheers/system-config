@@ -67,15 +67,18 @@ The relay adds a `relay` Responses provider to the setup's merged TOML and
 merges `$CODEX_HOME/chat-completions.config.toml` as a writable profile. Use
 `codex-work --profile chat-completions --model <upstream-model>` to opt in.
 This profile disables hosted web search, which the relay cannot translate.
-The setup's default provider remains available. CLI and desktop share these
-settings and the same background relay; no shell environment is required.
+Set `relay.makeDefault = true` to use these settings in the base config too,
+so plain CLI and desktop launches use the relay and catalog without selecting
+a profile. CLI and desktop share the same background relay; no shell
+environment is required.
 
 Relay catalogs are enabled by default. At runtime, `codex-relay` generates
 metadata using the setup's unwrapped Codex package, and the refresh helper
 keeps only the models advertised by the discovery API. The result is validated
 by that Codex version and atomically cached at
-`$XDG_CACHE_HOME/<command>/relay/models.json`. Only the `chat-completions`
-profile sets `model_catalog_json`; the native provider's catalog is unaffected.
+`$XDG_CACHE_HOME/<command>/relay/models.json`. The `chat-completions` profile
+sets `model_catalog_json`; enabling `relay.makeDefault` also sets it in the
+base config.
 
 Configure a separate discovery API or model-name prefix when needed:
 
@@ -96,7 +99,8 @@ overridden.
 
 Refreshes run at activation/login and periodically using a systemd user timer
 or launchd agent named `<command>-relay-catalog`. CLI launches with
-`--profile chat-completions` and desktop launches also check freshness. The
+`--profile chat-completions`, launches using the relay by default, and desktop
+launches also check freshness. The
 default maximum age is 24 hours (`catalog.refreshInterval`, in seconds).
 Periodic checks run at least hourly; failed attempts have a five-minute retry
 backoff. The last successful catalog remains usable when the gateway is

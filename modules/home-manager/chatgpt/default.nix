@@ -16,6 +16,15 @@ let
   desktopSetups = lib.filterAttrs (_: setup: setup.desktop.enable) setups;
   relaySetups = lib.filterAttrs (_: setup: setup.relay.enable) setups;
   catalogSetups = lib.filterAttrs (_: setup: setup.relay.catalog.enable) relaySetups;
+  relaySettings =
+    setup:
+    {
+      model_provider = "relay";
+      web_search = "disabled";
+    }
+    // lib.optionalAttrs setup.relay.catalog.enable {
+      model_catalog_json = setup.relay.catalog.cacheFile;
+    };
   catalogPackage =
     setup:
     pkgs.writeShellApplication {
@@ -34,6 +43,7 @@ let
                 model_template = setup.relay.catalog.modelTemplate;
                 overrides = setup.relay.catalog.overrides;
                 refresh_interval = setup.relay.catalog.refreshInterval;
+                default_relay = setup.relay.makeDefault;
               }
             )
           } "$@"
@@ -245,6 +255,7 @@ in
             };
             relay = {
               enable = lib.mkEnableOption "a local Chat Completions relay for this Codex setup";
+              makeDefault = lib.mkEnableOption "the relay provider and catalog as this setup's defaults";
               package = lib.mkPackageOption pkgs "codex-relay" { };
               port = mkOption {
                 type = types.port;
@@ -346,24 +357,21 @@ in
           };
           config = lib.mkIf (config.enable && config.relay.enable) {
             configProfiles.chat-completions = {
-              settings = {
-                model_provider = "relay";
-                web_search = "disabled";
-              }
-              // lib.optionalAttrs config.relay.catalog.enable {
-                model_catalog_json = config.relay.catalog.cacheFile;
-              };
+              settings = relaySettings config;
               removeSettings = lib.optional (!config.relay.catalog.enable) [ "model_catalog_json" ];
             };
-            settings = {
-              model_providers.relay = {
-                name = "Chat Completions relay";
-                base_url = "http://127.0.0.1:${toString config.relay.port}/v1";
-                wire_api = "responses";
-                requires_openai_auth = false;
-                supports_websockets = false;
-              };
-            };
+            settings = lib.mkMerge [
+              {
+                model_providers.relay = {
+                  name = "Chat Completions relay";
+                  base_url = "http://127.0.0.1:${toString config.relay.port}/v1";
+                  wire_api = "responses";
+                  requires_openai_auth = false;
+                  supports_websockets = false;
+                };
+              }
+              (lib.mkIf config.relay.makeDefault (relaySettings config))
+            ];
           };
         }
       )

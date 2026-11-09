@@ -1,18 +1,17 @@
 # Andromeda LLM gateway
 
-`codex-andromeda` uses the Bifrost Azure passthrough HTTPS Responses endpoint at
-`https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1`, with WebSockets disabled.
-The existing default remains GPT-5.6 Sol with high reasoning effort. Select
-another permitted deployment with, for example:
+`codex-andromeda` uses the Chat Completions relay and gateway model catalog by
+default. No `--profile` flag is needed. Use `/model` to select and save a model,
+or choose a permitted deployment explicitly:
 
 ```sh
 codex-andromeda --model gpt-6-astra
 ```
 
-For models that expose Chat Completions, select the relay profile:
+For example, to use DeepSeek:
 
 ```sh
-codex-andromeda --profile chat-completions --model DeepSeek-V4.1-Flash
+codex-andromeda --model DeepSeek-V4.1-Flash
 ```
 
 Every machine enabling the Andromeda Codex setup also runs nixpkgs'
@@ -20,8 +19,8 @@ Every machine enabling the Andromeda Codex setup also runs nixpkgs'
 `http://127.0.0.1:4444/v1`; the relay translates them to Chat Completions at
 `https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1/`.
 The relay reads the same decrypted Bifrost key when it starts, so CLI and
-desktop launches need no exported key. The `chat-completions` profile disables
-hosted web search. Select the upstream deployment explicitly with `--model`.
+desktop launches need no exported key. Hosted web search is disabled for the
+relay. The explicit `chat-completions` profile remains available too.
 On Linux, inspect or restart it with
 `systemctl --user status codex-andromeda-relay` or
 `systemctl --user restart codex-andromeda-relay`. On macOS the Home Manager
@@ -40,9 +39,9 @@ then start a new Codex client to see updates. On Linux, periodic refreshes use
 the `codex-andromeda-relay-catalog` user service and timer; on macOS they use
 the `org.nix-community.home.codex-andromeda-relay-catalog` launchd agent.
 
-The Andromeda desktop launcher uses the same configuration. Codex reads the
-personal key at runtime from `~/.agenix/agenix/andromeda.bifrost.key` using its
-provider authentication command; no shell export or Azure login is needed.
+The Andromeda desktop launcher uses the same default relay configuration.
+The relay reads the personal key at runtime from
+`~/.agenix/agenix/andromeda.bifrost.key`; no shell export or Azure login is needed.
 Connect to the office network or Andromeda Tailscale network first.
 
 The source secret is `secrets/master/andromeda/bifrost/key.age`. It is managed by

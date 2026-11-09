@@ -124,7 +124,7 @@ let
         enabled = false;
       }
     ];
-    model_provider = "llmgateway";
+    model_provider = lib.mkDefault "llmgateway";
     model_reasoning_effort = "high";
     personality = "pragmatic";
     tui = {
@@ -282,6 +282,7 @@ in
     programs.chatgpt.profiles.andromeda = {
       relay = {
         enable = true;
+        makeDefault = true;
         upstream = "https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1/";
         apiKeyFile = config.age.secrets."andromeda.bifrost.key".path;
         catalog = {

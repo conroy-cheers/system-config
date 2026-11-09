@@ -133,6 +133,13 @@ class CatalogIntegrationTests(unittest.TestCase):
 
 
 class ProfileSelectionTests(unittest.TestCase):
+    def test_default_relay_and_explicit_profile_selection(self):
+        self.assertTrue(catalog.uses_relay([], True))
+        self.assertTrue(catalog.uses_relay(["exec", "prompt"], True))
+        self.assertFalse(catalog.uses_relay([], False))
+        self.assertTrue(catalog.uses_relay(["--profile", "chat-completions"], False))
+        self.assertFalse(catalog.uses_relay(["--profile", "other"], True))
+
     def test_profile_forms_and_argument_boundaries(self):
         for args in (["exec", "--profile", "chat-completions"], ["--profile=chat-completions"],
                      ["-pchat-completions"], ["-p", "other", "-p", "chat-completions"]):
