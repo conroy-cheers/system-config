@@ -13,6 +13,20 @@ let
   toml = pkgs.formats.toml { };
   setups = lib.filterAttrs (_: setup: setup.enable) cfg.profiles;
   desktopSetups = lib.filterAttrs (_: setup: setup.desktop.enable) setups;
+  relaySetups = lib.filterAttrs (_: setup: setup.relay.enable) setups;
+  relayScript =
+    name: setup:
+    pkgs.writeShellScript "codex-${name}-relay" ''
+      set -e
+      ${lib.optionalString (setup.relay.apiKeyFile != null) ''
+        CODEX_RELAY_API_KEY="$(${lib.getExe' pkgs.coreutils "cat"} ${lib.escapeShellArg setup.relay.apiKeyFile})"
+        export CODEX_RELAY_API_KEY
+      ''}
+      exec ${lib.getExe setup.relay.package} \
+        --bind 127.0.0.1 \
+        --port ${toString setup.relay.port} \
+        --upstream ${lib.escapeShellArg setup.relay.upstream}
+    '';
   mergePython = pkgs.python3.withPackages (ps: [ ps.tomlkit ]);
   commonPackages = with pkgs; [
     ripgrep
@@ -160,6 +174,25 @@ in
               default = "";
               description = "Shell commands run only during activation, after config merging.";
             };
+            relay = {
+              enable = lib.mkEnableOption "a local Chat Completions relay for this Codex setup";
+              package = lib.mkPackageOption pkgs "codex-relay" { };
+              port = mkOption {
+                type = types.port;
+                default = 4444;
+                description = "Unique loopback port for this setup's relay.";
+              };
+              upstream = mkOption {
+                type = types.str;
+                example = "https://gateway.example/openai/v1/";
+                description = "Upstream Chat Completions API base URL.";
+              };
+              apiKeyFile = mkOption {
+                type = types.nullOr types.str;
+                default = null;
+                description = "Runtime file containing the upstream bearer token; never copied to the Nix store.";
+              };
+            };
             desktop = {
               enable = lib.mkEnableOption "a ChatGPT desktop launcher for this setup";
               package = mkOption {
@@ -196,6 +229,17 @@ in
               };
             };
           };
+          config = lib.mkIf (config.enable && config.relay.enable) {
+            settings = {
+              model_providers.relay = {
+                name = "Chat Completions relay";
+                base_url = "http://127.0.0.1:${toString config.relay.port}/v1";
+                wire_api = "responses";
+                requires_openai_auth = false;
+                supports_websockets = false;
+              };
+            };
+          };
         }
       )
     );
@@ -227,6 +271,10 @@ in
         message = "Codex desktop webview ports must be unique.";
       }
       {
+        assertion = unique (valuesOf (s: s.relay.port) relaySetups);
+        message = "Codex relay ports must be unique.";
+      }
+      {
         assertion = desktopSetups == { } || pkgs.stdenv.hostPlatform.isLinux;
         message = "Codex setup desktop launchers are only supported on Linux.";
       }
@@ -240,7 +288,18 @@ in
     }) setups;
 
     home.packages =
-      (valuesOf (s: s.finalPackage) setups) ++ (valuesOf (s: s.desktop.finalPackage) desktopSetups);
+      (valuesOf (s: s.finalPackage) setups)
+      ++ (valuesOf (s: s.desktop.finalPackage) desktopSetups)
+      ++ (valuesOf (s: s.relay.package) relaySetups);
+    home.file = lib.mapAttrs' (
+      _: setup:
+      lib.nameValuePair "${setup.codexHome}/chat-completions.config.toml" {
+        source = toml.generate "codex-chat-completions.toml" {
+          model_provider = "relay";
+          web_search = "disabled";
+        };
+      }
+    ) relaySetups;
     home.activation = lib.mapAttrs' (
       name: setup:
       lib.nameValuePair "mergeCodexSetup-${name}" (
@@ -251,7 +310,7 @@ in
       )
     ) setups;
     systemd.user.services = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
-      lib.mapAttrs' (
+      (lib.mapAttrs' (
         name: setup:
         lib.nameValuePair "${setup.command}-config-merge" {
           Unit = {
@@ -265,10 +324,26 @@ in
           };
           Install.WantedBy = [ "default.target" ];
         }
-      ) setups
+      ) setups)
+      // (lib.mapAttrs' (
+        name: setup:
+        lib.nameValuePair "${setup.command}-relay" {
+          Unit = {
+            Description = "Chat Completions relay for ${name} Codex";
+            After = [ "network.target" ];
+          };
+          Service = {
+            ExecStart = "${relayScript name setup}";
+            Restart = "on-failure";
+            RestartSec = 5;
+            UMask = "0077";
+          };
+          Install.WantedBy = [ "default.target" ];
+        }
+      ) relaySetups)
     );
     launchd.agents = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
-      lib.mapAttrs' (
+      (lib.mapAttrs' (
         name: setup:
         lib.nameValuePair "${setup.command}-config-merge" {
           enable = true;
@@ -278,7 +353,20 @@ in
             RunAtLoad = true;
           };
         }
-      ) setups
+      ) setups)
+      // (lib.mapAttrs' (
+        name: setup:
+        lib.nameValuePair "${setup.command}-relay" {
+          enable = true;
+          config = {
+            ProgramArguments = [ "${relayScript name setup}" ];
+            ProcessType = "Background";
+            RunAtLoad = true;
+            KeepAlive = true;
+            ThrottleInterval = 5;
+          };
+        }
+      ) relaySetups)
     );
     xdg.desktopEntries = lib.mapAttrs' (
       _: setup:

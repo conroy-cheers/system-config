@@ -47,6 +47,21 @@ exposes the generated CLI wrapper for other modules. Set
 `profiles.default.enable = false` to disable the default profile while keeping
 other profiles enabled.
 
+Enable `relay.enable` on a setup to install `pkgs.codex-relay` and run a
+loopback-only user service (`<command>-relay` under systemd on Linux or launchd
+on macOS). Set `relay.upstream` to a Chat Completions API base URL and
+`relay.apiKeyFile` to an optional runtime bearer-token file. The token is read
+when the service starts; restart the service after rotating it. Set a distinct
+`relay.port` for each enabled relay; the default is 4444. `relay.package` can
+override the nixpkgs package.
+
+The relay adds a `relay` Responses provider to the setup's merged TOML and
+installs `$CODEX_HOME/chat-completions.config.toml`. Use
+`codex-work --profile chat-completions --model <upstream-model>` to opt in.
+This profile disables hosted web search, which the relay cannot translate.
+The setup's default provider remains available. CLI and desktop share these
+settings and the same background relay; no shell environment is required.
+
 Desktop support uses the existing `codex-desktop-linux` input on Linux. Each
 enabled desktop setup requires a unique `desktop.webviewPort`. Its command
 and app ID default to `codex-desktop` or `codex-desktop-<name>`. The default

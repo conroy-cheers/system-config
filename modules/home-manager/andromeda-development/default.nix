@@ -145,7 +145,7 @@ let
 
     model_providers.llmgateway = {
       name = "LLM Gateway";
-      base_url = "https://llmgateway.tail738663.ts.net/openai/v1";
+      base_url = "https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1";
       wire_api = "responses";
       supports_websockets = false;
 
@@ -280,6 +280,11 @@ in
 
     programs.chatgpt.enable = true;
     programs.chatgpt.profiles.andromeda = {
+      relay = {
+        enable = true;
+        upstream = "https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1/";
+        apiKeyFile = config.age.secrets."andromeda.bifrost.key".path;
+      };
       settings = codexAndromedaSettings;
       activationScript = "${installHerdrCodexAndromedaIntegration}";
       desktop = {
