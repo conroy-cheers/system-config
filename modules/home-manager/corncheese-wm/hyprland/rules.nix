@@ -129,7 +129,7 @@ in
         opacity = 1.0;
       }
       {
-        match.class = "^(plexamp)$";
+        match.class = "^(feishin)$";
         workspace = "2 silent";
       }
       {

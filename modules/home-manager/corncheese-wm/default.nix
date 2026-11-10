@@ -193,7 +193,7 @@ in
         pulsemixer
         adwaita-fonts
       ]
-      ++ lib.optionals (!nested) [ pkgs.plexamp ]
+      ++ lib.optionals (!nested) [ pkgs.feishin ]
       ++ lib.optionals nested [
         pkgs.xdg-desktop-portal
         pkgs.xdg-desktop-portal-gtk
@@ -276,16 +276,6 @@ in
         "x-scheme-handler/unknown" = [ "chromium-browser.desktop" ];
         "inode/directory" = [ "thunar.desktop" ];
       };
-    };
-    xdg.desktopEntries.plexamp = lib.mkIf (!nested) {
-      name = "Plexamp";
-      genericName = "Music Player";
-      exec = lib.getExe pkgs.plexamp;
-      terminal = false;
-      type = "Application";
-      icon = "plexamp";
-      categories = [ "AudioVideo" ];
-      comment = "The best little audio player on the planet";
     };
     xdg.configFile = {
       "mimeapps.list" = {

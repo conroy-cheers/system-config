@@ -541,7 +541,7 @@ in
 
               for expected in \
                 '"class": "com.mitchellh.ghostty"' \
-                '"class": "plexamp"' \
+                '"class": "feishin"' \
                 '"class": "Slack"' \
                 '"class": "chromium-browser"' \
                 '"title": "btop"' \

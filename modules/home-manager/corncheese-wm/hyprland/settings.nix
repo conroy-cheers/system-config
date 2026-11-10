@@ -69,7 +69,7 @@ in
                       hl.exec_cmd(${builtins.toJSON (lib.getExe waitForPipewire)})
                       hl.exec_cmd("ghostty --title=btop -e btop", { workspace = "2 silent" })
                       hl.exec_cmd("ghostty --title=cava -e cava", { workspace = "2 silent" })
-                      hl.exec_cmd(${builtins.toJSON (lib.getExe pkgs.plexamp)}, { workspace = "2 silent" })
+                      hl.exec_cmd(${builtins.toJSON (lib.getExe pkgs.feishin)}, { workspace = "2 silent" })
                       hl.exec_cmd("slack --ozone-platform=wayland", { workspace = "special silent" })
                       hl.exec_cmd("chromium", { workspace = "special silent" })
                     ''
