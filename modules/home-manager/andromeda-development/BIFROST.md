@@ -32,8 +32,14 @@ upstream deployment needs repair before it can be considered reliable.
 The existing `chat-completions` and `responses` profiles are aliases for the
 same adapter, so either profile also supports both groups.
 
-Every machine enabling the Andromeda Codex setup also runs nixpkgs'
-`cliproxyapi` as a user service. Codex sends Responses requests to
+Every machine enabling the Andromeda Codex setup runs `cliproxyapi-andromeda`
+as a user service. This overlay variant sets upstream `X-Request-Id` to
+`00000000-0000-0000-0000-000000000000` after custom headers are applied, for
+both native Responses and converted Chat Completions requests. Other instances
+keep the standard package. Reusing this ID triggers Bifrost v2.0.0's billing
+deduplication and log collisions, so its usage counters and request logs are
+not reliable for this instance.
+Codex sends Responses requests to
 `http://127.0.0.1:4444/v1`; the adapter forwards to the normalized Bifrost base
 `https://llmgateway.tail738663.ts.net/openai/v1`. No Azure passthrough is used.
 The launcher reads the decrypted Bifrost key at startup into a private runtime

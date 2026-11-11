@@ -284,6 +284,7 @@ in
         enable = true;
         makeDefault = true;
         backend = "cliproxyapi";
+        package = pkgs.cliproxyapi-andromeda;
         upstream = "https://llmgateway.tail738663.ts.net/openai/v1";
         apiKeyFile = config.age.secrets."andromeda.bifrost.key".path;
         cliProxy = {

@@ -169,6 +169,10 @@ checking native tool/effort preservation, custom-tool conversion and streaming,
 history replay, private credential cleanup, and catalog validation. Set
 `CODEX_CLIPROXY_TEST_PROGRAM` and `CODEX_RELAY_TEST_CODEX` to the binaries;
 these tests do not call a real model.
+Set `CODEX_CLIPROXY_TEST_REQUEST_ID` to also verify the upstream request ID
+on both routes and tool continuations. The Andromeda overlay expects
+`00000000-0000-0000-0000-000000000000`; the standard package preserves the
+fixture's `configured-id` header.
 
 Desktop support uses the existing `codex-desktop-linux` input on Linux. Each
 enabled desktop setup requires a unique `desktop.webviewPort`. Its command

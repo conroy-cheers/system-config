@@ -1,0 +1,11 @@
+diff --git a/internal/util/header_helpers.go b/internal/util/header_helpers.go
+--- a/internal/util/header_helpers.go
++++ b/internal/util/header_helpers.go
+@@ -75 +75,6 @@ func ApplyCustomHeadersFromAttrs(r *http.Request, attrs map[string]string, clientHe
+-	applyCustomHeaders(r, extractCustomHeaders(attrs, ch, ctx))
++	applyCustomHeaders(r, extractCustomHeaders(attrs, ch, ctx))
++	// Andromeda's dedicated package uses a fixed ID on upstream requests.
++	if r.Header == nil {
++		r.Header = make(http.Header)
++	}
++	r.Header.Set("X-Request-Id", "00000000-0000-0000-0000-000000000000")

@@ -31,6 +31,7 @@ class Upstream(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         self.server.seen.append((self.path, self.headers.get("Authorization"), body))
+        self.server.request_ids.append(self.headers.get("X-Request-Id"))
         if self.path.endswith("/chat/completions"):
             arguments = json.dumps({"input": PATCH})
             chunks = [
@@ -68,6 +69,7 @@ class SelectiveAdapterTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.upstream = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Upstream)
         self.upstream.seen = []
+        self.upstream.request_ids = []
         self.addCleanup(self.upstream.server_close)
         self.addCleanup(self.upstream.shutdown)
         threading.Thread(target=self.upstream.serve_forever, daemon=True).start()
@@ -78,7 +80,7 @@ class SelectiveAdapterTests(unittest.TestCase):
         native = {"name": "azure/gpt-6.1-sol", "alias": "gpt-6.1-sol", "thinking": {"levels": ["low", "medium", "high", "xhigh"]}}
         chat = {"name": "azure/DeepSeek-V4.1-Flash", "alias": "DeepSeek-V4.1-Flash", "thinking": {"levels": ["none", "high"]}}
         self.routes = [native, chat]
-        group = {"base-url": f"http://127.0.0.1:{self.upstream.server_port}/gateway/v1", "keys": [{}]}
+        group = {"base-url": f"http://127.0.0.1:{self.upstream.server_port}/gateway/v1", "keys": [{}], "headers": {"X-Request-Id": "configured-id"}}
         settings = {
             "config-version": 8, "server": {"host": "127.0.0.1", "port": port},
             "management": {"disable-control-panel": True, "disable-auto-update-panel": True},
@@ -131,6 +133,8 @@ class SelectiveAdapterTests(unittest.TestCase):
         self.assertEqual(body["model"], "azure/gpt-6.1-sol")
         self.assertEqual(body["tools"][0]["type"], "custom")
         self.assertEqual(body["reasoning"]["effort"], "xhigh")
+        if expected_id := os.environ.get("CODEX_CLIPROXY_TEST_REQUEST_ID"):
+            self.assertEqual(self.upstream.request_ids[-1], expected_id)
         self.assertEqual(next(e for e in events if e["type"] == "response.completed")["response"]["output"][0]["input"], PATCH)
 
     def test_bridge_restores_streamed_custom_tools_and_replays_history(self):
@@ -152,6 +156,8 @@ class SelectiveAdapterTests(unittest.TestCase):
         call = next(m for m in messages if m.get("tool_calls"))["tool_calls"][0]
         self.assertEqual(json.loads(call["function"]["arguments"]), {"input": PATCH})
         self.assertEqual(next(m for m in messages if m.get("role") == "tool")["content"], "Applied")
+        if expected_id := os.environ.get("CODEX_CLIPROXY_TEST_REQUEST_ID"):
+            self.assertEqual(self.upstream.request_ids, [expected_id, expected_id])
 
     def test_private_runtime_config_is_removed_on_stop(self):
         rendered = list(self.root.glob("codex-cliproxyapi-*/config.json"))
