@@ -12,6 +12,7 @@ import tempfile
 import time
 import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -54,6 +55,20 @@ def run(command, env):
     return result.stdout
 
 
+def validate(config, directory, validation_home, catalog, env):
+    expected_ids = model_ids(catalog)
+    candidate = directory / "models.json"
+    atomic_json(candidate, catalog)
+    # Validate against this instance's actual Codex version without remote fetches.
+    (validation_home / "config.toml").write_text(
+        "model_catalog_json = " + json.dumps(str(candidate)) + "\n"
+    )
+    validated = json.loads(run([config["codex"], "debug", "models"], env))
+    if set(model_ids(validated)) != set(expected_ids):
+        raise ValueError("Codex did not load the discovered catalog")
+    return catalog
+
+
 def generate(config, directory):
     env = os.environ.copy()
     env["PATH"] = str(Path(config["codex"]).parent) + os.pathsep + env.get("PATH", "")
@@ -69,6 +84,27 @@ def generate(config, directory):
         env["CODEX_RELAY_API_KEY"] = key
         headers["Authorization"] = f"Bearer {key}"
     url = config["upstream"].rstrip("/") + "/models"
+    if config.get("backend") == "cliproxyapi":
+        # CLIProxyAPI serves its native Codex catalog for Codex user agents.
+        version = config.get("client_version", "0")
+        headers["User-Agent"] = "codex_cli_rs/" + version
+        url += "?" + urllib.parse.urlencode({"client_version": version})
+        request = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(request, timeout=10) as response:
+            catalog = json.load(response)
+        ids = model_ids(catalog)
+        routes = {route.get("alias") or route["name"]: route for route in config.get("routes", [])}
+        if routes and set(ids) != set(routes):
+            raise ValueError("CLIProxyAPI has not loaded the configured model routes")
+        for model in catalog["models"]:
+            levels = routes.get(model["slug"], {}).get("thinking", {}).get("levels")
+            if levels is not None and set(levels) != {level["effort"] for level in model.get("supported_reasoning_levels", [])}:
+                raise ValueError("CLIProxyAPI has not loaded the configured reasoning levels")
+            overrides = config["overrides"].get(model["slug"], {})
+            if "slug" in overrides:
+                raise ValueError("model overrides must not change slug")
+            model.update(overrides)
+        return validate(config, directory, validation_home, catalog, env)
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=10) as response:
         payload = json.load(response)
@@ -96,6 +132,10 @@ def generate(config, directory):
         raise ValueError("relay could not fetch the model list")
     catalog = read_json(generated)
     model_ids(catalog)
+    # The relay clears reasoning capabilities, even for known Codex models.
+    # Match after prefix removal so azure/<model> retains its native controls.
+    bundled = json.loads(run([config["codex"], "debug", "models", "--bundled"], env))
+    bundled_by_id = {model["slug"]: model for model in bundled["models"]}
     by_id = {model["slug"]: model for model in catalog["models"]}
     models = []
     for slug in advertised:
@@ -105,25 +145,26 @@ def generate(config, directory):
         normalized = slug[len(prefix):]
         model["slug"] = normalized
         model["display_name"] = normalized
+        known = bundled_by_id.get(normalized)
+        if known is not None:
+            model["default_reasoning_level"] = known.get("default_reasoning_level")
+            model["supported_reasoning_levels"] = known.get("supported_reasoning_levels", [])
+        allowed_efforts = config.get("reasoning_efforts")
+        if allowed_efforts is not None:
+            model["supported_reasoning_levels"] = [
+                level for level in model.get("supported_reasoning_levels", [])
+                if level["effort"] in allowed_efforts
+            ]
+            efforts = [level["effort"] for level in model["supported_reasoning_levels"]]
+            if model.get("default_reasoning_level") not in efforts:
+                model["default_reasoning_level"] = efforts[0] if efforts else None
         overrides = config["overrides"].get(normalized, {})
         if "slug" in overrides:
             raise ValueError("model overrides must not change slug")
         model.update(overrides)
         models.append(model)
     catalog["models"] = models
-    expected_ids = model_ids(catalog)
-    candidate = directory / "models.json"
-    atomic_json(candidate, catalog)
-
-    # Validate metadata with this instance's actual Codex version. An isolated
-    # CODEX_HOME and explicit local catalog prevent config hooks or remote fetches.
-    (validation_home / "config.toml").write_text(
-        "model_catalog_json = " + json.dumps(str(candidate)) + "\n"
-    )
-    validated = json.loads(run([config["codex"], "debug", "models"], env))
-    if set(model_ids(validated)) != set(expected_ids):
-        raise ValueError("Codex did not load the discovered catalog")
-    return catalog
+    return validate(config, directory, validation_home, catalog, env)
 
 
 def refresh(config, *, force=False):
@@ -147,7 +188,8 @@ def refresh(config, *, force=False):
         now = time.time()
         if not force and usable and now - state.get("last_success", 0) < config["refresh_interval"]:
             return True
-        if not force and state.get("fingerprint") == fingerprint and now - state.get("last_attempt", 0) < 300:
+        backoff = 0 if config.get("backend") == "cliproxyapi" and not usable else 300
+        if not force and state.get("fingerprint") == fingerprint and now - state.get("last_attempt", 0) < backoff:
             return usable
         # A changed configuration must not mark an old catalog as usable.
         if state.get("fingerprint") != fingerprint:

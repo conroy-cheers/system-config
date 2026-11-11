@@ -63,6 +63,45 @@ when the service starts; restart the service after rotating it. Set a distinct
 `relay.port` for each enabled relay; the default is 4444. `relay.package` can
 override the nixpkgs package.
 
+For gateways with a mix of native Responses and function-only models, select
+`relay.backend = "cliproxyapi"`. The shared module uses `pkgs.cliproxyapi`,
+binds it to the same loopback port, and renders its upstream key into a private
+runtime config. The key stays outside the Nix store and the config is removed
+when the service stops. OAuth, the management dashboard, and hosted image-tool
+injection are not enabled by this setup.
+
+```nix
+programs.chatgpt.profiles.work.relay = {
+  enable = true;
+  makeDefault = true;
+  backend = "cliproxyapi";
+  upstream = "https://gateway.example/openai/v1";
+  apiKeyFile = "/run/secrets/gateway-key";
+  cliProxy = {
+    nativeModels = [{
+      name = "azure/gpt-6.1-sol";
+      alias = "gpt-6.1-sol";
+      thinking.levels = [ "low" "medium" "high" "xhigh" ];
+    }];
+    chatModels = [{
+      name = "azure/DeepSeek-V4.1-Flash";
+      alias = "DeepSeek-V4.1-Flash";
+      thinking.levels = [ "none" "high" ];
+    }];
+  };
+};
+```
+
+Native models use the upstream `/responses` endpoint and preserve custom tools.
+Chat models use `/chat/completions`; CLIProxyAPI converts custom tools to
+functions and restores the response and history Codex expects. Model mappings
+are explicit, not detected from inference failures. Their aliases are the
+model IDs shown in Codex. `relay.launcher` exposes the generated runtime launcher.
+For this backend the catalog refresh helper reads CLIProxyAPI's local Codex
+catalog, including its model-specific tool and reasoning capabilities, and
+validates it with the setup's Codex package. The service must be running before
+the first catalog refresh. Linux refresh units depend on the adapter service.
+
 The relay adds a `relay` Responses provider to the setup's merged TOML and
 merges `$CODEX_HOME/chat-completions.config.toml` as a writable profile. Use
 `codex-work --profile chat-completions --model <upstream-model>` to opt in.
@@ -72,7 +111,7 @@ so plain CLI and desktop launches use the relay and catalog without selecting
 a profile. CLI and desktop share the same background relay; no shell
 environment is required.
 
-Relay catalogs are enabled by default. At runtime, `codex-relay` generates
+Relay catalogs are enabled by default. With the `codex-relay` backend it generates
 metadata using the setup's unwrapped Codex package, and the refresh helper
 keeps only the models advertised by the discovery API. The result is validated
 by that Codex version and atomically cached at
@@ -80,7 +119,7 @@ by that Codex version and atomically cached at
 sets `model_catalog_json`; enabling `relay.makeDefault` also sets it in the
 base config.
 
-Configure a separate discovery API or model-name prefix when needed:
+For `codex-relay`, configure a separate discovery API or model-name prefix when needed:
 
 ```nix
 programs.chatgpt.profiles.work.relay.catalog = {
@@ -92,7 +131,12 @@ programs.chatgpt.profiles.work.relay.catalog = {
 
 `catalog.upstream` defaults to `relay.upstream`, and discovery uses the same
 runtime bearer-token file. Metadata comes from the relay's heuristics and the
-installed Codex's bundled instructions/tool formats; use `catalog.overrides`
+installed Codex's bundled instructions/tool formats. Models matching a bundled
+Codex model after prefix removal also retain its reasoning levels and default.
+Set `catalog.reasoningEfforts` to restrict those levels to efforts accepted by
+the gateway (for example, `[ "low" "medium" "high" "xhigh" ]`); the default
+`null` preserves all levels. Unknown models keep the relay's capabilities.
+Use `catalog.overrides`
 for known model capabilities, and `catalog.modelTemplate` to choose a different
 bundled template. Override keys are normalized model IDs; `slug` cannot be
 overridden.
@@ -120,6 +164,11 @@ or newer; no inference requests are needed.
 `test_config_profiles.py` checks symlink migration, model persistence through
 Codex's `config/batchWrite` API, and preservation across later merges. Run it
 with `tomlkit` available and `CODEX_PROFILE_TEST_CODEX` pointing to the binary.
+`test_cliproxyapi.py` runs the real packaged adapter against a local upstream,
+checking native tool/effort preservation, custom-tool conversion and streaming,
+history replay, private credential cleanup, and catalog validation. Set
+`CODEX_CLIPROXY_TEST_PROGRAM` and `CODEX_RELAY_TEST_CODEX` to the binaries;
+these tests do not call a real model.
 
 Desktop support uses the existing `codex-desktop-linux` input on Linux. Each
 enabled desktop setup requires a unique `desktop.webviewPort`. Its command

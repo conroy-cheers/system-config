@@ -283,14 +283,51 @@ in
       relay = {
         enable = true;
         makeDefault = true;
-        upstream = "https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1/";
+        backend = "cliproxyapi";
+        upstream = "https://llmgateway.tail738663.ts.net/openai/v1";
         apiKeyFile = config.age.secrets."andromeda.bifrost.key".path;
-        catalog = {
-          upstream = "https://llmgateway.tail738663.ts.net/openai/v1/";
-          stripPrefix = "azure/";
+        cliProxy = {
+          nativeModels =
+            map
+              (model: {
+                name = "azure/${model}";
+                alias = model;
+                thinking.levels = [
+                  "low"
+                  "medium"
+                  "high"
+                  "xhigh"
+                ];
+              })
+              [
+                "gpt-6-astra"
+                "gpt-6-luna"
+                "gpt-6.1-sol"
+                "gpt-6.1-terra"
+              ];
+          chatModels =
+            map
+              (model: {
+                name = "azure/${model}";
+                alias = model;
+                thinking.levels = [
+                  "none"
+                  "high"
+                ];
+              })
+              [
+                "DeepSeek-V4.1-Flash"
+                "Kimi-K3.1-Pro"
+              ];
         };
       };
       settings = codexAndromedaSettings;
+      # Keep the earlier profile name as an alias for the selective adapter.
+      configProfiles.responses.settings = {
+        model_provider = "relay";
+        model_reasoning_effort = codexAndromedaSettings.model_reasoning_effort;
+      };
+      configProfiles.responses.removeSettings = [ [ "model_catalog_json" ] ];
       activationScript = "${installHerdrCodexAndromedaIntegration}";
       desktop = {
         name = "ChatGPT Andromeda";

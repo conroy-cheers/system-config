@@ -36,11 +36,21 @@ let
               builtins.toJSON {
                 cache_file = setup.relay.catalog.cacheFile;
                 codex = lib.getExe' setup.package "codex";
+                client_version = setup.package.version;
                 relay = lib.getExe setup.relay.package;
                 api_key_file = setup.relay.apiKeyFile;
-                upstream = setup.relay.catalog.upstream;
+                backend = setup.relay.backend;
+                routes = lib.optionals (setup.relay.backend == "cliproxyapi") (
+                  setup.relay.cliProxy.nativeModels ++ setup.relay.cliProxy.chatModels
+                );
+                upstream =
+                  if setup.relay.backend == "cliproxyapi" then
+                    "http://127.0.0.1:${toString setup.relay.port}/v1"
+                  else
+                    setup.relay.catalog.upstream;
                 strip_prefix = setup.relay.catalog.stripPrefix;
                 model_template = setup.relay.catalog.modelTemplate;
+                reasoning_efforts = setup.relay.catalog.reasoningEfforts;
                 overrides = setup.relay.catalog.overrides;
                 refresh_interval = setup.relay.catalog.refreshInterval;
                 default_relay = setup.relay.makeDefault;
@@ -51,17 +61,54 @@ let
     };
   relayScript =
     name: setup:
-    pkgs.writeShellScript "codex-${name}-relay" ''
-      set -e
-      ${lib.optionalString (setup.relay.apiKeyFile != null) ''
-        CODEX_RELAY_API_KEY="$(${lib.getExe' pkgs.coreutils "cat"} ${lib.escapeShellArg setup.relay.apiKeyFile})"
-        export CODEX_RELAY_API_KEY
-      ''}
-      exec ${lib.getExe setup.relay.package} \
-        --bind 127.0.0.1 \
-        --port ${toString setup.relay.port} \
-        --upstream ${lib.escapeShellArg setup.relay.upstream}
-    '';
+    if setup.relay.backend == "cliproxyapi" then
+      pkgs.writeShellScript "codex-${name}-relay" ''
+        exec ${lib.getExe pkgs.python3} ${./start-cliproxyapi.py} \
+          --program ${lib.getExe setup.relay.package} \
+          --template ${pkgs.writeText "codex-${name}-cliproxyapi.json" (builtins.toJSON (cliProxySettings setup))} \
+          --api-key-file ${lib.escapeShellArg setup.relay.apiKeyFile}
+      ''
+    else
+      pkgs.writeShellScript "codex-${name}-relay" ''
+        set -e
+        ${lib.optionalString (setup.relay.apiKeyFile != null) ''
+          CODEX_RELAY_API_KEY="$(${lib.getExe' pkgs.coreutils "cat"} ${lib.escapeShellArg setup.relay.apiKeyFile})"
+          export CODEX_RELAY_API_KEY
+        ''}
+        exec ${lib.getExe setup.relay.package} \
+          --bind 127.0.0.1 \
+          --port ${toString setup.relay.port} \
+          --upstream ${lib.escapeShellArg setup.relay.upstream}
+      '';
+  cliProxySettings = setup: {
+    config-version = 8;
+    server = {
+      host = "127.0.0.1";
+      port = setup.relay.port;
+    };
+    management = {
+      disable-control-panel = true;
+      disable-auto-update-panel = true;
+    };
+    client.codex.enable-apply-patch = true;
+    multimedia.disable-image-generation = "passthrough";
+    routing.retry.request-retry = 0;
+    observability.logs.error-logs-max-files = 0;
+    api-keys = {
+      codex = lib.optional (setup.relay.cliProxy.nativeModels != [ ]) {
+        name = "native-responses";
+        base-url = setup.relay.upstream;
+        models = setup.relay.cliProxy.nativeModels;
+        keys = [ { disable-codex-cloaking = true; } ];
+      };
+      openai-compatibility = lib.optional (setup.relay.cliProxy.chatModels != [ ]) {
+        name = "function-tool-bridge";
+        base-url = setup.relay.upstream;
+        models = setup.relay.cliProxy.chatModels;
+        keys = [ { } ];
+      };
+    };
+  };
   mergePython = pkgs.python3.withPackages (ps: [ ps.tomlkit ]);
   commonPackages = with pkgs; [
     ripgrep
@@ -92,9 +139,12 @@ let
         '') setup.configProfiles
       )}
       ${setup.afterMerge}
-      ${lib.optionalString (setup.relay.enable && setup.relay.catalog.enable) ''
-        ${lib.getExe setup.relay.catalog.refreshPackage} --if-stale --allow-missing
-      ''}
+      ${lib.optionalString
+        (setup.relay.enable && setup.relay.catalog.enable && setup.relay.backend == "codex-relay")
+        ''
+          ${lib.getExe setup.relay.catalog.refreshPackage} --if-stale --allow-missing
+        ''
+      }
     '';
   cliPackage =
     name: setup:
@@ -254,9 +304,39 @@ in
               description = "Shell commands run only during activation, after config merging.";
             };
             relay = {
-              enable = lib.mkEnableOption "a local Chat Completions relay for this Codex setup";
+              enable = lib.mkEnableOption "a local model adapter for this Codex setup";
               makeDefault = lib.mkEnableOption "the relay provider and catalog as this setup's defaults";
-              package = lib.mkPackageOption pkgs "codex-relay" { };
+              backend = mkOption {
+                type = types.enum [
+                  "codex-relay"
+                  "cliproxyapi"
+                ];
+                default = "codex-relay";
+                description = "Local adapter: a Chat Completions bridge or selective native Responses/tool conversion.";
+              };
+              package = mkOption {
+                type = types.package;
+                default = if config.relay.backend == "cliproxyapi" then pkgs.cliproxyapi else pkgs.codex-relay;
+                description = "Package providing the selected relay backend.";
+              };
+              launcher = mkOption {
+                type = types.package;
+                readOnly = true;
+                default = relayScript name config;
+                description = "Runtime launcher for the selected adapter, including private credential setup.";
+              };
+              cliProxy = {
+                nativeModels = mkOption {
+                  type = types.listOf (types.attrsOf (pkgs.formats.json { }).type);
+                  default = [ ];
+                  description = "CLIProxyAPI model mappings routed through native Responses. Each has name, alias and optional thinking metadata.";
+                };
+                chatModels = mkOption {
+                  type = types.listOf (types.attrsOf (pkgs.formats.json { }).type);
+                  default = [ ];
+                  description = "CLIProxyAPI model mappings routed through Chat Completions with custom-tool conversion.";
+                };
+              };
               port = mkOption {
                 type = types.port;
                 default = 4444;
@@ -265,7 +345,7 @@ in
               upstream = mkOption {
                 type = types.str;
                 example = "https://gateway.example/openai/v1/";
-                description = "Upstream Chat Completions API base URL.";
+                description = "Upstream API base URL. CLIProxyAPI uses both Responses and Chat Completions beneath it.";
               };
               apiKeyFile = mkOption {
                 type = types.nullOr types.str;
@@ -276,12 +356,12 @@ in
                 enable = mkOption {
                   type = types.bool;
                   default = true;
-                  description = "Generate and cache a model catalog for the Chat Completions profile at runtime.";
+                  description = "Cache a version-validated model catalog for the adapter at runtime.";
                 };
                 upstream = mkOption {
                   type = types.str;
                   default = config.relay.upstream;
-                  description = "Discovery API base URL; /models is appended. May differ from the inference upstream.";
+                  description = "Discovery API base URL for codex-relay; /models is appended. CLIProxyAPI uses its local Codex catalog instead.";
                 };
                 stripPrefix = mkOption {
                   type = types.str;
@@ -300,6 +380,17 @@ in
                     "example-model".context_window = 131072;
                   };
                   description = "Metadata overrides keyed by normalized model ID. Model slugs cannot be changed.";
+                };
+                reasoningEfforts = mkOption {
+                  type = types.nullOr (types.listOf types.str);
+                  default = null;
+                  example = [
+                    "low"
+                    "medium"
+                    "high"
+                    "xhigh"
+                  ];
+                  description = "Restrict catalog reasoning levels to efforts accepted by this gateway. Null preserves the model's levels; per-model overrides take precedence.";
                 };
                 refreshInterval = mkOption {
                   type = types.ints.positive;
@@ -360,10 +451,17 @@ in
               settings = relaySettings config;
               removeSettings = lib.optional (!config.relay.catalog.enable) [ "model_catalog_json" ];
             };
+            removeSettings = lib.optionals (config.relay.makeDefault && !config.relay.catalog.enable) [
+              [ "model_catalog_json" ]
+            ];
             settings = lib.mkMerge [
               {
                 model_providers.relay = {
-                  name = "Chat Completions relay";
+                  name =
+                    if config.relay.backend == "cliproxyapi" then
+                      "Selective model adapter"
+                    else
+                      "Chat Completions relay";
                   base_url = "http://127.0.0.1:${toString config.relay.port}/v1";
                   wire_api = "responses";
                   requires_openai_auth = false;
@@ -418,6 +516,15 @@ in
     ]
     ++ lib.mapAttrsToList (name: setup: {
       assertion =
+        setup.relay.backend != "cliproxyapi"
+        || (
+          setup.relay.apiKeyFile != null
+          && setup.relay.cliProxy.nativeModels ++ setup.relay.cliProxy.chatModels != [ ]
+        );
+      message = "CLIProxyAPI setup ${name} requires a runtime API key file and explicit model routes.";
+    }) relaySetups
+    ++ lib.mapAttrsToList (name: setup: {
+      assertion =
         builtins.match "[a-zA-Z0-9][a-zA-Z0-9._-]*" name != null
         && builtins.all (profileName: builtins.match "[a-zA-Z0-9_-]+" profileName != null) (
           builtins.attrNames setup.configProfiles
@@ -466,11 +573,14 @@ in
         name: setup:
         lib.nameValuePair "${setup.command}-relay" {
           Unit = {
-            Description = "Chat Completions relay for ${name} Codex";
+            Description = "Local model adapter for ${name} Codex";
             After = [ "network.target" ];
           };
           Service = {
-            ExecStart = "${relayScript name setup}";
+            ExecStart = "${setup.relay.launcher}";
+            ExecStartPost = lib.optional (setup.relay.backend == "cliproxyapi") (
+              "${lib.getExe pkgs.curl} --silent --show-error --fail --retry 10 --retry-connrefused --retry-delay 1 --max-time 2 --output /dev/null http://127.0.0.1:${toString setup.relay.port}/v1/models"
+            );
             Restart = "on-failure";
             RestartSec = 5;
             UMask = "0077";
@@ -481,12 +591,19 @@ in
       // (lib.mapAttrs' (
         _: setup:
         lib.nameValuePair "${setup.command}-relay-catalog" {
-          Unit.Description = "Refresh ${setup.command} relay model catalog";
+          Unit = {
+            Description = "Refresh ${setup.command} relay model catalog";
+            After = lib.optional (setup.relay.backend == "cliproxyapi") "${setup.command}-relay.service";
+            Requires = lib.optional (setup.relay.backend == "cliproxyapi") "${setup.command}-relay.service";
+          };
           Service = {
             Type = "oneshot";
             ExecStart = "${lib.getExe setup.relay.catalog.refreshPackage} --if-stale";
             UMask = "0077";
           };
+          Install.WantedBy = lib.optional (
+            setup.relay.backend == "cliproxyapi"
+          ) "${setup.command}-relay.service";
         }
       ) catalogSetups)
     );
@@ -520,7 +637,7 @@ in
         lib.nameValuePair "${setup.command}-relay" {
           enable = true;
           config = {
-            ProgramArguments = [ "${relayScript name setup}" ];
+            ProgramArguments = [ "${setup.relay.launcher}" ];
             ProcessType = "Background";
             RunAtLoad = true;
             KeepAlive = true;

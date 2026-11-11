@@ -1,11 +1,11 @@
 # Andromeda LLM gateway
 
-`codex-andromeda` uses the Chat Completions relay and gateway model catalog by
-default. No `--profile` flag is needed. Use `/model` to select and save a model,
-or choose a permitted deployment explicitly:
+`codex-andromeda` uses a local CLIProxyAPI adapter by default. No `--profile`
+flag is needed. Use `/model` to select and save a model and its reasoning
+effort, or choose a deployment explicitly:
 
 ```sh
-codex-andromeda --model gpt-6-astra
+codex-andromeda --model gpt-6.1-sol
 ```
 
 For example, to use DeepSeek:
@@ -14,27 +14,45 @@ For example, to use DeepSeek:
 codex-andromeda --model DeepSeek-V4.1-Flash
 ```
 
+The adapter has two explicit model groups configured in the Andromeda module:
+
+| Models | Bifrost route | Tool handling |
+|---|---|---|
+| GPT-6 Astra/Luna, GPT-6.1 Sol/Terra | `/openai/v1/responses` | Preserve native custom tools and low/medium/high/xhigh reasoning |
+| DeepSeek-V4.1-Flash, Kimi-K3.1-Pro | `/openai/v1/chat/completions` | Convert custom tools to functions and restore Codex tool calls and history |
+
+The second group advertises `none` and `high` reasoning, both accepted by the
+gateway. Model aliases omit `azure/` in Codex; CLIProxyAPI restores
+that provider prefix in requests to Bifrost. Adding a model requires assigning
+it to the appropriate `relay.cliProxy.nativeModels` or `chatModels` list.
+Live validation found intermittent Azure 404 errors for Kimi, including when
+identical requests were sent directly to Bifrost without the local adapter.
+Successful patch and tool continuations confirm conversion works, but Kimi's
+upstream deployment needs repair before it can be considered reliable.
+The existing `chat-completions` and `responses` profiles are aliases for the
+same adapter, so either profile also supports both groups.
+
 Every machine enabling the Andromeda Codex setup also runs nixpkgs'
-`codex-relay` as a user service. Codex sends Responses requests to
-`http://127.0.0.1:4444/v1`; the relay translates them to Chat Completions at
-`https://llmgateway.tail738663.ts.net/azure_passthrough/openai/v1/`.
-The relay reads the same decrypted Bifrost key when it starts, so CLI and
-desktop launches need no exported key. Hosted web search is disabled for the
-relay. The explicit `chat-completions` profile remains available too.
+`cliproxyapi` as a user service. Codex sends Responses requests to
+`http://127.0.0.1:4444/v1`; the adapter forwards to the normalized Bifrost base
+`https://llmgateway.tail738663.ts.net/openai/v1`. No Azure passthrough is used.
+The launcher reads the decrypted Bifrost key at startup into a private runtime
+config, which is removed when the service stops. CLI and desktop launches need
+no exported key. Hosted web search is disabled for this shared configuration.
 On Linux, inspect or restart it with
 `systemctl --user status codex-andromeda-relay` or
 `systemctl --user restart codex-andromeda-relay`. On macOS the Home Manager
 launchd agent is `org.nix-community.home.codex-andromeda-relay`.
 
-The relay profile gets its model catalog from the gateway's
-`https://llmgateway.tail738663.ts.net/openai/v1/models` endpoint using the same
-Bifrost key. Discovery is separate from the Azure passthrough inference URL.
-Only `azure/` model IDs are included, and that prefix is removed for inference,
-so `azure/DeepSeek-V4.1-Flash` appears as `DeepSeek-V4.1-Flash` in the picker.
+The model catalog comes from CLIProxyAPI's local `/v1/models` endpoint with the
+Codex client-version query. It contains exactly the configured model routes,
+including native and bridged `apply_patch` support and reasoning levels. The
+refresh helper validates it with the installed Codex binary before replacing
+the cache; it does not copy the API key into the catalog.
 Catalogs refresh at activation/login, periodically, and when stale before
 launch. The cache is `~/.cache/codex-andromeda/relay/models.json`; a failed
-refresh preserves the last successful catalog. The first relay-profile launch
-needs gateway access. Force a refresh with `codex-andromeda-relay-refresh`,
+refresh preserves the last successful catalog. The first launch needs the
+local adapter running. Force a refresh with `codex-andromeda-relay-refresh`,
 then start a new Codex client to see updates. On Linux, periodic refreshes use
 the `codex-andromeda-relay-catalog` user service and timer; on macOS they use
 the `org.nix-community.home.codex-andromeda-relay-catalog` launchd agent.

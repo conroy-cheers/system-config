@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -88,6 +89,42 @@ class CatalogIntegrationTests(unittest.TestCase):
         self.assertTrue(catalog.refresh(self.config))
         self.assertEqual(catalog.model_ids(json.loads(self.cache.read_text())), ["custom-model"])
         self.assertEqual(self.server.headers_seen, [None, None])
+
+    def test_known_models_retain_bundled_reasoning_after_prefix_removal(self):
+        bundled = json.loads(subprocess.check_output(
+            [self.config["codex"], "debug", "models", "--bundled"],
+            env={**os.environ, "CODEX_HOME": self.temporary.name},
+        ))
+        known = {m["slug"]: m for m in bundled["models"]}
+        slugs = ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"]
+        self.server.payload = {"data": [{"id": "azure/" + slug} for slug in slugs]}
+        self.assertTrue(catalog.refresh(self.config))
+        for model in json.loads(self.cache.read_text())["models"]:
+            native = known[model["slug"]]
+            self.assertTrue(model["supported_reasoning_levels"])
+            self.assertEqual(model["supported_reasoning_levels"], native["supported_reasoning_levels"])
+            self.assertEqual(model["default_reasoning_level"], native["default_reasoning_level"])
+
+    def test_gateway_efforts_and_model_overrides(self):
+        self.config["reasoning_efforts"] = ["low", "medium", "high", "xhigh"]
+        self.assertTrue(catalog.refresh(self.config))
+        models = json.loads(self.cache.read_text())["models"]
+        self.assertEqual(models[0]["supported_reasoning_levels"], [])
+        self.assertEqual([level["effort"] for level in models[1]["supported_reasoning_levels"]],
+                         self.config["reasoning_efforts"])
+        self.assertIn(models[1]["default_reasoning_level"], self.config["reasoning_efforts"])
+        # A removed default must be replaced by one of the remaining choices.
+        self.config["reasoning_efforts"] = ["high"]
+        self.assertTrue(catalog.refresh(self.config, force=True))
+        self.assertEqual(json.loads(self.cache.read_text())["models"][1]["default_reasoning_level"], "high")
+        self.config["overrides"]["gpt-6-astra"] = {
+            "default_reasoning_level": "medium",
+            "supported_reasoning_levels": [{"effort": "medium", "description": "Override"}],
+        }
+        self.assertTrue(catalog.refresh(self.config, force=True))
+        model = json.loads(self.cache.read_text())["models"][1]
+        self.assertEqual(model["default_reasoning_level"], "medium")
+        self.assertEqual([level["effort"] for level in model["supported_reasoning_levels"]], ["medium"])
 
     def test_failed_refresh_preserves_last_success_and_backs_off(self):
         self.assertTrue(catalog.refresh(self.config))
