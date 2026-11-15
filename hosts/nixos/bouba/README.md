@@ -1,9 +1,10 @@
 # bouba
 
 Valve Steam Frame, using the hardware and session modules from
-`steam-frame-nixos`. The live-tested Nixpkgs revision is
-`151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`; use the override below to retain
-that stack when the shared lock advances for other hosts.
+`steam-frame-nixos`, which follows this repository's Nixpkgs. Generation 52
+(2026-11-15) is the shared lock's Nixpkgs `3ec6363` with steam-frame-nixos
+`7169a61`; its exact system was trial-booted before becoming the default.
+Generation 51 (Nixpkgs `151fa4e`, 2026-10-17) remains in the boot menu.
 
 The session and Home Manager run as `conroy` (UID 1000), with `/home/conroy`.
 The common shell module supplies Fish, Starship, direnv, zoxide and local Atuin
@@ -43,17 +44,24 @@ sleep. The user reports head and controller tracking working well. Gaze,
 passthrough and audible audio still need physical validation. Stop/start tests
 should use the full
 `steam-frame-session.service` before cycling `steam-frame-tracking-dsp.service`.
-The physical tests used Nixpkgs
-`151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`; the shared root lock currently differs.
-The committed Frame dependency includes the CDSP and boot-argument support, so
-ordinary builds and deployments need no local checkout override:
+The 2026-11-15 update moved to the shared lock's Nixpkgs. Its remoteproc
+driver adds the CDSP secondary memory bank (128 MiB at `0x90000000`, granted
+only to images that declare it; Valve's images are unaffected). Before it
+became the default, the exact system was booted once under the Frame repo's
+guarded trial (`tools/kernel-trial`): ADSP, CDSP and CVP ran Valve's images,
+the session, Wi-Fi and PipeWire services were active with no failed
+units, and QNN hardware trials on both bank paths passed with verified stock
+recovery. Ordinary builds and deployments need no override:
 
 ```sh
 nix develop -c deploy .#bouba --skip-checks --boot
 ```
 
-To reproduce the physical tests' Nixpkgs stack, append
-`-- --override-input nixpkgs github:NixOS/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4`.
+`direnv-instant`'s PTY timing tests fail in build isolation on the Frame as
+on panda, so its checks are disabled here. Frame packages build natively on
+the device (Valve's Mesa, kernel and patched session components are not in a
+binary cache): copy the derivation with `nix copy --derivation` and realise it
+there, or let deploy-rs use a remote aarch64 builder.
 
 `deploy.nix` embeds deploy-rs activation helpers directly into the NixOS
 toplevel. The host generator uses `system.build.deploy` when supplied, keeping
@@ -113,15 +121,9 @@ for the outer session. The desktop connects directly to Gamescope over Wayland,
 using Frame’s surface metadata protocol and a software cursor.
 Set `programs.steamvr.nestedDesktop.transport = "x11"` to restore the Weston bridge.
 
-While the upstream Frame module changes are local, build/deploy with:
-
-```sh
-nix develop -c deploy .#bouba --skip-checks -- \
-  --override-input steam-frame-nixos ~/src/steam-frame-nixos
-```
-
-Update the remote input pin after publishing that repo's changes. Until then,
-the override is required for this desktop configuration.
+To test unpublished Frame module changes, build/deploy with
+`-- --override-input steam-frame-nixos ~/src/steam-frame-nixos`, then publish
+that repository and update the input pin.
 
 The nested desktop opts into per-pixel transparency using
 `programs.steamvr.nestedDesktop.transparent`. Corncheese's

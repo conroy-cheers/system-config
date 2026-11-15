@@ -61,6 +61,13 @@ in
     openssh.authorizedKeys.keys = [ sshKey ];
   };
   programs.fish.enable = true;
+  # As on panda: direnv-instant's PTY timing tests fail in build isolation on
+  # the Frame (blocking_envrc_calls_tmux, daemon still running after Ctrl-C).
+  home-manager.users.conroy.programs.direnv-instant.package =
+    inputs.direnv-instant.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
+      {
+        doCheck = false;
+      };
   security.sudo.wheelNeedsPassword = false;
   services.steam-frame = {
     enable = true;
