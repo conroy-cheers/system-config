@@ -15,11 +15,14 @@ jobs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
     - uses: actions/checkout@v4
+    # github: inputs use the API, so Git's URL rewrite alone cannot authenticate them.
+    # The read token must cover both corncheese-server-config and steam-frame-nixos.
     - uses: DeterminateSystems/nix-installer-action@v17
       with:
         extra-conf: |
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+          access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN || github.token }}
     - name: Configure private flake access
       if: ${{ env.CORNCHEESE_SERVER_CONFIG_READ_TOKEN != '' }}
       run: |
@@ -59,7 +62,7 @@ jobs:
             kind: "nixos",
             name: .name,
             system: .system,
-            runner: (if (.system | endswith("-darwin")) then "macos-latest" else "ubuntu-latest" end),
+            runner: (if .system == "aarch64-linux" then "ubuntu-24.04-arm" else "ubuntu-latest" end),
             check_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel.drvPath"),
             build_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel"),
             push_enabled: true
@@ -120,6 +123,7 @@ jobs:
         extra-conf: |
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+          access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN || github.token }}
     - uses: DeterminateSystems/magic-nix-cache-action@main
       with:
         upstream-cache: https://cache.nixos.org
@@ -269,4 +273,4 @@ jobs:
     - name: Nix store diagnostics
       if: ${{ failure() }}
       run: |
-        nix store verify --no-trust || true
+        nix store verify --all --no-trust || true
