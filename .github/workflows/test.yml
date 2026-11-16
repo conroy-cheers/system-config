@@ -121,11 +121,6 @@ jobs:
       matrix: ${{ fromJSON(needs.detect-targets.outputs.matrix) }}
     steps:
     - uses: actions/checkout@v4
-    - name: Enable ARM builds for Bouba's mixed architecture closure
-      if: ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' }}
-      uses: docker/setup-qemu-action@v4
-      with:
-        platforms: arm64
     - uses: DeterminateSystems/nix-installer-action@v17
       with:
         extra-conf: |
@@ -173,6 +168,28 @@ jobs:
       run: |
         df -h
         du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
+    # Package removal during cleanup can reset binfmt registrations.
+    - name: Enable ARM builds for Bouba's mixed architecture closure
+      if: ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' }}
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: arm64
+    - name: Verify ARM execution in the Nix sandbox
+      if: ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' }}
+      run: |
+        cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+        # These shell expansions belong to the ARM builder, not this shell.
+        # shellcheck disable=SC2016
+        nix build --no-link --impure --expr '
+          let
+            flake = builtins.getFlake (toString ./.);
+            pkgs = import flake.inputs.nixpkgs { system = "aarch64-linux"; };
+          in pkgs.runCommand "ci-arm-emulation-check" {
+            allowSubstitutes = false;
+            preferLocalBuild = true;
+          }
+            "test \"$(uname -m)\" = aarch64; touch $out"
+        '
     - name: Evaluate target
       run: |
         nix_ci() {
