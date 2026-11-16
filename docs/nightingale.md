@@ -5,7 +5,21 @@ service catalogue renders its authenticated HTTPS ingress on snow at
 `https://nightingale.corncheese.org`, plus a Media homepage entry. Ensure DNS for
 that name reaches snow's existing ingress before use. The existing certificate
 resolver and Authelia forward-auth flow handle TLS/login; phones also need to
-log in. HTTPS is required for browser microphone access and scoring.
+log in.
+
+## Playback, microphones and phone controls
+
+The full self-hosted browser app captures microphones on the device running
+that app. Use the trusted HTTPS URL and grant microphone permission there for
+scoring. Sleet serves the app and analyzes music; it need not have a microphone
+attached. See [upstream self-hosted microphone guidance](https://nightingale.cafe/docs/self-hosted/#microphone-support-and-https).
+
+The QR guest page is a separate remote-control interface: guests manage the
+queue and control playback on the host player. It does **not** capture the
+guest phone's microphone or play audio on the guest device. Its microphone
+selector controls inputs already exposed by the host player. Opening the full
+app on a phone is a different flow, not a wireless microphone for another
+player. See [upstream phone queue documentation](https://nightingale.cafe/docs/queue-from-phone/).
 
 ## Runtime and data
 
@@ -51,9 +65,15 @@ After deployment:
 2. Check `podman volume inspect nightingale-data` and back up its mountpoint
    while the service is stopped. Do not use `volume rm` or prune volumes.
 3. Confirm anonymous access to the HTTPS URL goes to Authelia and signed-in
-   access loads the app. Check a phone can pair and grant microphone access.
-4. Scan the library, analyze a short track, play it and verify scoring.
-5. From another LAN host, verify direct port 8783 is blocked, while snow can
+   access loads the full app on the intended playback device.
+4. Scan the library and analyze a short track. On the playback device, grant
+   microphone access over trusted HTTPS, select an input, play the track and
+   verify scoring.
+5. Separately, scan the QR code on a guest phone and complete Authelia login.
+   Verify queue edits and pause/resume affect the host player. Do not expect
+   microphone permission or phone audio from this guest page. Use the default
+   single-window playback mode to avoid remote-start popup blocking.
+6. From another LAN host, verify direct port 8783 is blocked, while snow can
    reach sleet:8783. Check backend listeners and logs if ingress returns 502.
 
 For upgrades, verify an upstream release image, replace its digest, rebuild,
