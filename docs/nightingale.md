@@ -29,11 +29,18 @@ player. See [upstream phone queue documentation](https://nightingale.cafe/docs/q
 - Port **8783** uses the existing topology's listener/firewall policy. Only the
   ingress host is granted firewall access, not the whole LAN. Host networking
   avoids publishing a container NAT port that might bypass host firewall rules.
-- Existing OPS and RED music roots are mounted read-only under `/songs`.
-  The pinned library disables remote-source selection in Nightingale's UI.
+- `NIGHTINGALE_LIBRARY_PATH=""` overrides the image's default folder pin, keeping
+  Plex/Jellyfin/Navidrome source selection available. Connect the desired source
+  in the sidebar after setup. No existing Plex credentials are copied into the
+  container or this repository. Verify that its PMS address is reachable.
+- OPS/RED music remains mounted read-only under `/songs`. To choose local music
+  declaratively instead, set `NIGHTINGALE_LIBRARY_PATH="/songs"`; this hides the
+  source selectors again. See [upstream library configuration](https://nightingale.cafe/docs/docker/#configuring-the-music-library).
 - `nightingale-data` is a named OCI volume mounted at `/data`; image ownership is
   retained rather than guessing an upstream UID. Its contents include settings,
-  analysis results, downloaded tools and models. Sleet already persists
+  analysis results, downloaded tools and models. In particular, `/data/vendor`
+  contains the bootstrapped toolchain; preserve it across container recreation.
+  With `HOME=/data`, download caches persist too. Sleet already persists
   `/var/lib`, including Podman/Docker storage. Do not delete the volume to update.
 - First startup/first analysis downloads Python, ffmpeg, ML dependencies and
   models. Allow several GB of disk and a potentially long CPU analysis warm-up.
@@ -66,7 +73,7 @@ After deployment:
    while the service is stopped. Do not use `volume rm` or prune volumes.
 3. Confirm anonymous access to the HTTPS URL goes to Authelia and signed-in
    access loads the full app on the intended playback device.
-4. Scan the library and analyze a short track. On the playback device, grant
+4. Select/connect the intended library source, scan it and analyze a short track. On the playback device, grant
    microphone access over trusted HTTPS, select an input, play the track and
    verify scoring.
 5. Separately, scan the QR code on a guest phone and complete Authelia login.
@@ -79,3 +86,17 @@ After deployment:
 For upgrades, verify an upstream release image, replace its digest, rebuild,
 and restart through NixOS. Retain the named data volume. The CPU image is
 deliberate; switch to CUDA only after a P100-compatible stack is tested.
+
+## Considering CUDA later
+
+Changing the image alone is insufficient. Upstream bootstrap detects
+`nvidia-smi` inside the container and selects CUDA PyTorch when available;
+otherwise it installs CPU PyTorch. GPU access/toolkit and a compatible driver
+must also be configured. See [upstream GPU guidance](https://nightingale.cafe/docs/docker/#gpu).
+
+Version 1.4.1's readiness check tests existing vendor files, not whether the
+installed PyTorch backend matches new hardware. Therefore a persisted CPU
+toolchain must not be assumed to become CUDA-enabled just by replacing the
+image. Test a separate data volume first, verify the installed backend and P100
+compatibility, and plan a backed-up toolchain migration. Do not delete the
+production data volume to force bootstrap.

@@ -11,7 +11,9 @@ in
     environment = {
       NIGHTINGALE_BIND = "${endpoint.bindAddress}:${toString endpoint.port}";
       NIGHTINGALE_DATA_PATH = "/data";
-      NIGHTINGALE_LIBRARY_PATH = "/songs";
+      # Override the image's /songs default so Plex and other source selectors
+      # remain available. Local music is still mounted read-only if desired.
+      NIGHTINGALE_LIBRARY_PATH = "";
       NIGHTINGALE_REMOTE_URL = "https://nightingale.corncheese.org";
       HOME = "/data";
     };
