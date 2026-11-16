@@ -57,12 +57,13 @@ jobs:
             --apply builtins.attrNames
         )"
 
+        # The Frame kernel on Bouba is cross-compiled with x86 build tools.
         nixos_targets="$(
           jq -c '[.[] | {
             kind: "nixos",
             name: .name,
             system: .system,
-            runner: (if .system == "aarch64-linux" then "ubuntu-24.04-arm" else "ubuntu-latest" end),
+            runner: (if .system == "aarch64-linux" and .name != "bouba" then "ubuntu-24.04-arm" else "ubuntu-latest" end),
             check_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel.drvPath"),
             build_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel"),
             push_enabled: true
@@ -120,12 +121,18 @@ jobs:
       matrix: ${{ fromJSON(needs.detect-targets.outputs.matrix) }}
     steps:
     - uses: actions/checkout@v4
+    - name: Enable ARM builds for Bouba's mixed architecture closure
+      if: ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' }}
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: arm64
     - uses: DeterminateSystems/nix-installer-action@v17
       with:
         extra-conf: |
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
           access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN || github.token }}
+          extra-platforms = ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' && 'aarch64-linux' || '' }}
     - uses: DeterminateSystems/magic-nix-cache-action@main
       with:
         upstream-cache: https://cache.nixos.org
