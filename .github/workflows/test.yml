@@ -133,9 +133,6 @@ jobs:
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
           access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN || github.token }}
           extra-platforms = ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' && 'aarch64-linux' || '' }}
-    - uses: DeterminateSystems/magic-nix-cache-action@main
-      with:
-        upstream-cache: https://cache.nixos.org
     - name: Configure private flake access
       if: ${{ env.CORNCHEESE_SERVER_CONFIG_READ_TOKEN != '' }}
       run: |
