@@ -85,7 +85,9 @@ jobs:
           }]' <<<"$darwin_json"
         )"
         check_targets="$(
-          jq -c '[.[] | {
+          # Aggregate deploy checks evaluate every host in one process (>24 GiB).
+          # The deploy-node-* checks cover the same nodes in separate jobs.
+          jq -c '[.[] | select(. != "deploy-activate" and . != "deploy-schema") | {
             kind: "check",
             name: .,
             system: "x86_64-linux",
