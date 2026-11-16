@@ -7,6 +7,13 @@
 let
   sshKey =
     (import ../../../modules/common/corncheese-development/ssh-identities.nix).conroy-home.publicKey;
+  # Build the same ARM kernel used for the guarded CDSP hardware qualification
+  # on the x86 builder that also builds the Hexagon firmware.
+  kernelBuilder = inputs.nixpkgs.legacyPackages.x86_64-linux.pkgsCross.aarch64-multiplatform;
+  frameKernel = kernelBuilder.callPackage (inputs.steam-frame-nixos + "/pkgs/valve/kernel") {
+    enableDSPRemoteproc = true;
+    kernelPatches = [ ];
+  };
 in
 {
   imports = [
@@ -17,6 +24,11 @@ in
   # The flake supplies pkgs with allowUnfree already enabled.
   nixpkgs.config = lib.mkForce { };
   networking.hostName = "bouba";
+  hardware.steam-frame.dsp.rust = {
+    enable = true;
+    profile = "qnn";
+  };
+  boot.kernelPackages = lib.mkForce (kernelBuilder.linuxPackagesFor frameKernel);
   time.timeZone = "Australia/Melbourne";
   determinate.enable = false;
   corncheese.development.enable = false;

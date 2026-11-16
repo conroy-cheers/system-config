@@ -180,7 +180,7 @@
     };
 
     steam-frame-nixos = {
-      url = "github:conroy-cheers/steam-frame-nixos";
+      url = "github:conroy-cheers/steam-frame-nixos/cdsp-generic-runtime";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
       inputs.disko.follows = "disko";

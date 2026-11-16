@@ -4090,15 +4090,16 @@
         "preservation": "preservation"
       },
       "locked": {
-        "lastModified": 1794730358,
-        "narHash": "sha256-IC/vH6cN+YU5J9UjCupOxk0ENeJGvlIhltemkc+QGHM=",
+        "lastModified": 1794814855,
+        "narHash": "sha256-yJ+mbppwoI7VacWfekW2GhmrbZZTqHe3rCqKriB2SlI=",
         "owner": "conroy-cheers",
         "repo": "steam-frame-nixos",
-        "rev": "7169a61c5b25562f6bdd157a1e304cdd62d5e890",
+        "rev": "e5e0924dd4176837909c2cc178c93cd1b71413f8",
         "type": "github"
       },
       "original": {
         "owner": "conroy-cheers",
+        "ref": "cdsp-generic-runtime",
         "repo": "steam-frame-nixos",
         "type": "github"
       }
