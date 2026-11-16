@@ -55,6 +55,10 @@ Codex client-version query. It contains exactly the configured model routes,
 including native and bridged `apply_patch` support and reasoning levels. The
 refresh helper validates it with the installed Codex binary before replacing
 the cache; it does not copy the API key into the catalog.
+Andromeda defaults to a 1,000,000-token context window with
+`model_context_window`. Catalog `max_context_window` overrides are derived
+from the configured model routes so the adapter's 272k fallback cannot clamp
+that default. Codex derives automatic compaction at 90% (900,000 tokens).
 Catalogs refresh at activation/login, periodically, and when stale before
 launch. The cache is `~/.cache/codex-andromeda/relay/models.json`; a failed
 refresh preserves the last successful catalog. The first launch needs the

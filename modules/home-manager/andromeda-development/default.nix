@@ -10,6 +10,7 @@
 let
   cfg = config.andromeda.development;
   codexAndromedaHome = config.programs.chatgpt.profiles.andromeda.codexHome;
+  codexAndromedaModels = config.programs.chatgpt.profiles.andromeda.relay.cliProxy;
   andromedaShellHook =
     inputs.andromeda-shell-config.packages.${pkgs.stdenv.hostPlatform.system}.andromeda-shell-hook;
   bitwardenMasterPasswordItemId = "usoq2y3rdt2pgetb7rfpqhufpe";
@@ -125,6 +126,7 @@ let
       }
     ];
     model_provider = lib.mkDefault "llmgateway";
+    model_context_window = 1000000;
     model_reasoning_effort = "high";
     personality = "pragmatic";
     tui = {
@@ -287,6 +289,13 @@ in
         package = pkgs.cliproxyapi-andromeda;
         upstream = "https://llmgateway.tail738663.ts.net/openai/v1";
         apiKeyFile = config.age.secrets."andromeda.bifrost.key".path;
+        # Codex clamps the configured window to the catalog's ceiling.
+        catalog.overrides =
+          lib.genAttrs
+            (map (model: model.alias) (codexAndromedaModels.nativeModels ++ codexAndromedaModels.chatModels))
+            (_: {
+              max_context_window = codexAndromedaSettings.model_context_window;
+            });
         cliProxy = {
           nativeModels =
             map
