@@ -9,6 +9,9 @@ let
   };
 in
 {
+  # Share placement with ingress on snow and the runtime on sleet.
+  corncheese-server.topology.services.nightingale.host = "sleet";
+
   corncheese-server._meta.services = {
     icloud-mail-mcp = {
       endpoint = endpointFor "icloud-mail-mcp" 8781;
@@ -93,6 +96,22 @@ in
         host = "ultramoji.corncheese.org";
         auth.mode = "public";
         backend.url = "http://127.0.0.1:8765";
+      };
+    };
+    nightingale = {
+      endpoint = endpointFor "nightingale" 8783;
+      route = {
+        host = "nightingale.corncheese.org";
+        auth.mode = "forwardAuth";
+        auth.policy = "one_factor";
+      };
+      homepage = {
+        section = "Media";
+        order = 115;
+        name = "Nightingale";
+        route = "nightingale";
+        icon = "mdi-microphone";
+        description = "Karaoke and singing scores";
       };
     };
     wotbox = {
