@@ -124,6 +124,10 @@ let
         name = "github:yeet";
         enabled = false;
       }
+      {
+        name = "protect-phi-data";
+        enabled = false;
+      }
     ];
     model_provider = lib.mkDefault "llmgateway";
     model_context_window = 1000000;
