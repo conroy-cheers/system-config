@@ -1,0 +1,44 @@
+diff --git a/src/interfaces/types.js b/src/interfaces/types.js
+--- a/src/interfaces/types.js
++++ b/src/interfaces/types.js
+@@ -4,8 +4,17 @@
+ function guessMetadataSignature(key, value) {
+-  if (key === 'mpris:trackid') {
++  if (value === undefined || value === null) {
++    return null;
++  } else if (key === 'mpris:trackid') {
+     return 'o';
+   } else if (key === 'mpris:length') {
+     return 'x';
++  } else if (
++    key === 'xesam:audioBpm' ||
++    key === 'xesam:discNumber' ||
++    key === 'xesam:trackNumber' ||
++    key === 'xesam:useCount'
++  ) {
++    return 'i';
+   } else if (typeof value === 'string') {
+     return 's';
+   } else if (typeof value === 'boolean') {
+diff --git a/dist/interfaces/types.js b/dist/interfaces/types.js
+--- a/dist/interfaces/types.js
++++ b/dist/interfaces/types.js
+@@ -5,8 +5,17 @@
+ function guessMetadataSignature(key, value) {
+-  if (key === 'mpris:trackid') {
++  if (value === undefined || value === null) {
++    return null;
++  } else if (key === 'mpris:trackid') {
+     return 'o';
+   } else if (key === 'mpris:length') {
+     return 'x';
++  } else if (
++    key === 'xesam:audioBpm' ||
++    key === 'xesam:discNumber' ||
++    key === 'xesam:trackNumber' ||
++    key === 'xesam:useCount'
++  ) {
++    return 'i';
+   } else if (typeof value === 'string') {
+     return 's';
+   } else if (typeof value === 'boolean') {

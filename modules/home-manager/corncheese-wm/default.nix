@@ -173,6 +173,8 @@ in
       };
     };
 
+    services.mpris-proxy.enable = !nested;
+
     gtk = {
       enable = true;
       iconTheme = {
