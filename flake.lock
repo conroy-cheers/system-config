@@ -4090,11 +4090,11 @@
         "preservation": "preservation"
       },
       "locked": {
-        "lastModified": 1794953442,
-        "narHash": "sha256-YWRAZGkuNpv2nzsjJXPss6OoHATJGotCoDa7e27HC+g=",
+        "lastModified": 1794953676,
+        "narHash": "sha256-/ekO8Cg45DvCHP61G1otC0SbWKuEXCsGGl6nd5RM/Eo=",
         "owner": "conroy-cheers",
         "repo": "steam-frame-nixos",
-        "rev": "fca0cf6bfb05f3e5e2bf98c00cdf8fa614b215b7",
+        "rev": "7281b6ac3b8e5055bceb185b1eac037f46543959",
         "type": "github"
       },
       "original": {
