@@ -4507,11 +4507,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792119610,
-        "narHash": "sha256-Tdk26uwbS1j/jIwrwQc/0cutbltW5exPoFudY00wcZA=",
+        "lastModified": 1794889066,
+        "narHash": "sha256-/ZklT9jF/E4nk1l+bme4vJ4RuGnXV5AWZ12+cST6LmQ=",
         "owner": "conroy-cheers",
         "repo": "tinymux",
-        "rev": "dcb94c8ddf960c6d28cb5a5161ed16e9405a75b7",
+        "rev": "2d7947ec39c1e2cad2904b012bdf0b6208cbaea4",
         "type": "github"
       },
       "original": {
