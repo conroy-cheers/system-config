@@ -6,6 +6,14 @@ profiles. Each installs a Codex CLI wrapper and can install a ChatGPT desktop
 launcher using the same `CODEX_HOME`, provider configuration, MCP servers, and
 CLI wrapper.
 
+Every instance uses the same implementation. The adapter reuses Home Manager's
+Codex option definitions, file renderers, plugin normalizer, MCP helpers, and
+`lib.hm.generators.mkImpureConfigMerger`, supplying each instance's `codexHome`.
+The upstream `programs.codex` module hard-codes a single home, so configure all
+instances through `programs.chatgpt.profiles` rather than enabling it alongside
+this module. The pinned `llm-agents` input provides packages, but does not export
+Home Manager modules.
+
 ```nix
 programs.chatgpt.enable = true;
 programs.chatgpt.profiles = {
@@ -40,16 +48,38 @@ programs.chatgpt.profiles = {
 ```
 
 The implicit `default` profile installs `codex` with `~/.codex`; other names
-install `codex-<name>` with `~/.codex-<name>`. Override `command`, `codexHome`, or
-`package` per setup. `extraPackages` adds tools to the standard CLI tool PATH;
+install `codex-<name>` with `~/.codex-<name>`. The default home follows
+`home.preferXdgDirectories` (`~/.config/codex` when enabled), matching
+Home Manager's Codex home. Override `command`, `package`, or
+`codexHome` per setup; a custom home uses the same implementation.
+`extraPackages` adds tools to the standard CLI tool PATH;
 `beforeLaunch` runs shell commands before CLI invocations. `finalPackage`
 exposes the generated CLI wrapper for other modules. Set
 `profiles.default.enable = false` to disable the default profile while keeping
 other profiles enabled.
 
+All instances support `context`, `contextOverride`, `skills`, `rules`, `hooks`,
+`plugins`, `marketplaces`, and `enableMcpIntegration` using Home Manager's option
+types and defaults. `context` accepts inline Markdown or a path and manages
+`$CODEX_HOME/AGENTS.md`; `contextOverride` manages `AGENTS.override.md`, which
+Codex prefers when present. For example, share one instruction file with the
+personal and Andromeda instances:
+
+```nix
+programs.chatgpt.profiles = {
+  default.context = ./codex-AGENTS.md;
+  andromeda.context = ./codex-AGENTS.md;
+};
+```
+
+Skills, hooks, rules, plugin caches, and managed plugin marketplaces are scoped
+to each instance's home. Instances can use different versions of the same
+plugin. `enableMcpIntegration = true` imports `programs.mcp.servers` into that
+instance; its explicit `settings.mcp_servers` take precedence.
+
 `configProfiles.<name>.settings` manages a named Codex profile's settings in
 `$CODEX_HOME/<name>.config.toml`. These files are writable and merged at
-activation and login, like the base config. Unmanaged leaves, including a
+activation, like the base config. Unmanaged leaves, including a
 model selected in the TUI, survive later merges. Existing Home Manager
 symlinks are migrated to private regular files after file activation.
 Use `configProfiles.<name>.removeSettings` for obsolete managed paths, just as
@@ -141,7 +171,7 @@ for known model capabilities, and `catalog.modelTemplate` to choose a different
 bundled template. Override keys are normalized model IDs; `slug` cannot be
 overridden.
 
-Refreshes run at activation/login and periodically using a systemd user timer
+Refreshes run at activation and periodically using a systemd user timer
 or launchd agent named `<command>-relay-catalog`. CLI launches with
 `--profile chat-completions`, launches using the relay by default, and desktop
 launches also check freshness. The
@@ -161,9 +191,24 @@ modules. No authenticated fetching happens during Nix evaluation or builds.
 and concurrent refreshes against a local API. Set `CODEX_RELAY_TEST_CODEX` and
 `CODEX_RELAY_TEST_RELAY` to the unwrapped binaries and run it with Python 3.11
 or newer; no inference requests are needed.
-`test_config_profiles.py` checks symlink migration, model persistence through
-Codex's `config/batchWrite` API, and preservation across later merges. Run it
-with `tomlkit` available and `CODEX_PROFILE_TEST_CODEX` pointing to the binary.
+`tests.nix` evaluates Linux, Darwin, XDG, custom-home, disabled, and named-only
+configurations. It runs `test_config_profiles.py` against the generated Home
+Manager merger and `test_instances.py` against two generated homes with the
+real Codex CLI. Coverage includes context/override discovery, isolated plugin
+versions, skills/hooks/rules generation, MCP transport changes, dry runs,
+symlink migration, malformed input, file permissions, and model persistence
+through Codex's `config/batchWrite` API. Run it from the repository root:
+
+```sh
+nix build --impure --no-link --expr '
+  let f = builtins.getFlake (toString ./.);
+  in import ./modules/home-manager/chatgpt/tests.nix {
+    inherit (f) inputs;
+    pkgs = f.nixosConfigurations.kombu.pkgs;
+  }
+'
+```
+
 `test_cliproxyapi.py` runs the real packaged adapter against a local upstream,
 checking native tool/effort preservation, custom-tool conversion and streaming,
 history replay, private credential cleanup, and catalog validation. Set
@@ -182,12 +227,14 @@ profiles under `~/.config/codex-desktop-<name>`, so their desktop sign-ins and
 app state are independent. These paths follow Home Manager's XDG config
 directory. Override `desktop.userDataDir` to use an existing profile.
 
-Managed TOML leaves merge into mutable `config.toml` during activation and at
-login. Unmanaged settings and comments survive; arrays are replaced as a
-whole. `removeSettings` takes paths such as `[ [ "mcp_servers" "old" ] ]` to
-remove obsolete managed entries. `afterMerge` runs at both merge points;
-`activationScript` runs only during Home Manager activation. Keep secrets in
-runtime files and reference their paths instead of putting values in Nix.
+Managed TOML leaves merge into mutable `config.toml` during activation.
+Unmanaged settings survive; Home Manager's TOML merger does not preserve
+comments or formatting. Arrays are replaced as a whole.
+`removeSettings` takes paths such as `[ [ "mcp_servers" "old" ] ]` to
+remove obsolete managed entries. `afterMerge` and `activationScript` run after
+merging during Home Manager activation and are skipped during dry runs.
+Keep secrets in runtime files and reference their paths instead of putting
+values in Nix.
 
 The personal and Andromeda development modules configure `default` and
 `andromeda`, preserving their existing provider/MCP settings, DeepSeek refresh,
