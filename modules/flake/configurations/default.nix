@@ -294,10 +294,27 @@
 
   config = {
     perSystem =
-      { system, ... }:
+      { system, pkgs, ... }:
       {
         checks = lib.optionalAttrs (builtins.hasAttr system inputs.deploy-rs.lib) (
           inputs.deploy-rs.lib.${system}.deployChecks self.deploy
+          // lib.mapAttrs' (
+            nodeName: node:
+            lib.nameValuePair "deploy-node-${nodeName}" (
+              pkgs.default.linkFarm "deploy-check-${nodeName}" (
+                lib.mapAttrsToList (name: path: { inherit name path; }) (
+                  inputs.deploy-rs.lib.${system}.deployChecks (
+                    self.deploy
+                    // {
+                      nodes = {
+                        ${nodeName} = node;
+                      };
+                    }
+                  )
+                )
+              )
+            )
+          ) self.deploy.nodes
         );
       };
 
