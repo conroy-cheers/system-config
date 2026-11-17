@@ -286,6 +286,7 @@ in
 
     programs.chatgpt.enable = true;
     programs.chatgpt.profiles.andromeda = {
+      context = ./codex-context.md;
       relay = {
         enable = true;
         makeDefault = true;
