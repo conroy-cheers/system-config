@@ -28,6 +28,7 @@ in
     enable = true;
     profile = "qnn";
   };
+  hardware.steam-frame.handTracking.enable = true;
   boot.kernelPackages = lib.mkForce (kernelBuilder.linuxPackagesFor frameKernel);
   time.timeZone = "Australia/Melbourne";
   determinate.enable = false;
