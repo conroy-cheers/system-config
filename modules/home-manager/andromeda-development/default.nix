@@ -471,6 +471,8 @@ in
           sso_session = "Andromeda";
           sso_account_id = "440744238060";
           sso_role_name = "AWSPowerUserAccess";
+          region = "ap-southeast-2";
+          output = "json";
         };
 
         "sso-session Andromeda" = {
@@ -505,7 +507,7 @@ in
         "profile ssm" = {
           sso_session = "Andromeda";
           sso_account_id = "719629165727";
-          sso_role_name = "SsmUsersPermSet";
+          sso_role_name = "SsmActivationPermSet";
           region = "ap-southeast-2";
           output = "json";
         };
@@ -513,7 +515,7 @@ in
         "profile iot-creds-au-dev" = {
           sso_session = "Andromeda";
           sso_account_id = "235494781452";
-          sso_role_name = "IoTCredsBucketPermSet-au-dev";
+          sso_role_name = "DevelopersPermSet-iot-dev";
           region = "ap-southeast-2";
           output = "json";
         };
@@ -521,7 +523,7 @@ in
         "profile iot-creds-us-dev" = {
           sso_session = "Andromeda";
           sso_account_id = "235494781452";
-          sso_role_name = "IoTCredsBucketPermSet-us-dev";
+          sso_role_name = "DevelopersPermSet-iot-dev";
           region = "us-west-2";
           output = "json";
         };
@@ -529,7 +531,7 @@ in
         "profile iot-creds-au-prod" = {
           sso_session = "Andromeda";
           sso_account_id = "263383612339";
-          sso_role_name = "IoTCredsBucketPermSet-au-prod";
+          sso_role_name = "DevelopersPermSet-iot-prod";
           region = "ap-southeast-2";
           output = "json";
         };
@@ -537,8 +539,40 @@ in
         "profile iot-creds-us-prod" = {
           sso_session = "Andromeda";
           sso_account_id = "263383612339";
-          sso_role_name = "IoTCredsBucketPermSet-us-prod";
+          sso_role_name = "DevelopersPermSet-iot-prod";
           region = "us-west-2";
+          output = "json";
+        };
+
+        "profile nix-cache-andromeda" = {
+          sso_session = "Andromeda";
+          sso_account_id = "210362323009";
+          sso_role_name = "NixCacheRWPermSet";
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile nix-cache-infra" = {
+          sso_session = "Andromeda";
+          sso_account_id = "862121602319";
+          sso_role_name = "NixCacheRWPermSet";
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile infra-model" = {
+          sso_session = "Andromeda";
+          sso_account_id = "862121602319";
+          sso_role_name = "DevelopersPermSet-infra-model";
+          region = "ap-southeast-2";
+          output = "json";
+        };
+
+        "profile memories-dev" = {
+          sso_session = "Andromeda";
+          sso_account_id = "590636266544";
+          sso_role_name = "RoboticsDevelsPermSet-mem";
+          region = "ap-southeast-2";
           output = "json";
         };
       };
