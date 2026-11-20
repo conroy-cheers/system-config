@@ -130,7 +130,7 @@ let
       }
     ];
     model_provider = lib.mkDefault "llmgateway";
-    model_context_window = 1000000;
+    model_context_window = 600000;
     model_reasoning_effort = "high";
     personality = "pragmatic";
     tui = {
