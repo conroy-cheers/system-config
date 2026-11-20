@@ -325,6 +325,13 @@ in
     evaluator_max_memory_size = 32768
   '';
 
+  # Share Sleet's 48 CPUs between two build slots. Giving every concurrent
+  # Rust release build all CPUs also multiplies compiler memory pressure.
+  services.hydra-builder.settings = {
+    maxJobs = 2;
+    buildCores = 24;
+  };
+
   services.authelia.instances.main.settings.session = {
     # Mainsail holds a long-lived Moonraker websocket. Authelia does not see
     # websocket frames as session activity, so a short idle timeout makes
