@@ -339,10 +339,16 @@ in
           }
         ];
 
-        device = {
-          name = "logitech-pro-x-2-1";
-          sensitivity = -0.5;
-        };
+        device =
+          map
+            (name: {
+              inherit name;
+              sensitivity = -0.5;
+            })
+            [
+              "logitech-pro-x-2-1"
+              "logitech-pro-x-2-3"
+            ];
       }
       (lib.mkIf cfg.transparentBackground {
         config.decoration.blur.enabled = lib.mkForce false;
