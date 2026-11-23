@@ -29,9 +29,9 @@ in
     profile = "qnn";
     qnnTrackingProfile = "detv81";
     qnnDetv81Model = toString (pkgs.requireFile {
-      name = "detv81-bouba-20261123-integer.onnx";
-      sha256 = "f29c64959003952085746c64d62a1f43b05eb99a5fc51135519f1c104f07d094";
-      message = "Import the reviewed Bouba DETV81 checkpoint with nix-store --add-fixed sha256 detv81-bouba-20261123-integer.onnx.";
+      name = "detv81-bouba-20261123-blend-overlap-50-integer.onnx";
+      sha256 = "621dc87486f837f8ab29415cc7a1cb9c073fa54c57c5befddc4dc1672ac49fbf";
+      message = "Import the reviewed Bouba DETV81 checkpoint with nix-store --add-fixed sha256 detv81-bouba-20261123-blend-overlap-50-integer.onnx.";
     });
   };
   hardware.steam-frame.handTracking.enable = true;
