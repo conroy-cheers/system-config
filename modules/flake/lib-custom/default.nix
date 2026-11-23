@@ -61,6 +61,9 @@
   ];
 
   config.lib = rec {
+    # Build an EQ file from measurement/target CSVs and AutoEq CLI parameters.
+    mkAutoEq = import ./mk-autoeq.nix { inherit lib; };
+
     # Secrets Helpers
     repoSecret = lib.path.append ../../../secrets/master;
 

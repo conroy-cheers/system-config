@@ -7,6 +7,33 @@
 let
   cfg = config.corncheese.wm.audio;
 
+  # PipeWire reads these fragments in filename order. Follow the merged clock
+  # properties so host overrides also change the generated impulse responses.
+  pipewireProperties = lib.foldl' (
+    properties: fragment: properties // (fragment."context.properties" or { })
+  ) { } (lib.attrValues config.services.pipewire.extraConfig.pipewire);
+  eqSampleRates = lib.unique (
+    [ (pipewireProperties."default.clock.rate" or 48000) ]
+    ++ (pipewireProperties."default.clock.allowed-rates" or [ ])
+  );
+  eqProfiles = map (
+    sampleRate:
+    lib.mkAutoEq pkgs {
+      name = "HIFIMAN-Ananda-Stealth-${toString sampleRate}Hz";
+      format = "convolution";
+      measurement = "${pkgs.autoeq.measurements}/oratory1990/data/over-ear/HIFIMAN Ananda Stealth.csv";
+      target = "${pkgs.autoeq.targets}/Harman over-ear 2018 without bass.csv";
+      parameters = {
+        fs = sampleRate;
+        phase = "minimum";
+        bit-depth = 32;
+        f-res = 10;
+        bass-boost = "18,65,0.7";
+        max-gain = 24;
+      };
+    }
+  ) eqSampleRates;
+
   motuEq = pkgs.writeShellApplication {
     name = "motu-eq";
     runtimeInputs = with pkgs; [
@@ -262,7 +289,7 @@ in
         extraConfig = {
           pipewire."92-low-latency" = {
             "context.properties" = {
-              "default.clock.rate" = 48000;
+              "default.clock.rate" = lib.mkDefault 48000;
               "default.clock.quantum" = 256;
               "default.clock.min-quantum" = 32;
               "default.clock.max-quantum" = 4096;
@@ -308,10 +335,36 @@ in
               };
             }
             {
-              name = "libpipewire-module-parametric-equalizer";
+              name = "libpipewire-module-filter-chain";
               args = {
-                "equalizer.filepath" = ./HIFIMAN-Ananda-Stealth-ParametricEq.txt;
-                "equalizer.description" = "MOTU M2 EQ";
+                "node.description" = "MOTU M2 EQ";
+                "filter.graph" = {
+                  nodes =
+                    lib.imap0
+                      (channel: name: {
+                        type = "builtin";
+                        inherit name;
+                        label = "convolver";
+                        config = {
+                          # The convolver selects the closest rate and resamples
+                          # only if the live graph uses an unconfigured rate.
+                          filename = eqProfiles;
+                          inherit channel;
+                        };
+                      })
+                      [
+                        "eqFL"
+                        "eqFR"
+                      ];
+                  inputs = [
+                    "eqFL:In"
+                    "eqFR:In"
+                  ];
+                  outputs = [
+                    "eqFL:Out"
+                    "eqFR:Out"
+                  ];
+                };
                 "audio.channels" = 2;
                 "audio.position" = [
                   "FL"
