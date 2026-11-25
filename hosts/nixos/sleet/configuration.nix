@@ -48,6 +48,7 @@ in
     ./impermanence.nix
     ./network.nix
     ./home-assistant.nix
+    ./nightingale.nix
     ../corncheese-public-services.nix
     inputs.corncheese-server.nixosModules.corncheese-server
     inputs.wotbox.nixosModules.default

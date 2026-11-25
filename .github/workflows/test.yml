@@ -15,11 +15,14 @@ jobs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
     - uses: actions/checkout@v4
+    # github: inputs use the API, so Git's URL rewrite alone cannot authenticate them.
+    # The read token must cover both corncheese-server-config and steam-frame-nixos.
     - uses: DeterminateSystems/nix-installer-action@v17
       with:
         extra-conf: |
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
+          access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN || github.token }}
     - name: Configure private flake access
       if: ${{ env.CORNCHEESE_SERVER_CONFIG_READ_TOKEN != '' }}
       run: |
@@ -54,12 +57,13 @@ jobs:
             --apply builtins.attrNames
         )"
 
+        # The Frame kernel on Bouba is cross-compiled with x86 build tools.
         nixos_targets="$(
           jq -c '[.[] | {
             kind: "nixos",
             name: .name,
             system: .system,
-            runner: (if (.system | endswith("-darwin")) then "macos-latest" else "ubuntu-latest" end),
+            runner: (if .system == "aarch64-linux" and .name != "bouba" then "ubuntu-24.04-arm" else "ubuntu-latest" end),
             check_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel.drvPath"),
             build_attr: ("nixosConfigurations." + .name + ".config.system.build.toplevel"),
             push_enabled: true
@@ -82,7 +86,9 @@ jobs:
           }]' <<<"$darwin_json"
         )"
         check_targets="$(
-          jq -c '[.[] | {
+          # Aggregate deploy checks evaluate every host in one process (>24 GiB).
+          # The deploy-node-* checks cover the same nodes in separate jobs.
+          jq -c '[.[] | select(. != "deploy-activate" and . != "deploy-schema") | {
             kind: "check",
             name: .,
             system: "x86_64-linux",
@@ -120,9 +126,8 @@ jobs:
         extra-conf: |
           extra-substituters = https://cache.corncheese.org/nix-cache
           extra-trusted-public-keys = nix-cache:kWK431WqAGFMswlTp4Y6XEC3eNTE0awBqtI/PWylnTg=
-    - uses: DeterminateSystems/magic-nix-cache-action@main
-      with:
-        upstream-cache: https://cache.nixos.org
+          access-tokens = github.com=${{ secrets.CORNCHEESE_SERVER_CONFIG_READ_TOKEN || github.token }}
+          extra-platforms = ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' && 'aarch64-linux' || '' }}
     - name: Configure private flake access
       if: ${{ env.CORNCHEESE_SERVER_CONFIG_READ_TOKEN != '' }}
       run: |
@@ -163,6 +168,28 @@ jobs:
       run: |
         df -h
         du -sh /nix /opt/hostedtoolcache "$GITHUB_WORKSPACE" || true
+    # Package removal during cleanup can reset binfmt registrations.
+    - name: Enable ARM builds for Bouba's mixed architecture closure
+      if: ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' }}
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: arm64
+    - name: Verify ARM execution in the Nix sandbox
+      if: ${{ matrix.kind == 'nixos' && matrix.name == 'bouba' }}
+      run: |
+        cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+        # These shell expansions belong to the ARM builder, not this shell.
+        # shellcheck disable=SC2016
+        nix build --no-link --impure --expr '
+          let
+            flake = builtins.getFlake (toString ./.);
+            pkgs = import flake.inputs.nixpkgs { system = "aarch64-linux"; };
+          in pkgs.runCommand "ci-arm-emulation-check" {
+            allowSubstitutes = false;
+            preferLocalBuild = true;
+          }
+            "test \"$(uname -m)\" = aarch64; touch $out"
+        '
     - name: Evaluate target
       run: |
         nix_ci() {
@@ -269,4 +296,4 @@ jobs:
     - name: Nix store diagnostics
       if: ${{ failure() }}
       run: |
-        nix store verify --no-trust || true
+        nix store verify --all --no-trust || true
