@@ -65,7 +65,9 @@ in
 
         settings = {
           static_map.cadence = "30s";
-          lighthouse.interval = 10;
+          lighthouse = mesh.lighthouseAddressFilters // {
+            interval = 10;
+          };
           punchy = {
             punch = true;
             respond = true;

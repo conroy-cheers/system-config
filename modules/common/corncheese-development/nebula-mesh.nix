@@ -17,6 +17,14 @@ let
   ) lighthouseHosts;
   isLighthouse = host != null && host.lighthouse != null;
   otherLighthouseAddresses = builtins.filter (address: address != ownAddress) lighthouseAddresses;
+  # Nebula is the base mesh: it must never depend on Tailscale for transport.
+  # Tailscale can discover Nebula endpoints, so allowing the reverse dependency
+  # creates an encapsulation loop. Filter addresses rather than interface names
+  # so this also covers peers and platforms with different tunnel device names.
+  underlayAddressAllowList = {
+    "100.64.0.0/10" = false;
+    "fd7a:115c:a1e0::/48" = false;
+  };
 in
 {
   inherit
@@ -38,6 +46,10 @@ in
     lib.optional (ownAddress != null) ownAddress
   );
   listenPort = if isLighthouse then 4242 else 0;
+  lighthouseAddressFilters = {
+    local_allow_list = underlayAddressAllowList;
+    remote_allow_list = underlayAddressAllowList;
+  };
   firewall = {
     outbound = [
       {

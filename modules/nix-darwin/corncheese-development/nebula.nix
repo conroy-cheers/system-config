@@ -32,7 +32,7 @@ let
     };
     static_host_map = mesh.staticHostMap;
     static_map.cadence = "30s";
-    lighthouse = {
+    lighthouse = mesh.lighthouseAddressFilters // {
       am_lighthouse = mesh.isLighthouse;
       hosts = mesh.lighthouses;
       interval = 10;
