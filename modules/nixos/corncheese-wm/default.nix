@@ -75,6 +75,8 @@ in
         fonts.fontconfig.enable = true;
 
         programs = {
+          librepods.enable = true;
+
           chromium.extraOpts = {
             AllowSystemNotifications = true;
             BrowserThemeColor = lib.mkForce config.lib.stylix.colors.withHashtag.base0D;
@@ -105,6 +107,24 @@ in
           };
 
           gpu-screen-recorder.enable = true;
+        };
+
+        users.groups.librepods.members = lib.attrNames (
+          lib.filterAttrs (_: user: user.isNormalUser) config.users.users
+        );
+
+        systemd.user.services.librepods = {
+          description = "LibrePods AirPods integration";
+          wantedBy = [ "graphical-session.target" ];
+          after = [ "graphical-session.target" ];
+          partOf = [ "graphical-session.target" ];
+          unitConfig.ConditionGroup = "librepods";
+          path = [ pkgs.bluez ];
+          serviceConfig = {
+            ExecStart = "${config.security.wrapperDir}/librepods --hide";
+            Restart = "on-failure";
+            RestartSec = 5;
+          };
         };
 
         services.gvfs.enable = true;

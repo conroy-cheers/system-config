@@ -1,5 +1,17 @@
 # Window manager
 
+## LibrePods
+
+NixOS desktops enable `programs.librepods` and grant normal users access through
+the `librepods` group. A systemd user service starts LibrePods hidden with the
+graphical session and stops it when the session ends. It uses the NixOS
+capability wrapper for Bluetooth access.
+
+After first enabling LibrePods, log out and back in to pick up the new group
+membership. No manual app launch is required. Use `systemctl --user status
+librepods` to check the background service; launch LibrePods from the application
+menu to open its settings.
+
 ## Sunshine
 
 Enable desktop streaming in a NixOS host configuration:
